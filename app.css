@@ -942,6 +942,104 @@ form { display:flex; flex-direction:column; gap:14px; }
   background:white;
 }
 
+/* ── Fluxos — botões de ação no header do card ──────────── */
+.fluxo-module-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 20px;
+  background:var(--quadro-white);
+  border-bottom:1px solid var(--quadro-border);
+}
+.fluxo-module-actions {
+  display:flex; gap:6px;
+  opacity:0; transition:opacity var(--t-fast);
+}
+.fluxo-module-card:hover .fluxo-module-actions { opacity:1; }
+
+.btn-fluxo-action {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 10px; border-radius:6px;
+  font-size:12px; font-weight:500;
+  color:var(--quadro-muted);
+  border:1px solid var(--quadro-border);
+  background:var(--quadro-white);
+  transition:background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.btn-fluxo-action:hover { background:var(--quadro-surface); color:var(--quadro-text); }
+.btn-fluxo-action.btn-fluxo-danger:hover { background:#FEF2F2; color:var(--danger); border-color:#FECACA; }
+
+.fluxo-last-badge {
+  display:inline-flex; align-items:center;
+  padding:2px 7px; border-radius:20px;
+  font-size:10px; font-weight:600;
+  background:var(--fase-concluido-bg); color:var(--fase-concluido);
+  border:1px solid var(--fase-concluido-light);
+  margin-right:8px;
+}
+
+/* ── Editor de fases (modal) ────────────────────────────── */
+.phase-editor-header {
+  display:flex; align-items:center; gap:8px;
+  padding:4px 8px 6px;
+  font-size:10px; font-weight:600; letter-spacing:.05em;
+  color:var(--quadro-faint); text-transform:uppercase;
+}
+.phase-editor-header span:nth-child(2) { flex:1; }
+
+.phases-editor-list {
+  display:flex; flex-direction:column; gap:6px;
+  max-height:300px; overflow-y:auto;
+  padding-right:2px; margin-bottom:10px;
+}
+
+.phase-editor-row {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 10px;
+  background:var(--quadro-surface);
+  border:1px solid var(--quadro-border);
+  border-radius:var(--radius-sm);
+  transition:border-color var(--t-fast);
+}
+.phase-editor-row:hover { border-color:var(--quadro-border2); }
+
+.phase-color-pick {
+  width:34px; height:34px; border-radius:6px;
+  border:1px solid var(--quadro-border);
+  cursor:pointer; padding:2px; background:white; flex-shrink:0;
+}
+.phase-name-input { flex:1; height:34px; }
+
+.phase-last-label {
+  display:flex; align-items:center; justify-content:center;
+  width:80px; flex-shrink:0; cursor:pointer; gap:0;
+}
+.phase-last-label input[type="radio"] { display:none; }
+.phase-last-check {
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:3px 9px; border-radius:20px;
+  font-size:11px; font-weight:600;
+  border:1px solid var(--quadro-border2);
+  color:var(--quadro-muted);
+  background:var(--quadro-white);
+  cursor:pointer;
+  transition:all var(--t-fast);
+}
+.phase-last-check.checked,
+.phase-last-label:has(input:checked) .phase-last-check {
+  background:var(--fase-concluido-bg);
+  color:var(--fase-concluido);
+  border-color:var(--fase-concluido-light);
+}
+
+.phase-editor-hint {
+  display:flex; align-items:flex-start; gap:6px;
+  font-size:11px; color:var(--quadro-muted);
+  background:var(--quadro-surface);
+  border-radius:var(--radius-sm);
+  padding:8px 10px;
+  margin-bottom:4px;
+  line-height:1.5;
+}
+
 /* ── Lista de Etiquetas ─────────────────────────────────── */
 .etiquetas-grid {
   display:flex; flex-wrap:wrap; gap:10px;

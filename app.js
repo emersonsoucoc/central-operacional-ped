@@ -1674,11 +1674,15 @@ function saveEscola() {
    PAINEL: FLUXOS
 ────────────────────────────────────────────────────────── */
 function buildPanelFluxos() {
+  const totalFluxos = Object.keys(MODULES).length;
+
   const cards = Object.entries(MODULES).map(([key, mod]) => {
+    const phaseCount = Object.keys(mod.fases).length;
     const phases = Object.entries(mod.fases).map(([pkey, phase]) => `
       <div class="fluxo-phase-item">
         <div class="fluxo-phase-dot" style="background:${phase.color}"></div>
         <span class="fluxo-phase-label">${phase.label}</span>
+        ${pkey === mod.lastPhase ? '<span class="fluxo-last-badge">Fase Final</span>' : ''}
         <input type="color" class="fluxo-phase-color-input"
           value="${phase.color}"
           data-module="${key}" data-phase="${pkey}"
@@ -1686,10 +1690,26 @@ function buildPanelFluxos() {
       </div>`).join('');
 
     return `
-      <div class="fluxo-module-card">
+      <div class="fluxo-module-card" data-key="${key}">
         <div class="fluxo-module-header">
-          <span class="fluxo-module-name">${mod.label}</span>
-          <span class="fluxo-module-count">${Object.keys(mod.fases).length} fases</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="fluxo-module-name">${mod.label}</span>
+            <span class="fluxo-module-count">${phaseCount} fase${phaseCount !== 1 ? 's' : ''}</span>
+          </div>
+          <div class="fluxo-module-actions">
+            <button class="btn-fluxo-action" data-action="edit-fluxo" data-key="${key}" title="Editar fluxo">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                <path d="M9.5 1.5l2 2-7 7H2.5v-2l7-7z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Editar
+            </button>
+            <button class="btn-fluxo-action btn-fluxo-danger" data-action="del-fluxo" data-key="${key}" title="Excluir fluxo">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                <path d="M2 3.5h9M5 3.5V2h3v1.5M3 3.5l.8 7h5.4l.8-7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+              Excluir
+            </button>
+          </div>
         </div>
         <div class="fluxo-phases-list">${phases}</div>
       </div>`;
@@ -1699,16 +1719,89 @@ function buildPanelFluxos() {
     <div class="settings-panel-header">
       <div>
         <h2>Fluxos</h2>
-        <p>Visualize e personalize as cores das fases de cada pipeline</p>
+        <p>Crie e gerencie os pipelines do sistema — ${totalFluxos} fluxo${totalFluxos !== 1 ? 's' : ''} ativo${totalFluxos !== 1 ? 's' : ''}</p>
       </div>
+      <button class="btn-primary" id="addFluxoBtn">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M6.5 1.5v10M1.5 6.5h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Novo Fluxo
+      </button>
     </div>
-    ${cards}`;
+    ${cards}
+
+    <!-- Modal Criar/Editar Fluxo -->
+    <div class="escola-modal-overlay" id="fluxoModalOverlay">
+      <div class="escola-modal" style="width:580px;max-width:calc(100vw - 32px)">
+        <div class="escola-modal-header">
+          <h3 id="fluxoModalTitle">Novo Fluxo</h3>
+          <button class="btn-icon-sm" id="fluxoModalClose">&#x2715;</button>
+        </div>
+
+        <!-- Identificação do fluxo -->
+        <div class="form-row" style="margin-bottom:12px">
+          <div class="form-group">
+            <label class="form-label">Nome completo *</label>
+            <input type="text" class="form-input" id="fluxoInputNome"
+              placeholder="Ex: Recursos Humanos"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rotulo curto *</label>
+            <input type="text" class="form-input" id="fluxoInputShort"
+              placeholder="Ex: RH" maxlength="24"/>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:20px">
+          <label class="form-label">Label do botao "Novo"</label>
+          <input type="text" class="form-input" id="fluxoInputBtn"
+            placeholder="Ex: Nova Solicitacao RH" maxlength="30"/>
+        </div>
+
+        <!-- Editor de fases -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <label class="form-label" style="margin:0;font-weight:600">Fases do Pipeline</label>
+          <button class="btn-secondary" style="font-size:12px;padding:5px 10px" id="addPhaseRowBtn">
+            + Adicionar Fase
+          </button>
+        </div>
+
+        <div class="phase-editor-header">
+          <span style="width:32px"></span>
+          <span style="flex:1">Nome da fase</span>
+          <span style="width:80px;text-align:center">Fase final</span>
+          <span style="width:28px"></span>
+        </div>
+
+        <div id="phasesEditorList" class="phases-editor-list"></div>
+
+        <p class="phase-editor-hint">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0">
+            <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M6.5 5.5v4M6.5 4h.01" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Marque a ultima fase como "Fase Final" — sera usada como criterio de conclusao dos cards.
+        </p>
+
+        <div class="escola-modal-footer">
+          <button class="btn-secondary" id="fluxoModalCancel">Cancelar</button>
+          <button class="btn-primary" id="fluxoModalSave">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M2 6.5l3.5 3.5 5.5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Salvar Fluxo
+          </button>
+        </div>
+      </div>
+    </div>`;
 }
 
 function bindFluxosEvents() {
-  document.getElementById('settingsContent').addEventListener('change', e => {
+  const content = document.getElementById('settingsContent');
+
+  // Color pickers inline (ao lado de cada fase no card)
+  content.addEventListener('change', e => {
     const input = e.target.closest('.fluxo-phase-color-input');
-    if (!input) return;
+    if (!input || input.closest('#fluxoModalOverlay')) return;
     const modKey   = input.dataset.module;
     const phaseKey = input.dataset.phase;
     if (MODULES[modKey] && MODULES[modKey].fases[phaseKey]) {
@@ -1718,6 +1811,253 @@ function bindFluxosEvents() {
       showToast('Cor da fase atualizada', 'success');
     }
   });
+
+  // Botões nos cards (editar / excluir fluxo)
+  content.addEventListener('click', e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const { action, key } = btn.dataset;
+    if (action === 'edit-fluxo') openFluxoModal(key);
+    if (action === 'del-fluxo') confirmDeleteFluxo(key);
+  });
+
+  // Botão "Novo Fluxo"
+  document.getElementById('addFluxoBtn').addEventListener('click', () => openFluxoModal(null));
+
+  // Modal: fechar
+  document.getElementById('fluxoModalClose').addEventListener('click', closeFluxoModal);
+  document.getElementById('fluxoModalCancel').addEventListener('click', closeFluxoModal);
+  document.getElementById('fluxoModalOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('fluxoModalOverlay')) closeFluxoModal();
+  });
+
+  // Modal: adicionar linha de fase
+  document.getElementById('addPhaseRowBtn').addEventListener('click', () => addPhaseEditorRow());
+
+  // Modal: remover linha de fase (delegado)
+  document.getElementById('phasesEditorList').addEventListener('click', e => {
+    const del = e.target.closest('.phase-del-btn');
+    if (!del) return;
+    const row = del.closest('.phase-editor-row');
+    const list = document.getElementById('phasesEditorList');
+    if (list.querySelectorAll('.phase-editor-row').length <= 1) {
+      showToast('O fluxo precisa ter ao menos uma fase', 'warn'); return;
+    }
+    // Se a fase removida era a "final", marca a ultima restante como final
+    const wasLast = row.querySelector('input[type="radio"]').checked;
+    row.remove();
+    if (wasLast) {
+      const rows = list.querySelectorAll('.phase-editor-row');
+      if (rows.length) rows[rows.length - 1].querySelector('input[type="radio"]').checked = true;
+    }
+  });
+
+  // Modal: salvar
+  document.getElementById('fluxoModalSave').addEventListener('click', saveFluxo);
+
+  // Keyboard
+  document.addEventListener('keydown', function escFluxo(e) {
+    if (e.key === 'Escape') {
+      const overlay = document.getElementById('fluxoModalOverlay');
+      if (overlay && overlay.classList.contains('open')) { closeFluxoModal(); e.stopPropagation(); }
+    }
+  });
+}
+
+/* ──────────────────────────────────────────────────────────
+   FLUXOS — Modal CRUD
+────────────────────────────────────────────────────────── */
+let _editingFluxoKey = null;
+
+function openFluxoModal(key) {
+  _editingFluxoKey = key || null;
+  const overlay = document.getElementById('fluxoModalOverlay');
+  document.getElementById('fluxoModalTitle').textContent = key ? 'Editar Fluxo' : 'Novo Fluxo';
+  document.getElementById('fluxoInputNome').value  = '';
+  document.getElementById('fluxoInputShort').value = '';
+  document.getElementById('fluxoInputBtn').value   = '';
+  document.getElementById('phasesEditorList').innerHTML = '';
+
+  if (key && MODULES[key]) {
+    const mod = MODULES[key];
+    document.getElementById('fluxoInputNome').value  = mod.label;
+    document.getElementById('fluxoInputShort').value = mod.shortLabel;
+    document.getElementById('fluxoInputBtn').value   = mod.btnLabel;
+    Object.entries(mod.fases).forEach(([pkey, phase]) => {
+      addPhaseEditorRow(pkey, phase.label, phase.color, pkey === mod.lastPhase);
+    });
+  } else {
+    // Fluxo novo: começa com 3 fases de exemplo
+    addPhaseEditorRow('pendente',    'Pendente',    '#F59E0B', false);
+    addPhaseEditorRow('em_andamento','Em Andamento','#3B82F6', false);
+    addPhaseEditorRow('concluido',   'Concluido',   '#10B981', true);
+  }
+
+  overlay.classList.add('open');
+  setTimeout(() => document.getElementById('fluxoInputNome').focus(), 60);
+}
+
+function closeFluxoModal() {
+  const overlay = document.getElementById('fluxoModalOverlay');
+  if (overlay) overlay.classList.remove('open');
+  _editingFluxoKey = null;
+}
+
+function addPhaseEditorRow(phaseKey, phaseLabel, phaseColor, isLast) {
+  phaseKey   = phaseKey   || ('fase_' + Date.now().toString(36));
+  phaseLabel = phaseLabel || '';
+  phaseColor = phaseColor || '#3B82F6';
+  isLast     = !!isLast;
+
+  const list = document.getElementById('phasesEditorList');
+  const row  = document.createElement('div');
+  row.className = 'phase-editor-row';
+  row.dataset.phaseKey = phaseKey;
+  row.innerHTML = `
+    <input type="color" class="phase-color-pick" value="${phaseColor}" title="Cor da fase" />
+    <input type="text" class="form-input phase-name-input"
+      placeholder="Nome da fase..." value="${phaseLabel}" />
+    <label class="phase-last-label" title="Marcar como fase final">
+      <input type="radio" name="fluxoLastPhase" value="${phaseKey}" ${isLast ? 'checked' : ''} />
+      <span class="phase-last-check ${isLast ? 'checked' : ''}">Final</span>
+    </label>
+    <button class="btn-icon-sm btn-icon-danger phase-del-btn" type="button" title="Remover fase">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>`;
+
+  // Atualiza visual do radio ao clicar
+  row.querySelector('input[type="radio"]').addEventListener('change', function() {
+    document.querySelectorAll('#phasesEditorList .phase-last-check').forEach(s => s.classList.remove('checked'));
+    if (this.checked) this.closest('label').querySelector('.phase-last-check').classList.add('checked');
+  });
+
+  // Sincroniza phaseKey com radio quando nome muda (para fluxos novos)
+  row.querySelector('.phase-name-input').addEventListener('input', function() {
+    if (!_editingFluxoKey) {
+      const newKey = this.value.toLowerCase().trim()
+        .replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || phaseKey;
+      row.dataset.phaseKey = newKey;
+      row.querySelector('input[type="radio"]').value = newKey;
+    }
+  });
+
+  list.appendChild(row);
+}
+
+function saveFluxo() {
+  const nome  = document.getElementById('fluxoInputNome').value.trim();
+  const short = document.getElementById('fluxoInputShort').value.trim();
+  const btn   = document.getElementById('fluxoInputBtn').value.trim();
+
+  if (!nome || !short) {
+    showToast('Preencha o nome completo e o rotulo curto', 'warn'); return;
+  }
+
+  // Coleta as fases do editor
+  const rows = document.querySelectorAll('#phasesEditorList .phase-editor-row');
+  if (!rows.length) { showToast('Adicione ao menos uma fase ao fluxo', 'warn'); return; }
+
+  const fases = {};
+  let lastPhase = '';
+  const checkedRadio = document.querySelector('#phasesEditorList input[type="radio"]:checked');
+
+  rows.forEach(row => {
+    const key   = row.dataset.phaseKey;
+    const label = row.querySelector('.phase-name-input').value.trim();
+    const color = row.querySelector('.phase-color-pick').value;
+    if (!label) return;
+    const safeKey = key || label.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+    fases[safeKey] = { label, color, bg: shadeColor(color, 90) };
+    const radio = row.querySelector('input[type="radio"]');
+    if (radio && radio.checked) lastPhase = safeKey;
+  });
+
+  if (!Object.keys(fases).length) { showToast('Adicione ao menos uma fase com nome', 'warn'); return; }
+  if (!lastPhase) lastPhase = Object.keys(fases).at(-1);
+
+  if (_editingFluxoKey) {
+    // Editar fluxo existente
+    MODULES[_editingFluxoKey].label      = nome;
+    MODULES[_editingFluxoKey].shortLabel = short;
+    MODULES[_editingFluxoKey].btnLabel   = btn || 'Novo Item';
+    MODULES[_editingFluxoKey].fases      = fases;
+    MODULES[_editingFluxoKey].lastPhase  = lastPhase;
+    showToast(`Fluxo "${nome}" atualizado com sucesso`, 'success');
+    refreshSidebarNav();
+  } else {
+    // Criar novo fluxo
+    const newKey = nome.toLowerCase().trim()
+      .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'')
+      .substring(0, 24) || ('fluxo_' + Date.now().toString(36));
+    if (MODULES[newKey]) {
+      showToast('Ja existe um fluxo com esse nome. Tente um nome diferente.', 'warn'); return;
+    }
+    MODULES[newKey] = {
+      label: nome, shortLabel: short,
+      btnLabel: btn || 'Novo Item',
+      hasFinancial: false,
+      categorias: ['Geral', 'Outros'],
+      fases, lastPhase,
+    };
+    showToast(`Fluxo "${nome}" criado com sucesso!`, 'success');
+    refreshSidebarNav();
+  }
+
+  closeFluxoModal();
+  renderSettingsPanel('fluxos');
+}
+
+function confirmDeleteFluxo(key) {
+  const mod = MODULES[key];
+  if (!mod) return;
+  const cardsInModule = allCards.filter(c => c.modulo === key).length;
+  const msg = cardsInModule > 0
+    ? `Excluir o fluxo "${mod.label}"?\n\nAVISO: ${cardsInModule} card(s) serao removidos junto com o fluxo.`
+    : `Excluir o fluxo "${mod.label}"? Esta acao nao pode ser desfeita.`;
+
+  if (!confirm(msg)) return;
+  delete MODULES[key];
+  allCards = allCards.filter(c => c.modulo !== key);
+  refreshSidebarNav();
+  renderSettingsPanel('fluxos');
+  showToast(`Fluxo "${mod.label}" removido`, 'success');
+}
+
+function refreshSidebarNav() {
+  // Recria os itens de nav do sidebar baseado no MODULES atual
+  const navSection = document.querySelector('.nav-section:first-child');
+  if (!navSection) return;
+
+  // Remove itens antigos de fluxos (data-module que esteja em MODULES ou orphan)
+  navSection.querySelectorAll('.nav-item[data-module]').forEach(el => el.remove());
+
+  // Reconstrói na ordem atual de MODULES
+  Object.entries(MODULES).forEach(([key, mod]) => {
+    const a = document.createElement('a');
+    a.href = '#' + key;
+    a.className = 'nav-item' + (state.currentModule === key ? ' active' : '');
+    a.dataset.module = key;
+    a.innerHTML = `
+      <span class="nav-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="1" y="2" width="3" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="6" y="2" width="3" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="11" y="2" width="3" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      </span>
+      <span class="nav-text">${mod.shortLabel}</span>
+      <span class="nav-badge" id="badge-${key}">0</span>`;
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      history.pushState(null, '', '#' + key);
+      switchModule(key);
+    });
+    navSection.appendChild(a);
+  });
+
+  renderNavBadges();
 }
 
 /* ──────────────────────────────────────────────────────────
