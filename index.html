@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Central Operacional — Grupo PED</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="app-wrapper" id="appWrapper">
+
+  <!-- ══ SIDEBAR ══════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="8" fill="#3B82F6"/>
+          <path d="M7 14h6M15 10h6M7 18h10" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <span class="logo-name">Central Ops</span>
+        <span class="logo-sub">Grupo PED</span>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" title="Recolher menu">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- School badge -->
+    <div class="sidebar-school">
+      <div class="school-selector">
+        <div class="school-avatar" id="sidebarSchoolAvatar">ALL</div>
+        <div class="school-info">
+          <span class="school-name" id="sidebarSchoolName">Todas as Escolas</span>
+          <span class="school-count" id="sidebarSchoolCount">4 unidades</span>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="color:var(--registro-muted);flex-shrink:0">
+          <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <span class="nav-label">FLUXOS</span>
+
+        <a href="#" class="nav-item active" data-module="solicitacoes">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </span>
+          <span class="nav-text">Solicitações Admin.</span>
+          <span class="nav-badge" id="badge-solicitacoes">0</span>
+        </a>
+
+        <a href="#" class="nav-item" data-module="contas_pagar">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2 4h12v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4z" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M2 4l6-2 6 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M6 9l1.5 1.5L10 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="nav-text">Contas a Pagar</span>
+          <span class="nav-badge" id="badge-contas_pagar">0</span>
+        </a>
+
+        <a href="#" class="nav-item" data-module="contas_receber">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2v12M3 7l5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="nav-text">Contas a Receber</span>
+          <span class="nav-badge" id="badge-contas_receber">0</span>
+        </a>
+
+        <a href="#" class="nav-item" data-module="compras">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2 2h2l2.5 7h5.5l2-5H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="7" cy="13" r="1" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="11" cy="13" r="1" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </span>
+          <span class="nav-text">Compras</span>
+          <span class="nav-badge" id="badge-compras">0</span>
+        </a>
+
+        <a href="#" class="nav-item" data-module="processos">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M4 8h8M4 4h8M4 12h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="nav-text">Cumprimento de Proc.</span>
+          <span class="nav-badge" id="badge-processos">0</span>
+        </a>
+      </div>
+
+      <div class="nav-section">
+        <span class="nav-label">GESTÃO</span>
+        <a href="#" class="nav-item">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="8" width="3" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="6.5" y="4" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="11" y="2" width="3" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </span>
+          <span class="nav-text">Dashboard Geral</span>
+        </a>
+        <a href="#" class="nav-item">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V5l-3-3z" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M10 2v3h3M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="nav-text">Relatórios</span>
+        </a>
+      </div>
+    </nav>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">ES</div>
+      <div class="user-info">
+        <span class="user-name">Emerson Santos</span>
+        <span class="user-role">Administrador</span>
+      </div>
+      <button class="user-menu-btn" title="Configurações">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <circle cx="7" cy="3" r="1" fill="currentColor"/>
+          <circle cx="7" cy="7" r="1" fill="currentColor"/>
+          <circle cx="7" cy="11" r="1" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN AREA ══════════════════════════════════════════ -->
+  <div class="main-area">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="page-title-group">
+          <h1 class="page-title" id="pageTitle">Solicitações Administrativas</h1>
+          <div class="breadcrumb">
+            <span>Grupo PED</span>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3 2l4 3-4 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span class="breadcrumb-active" id="breadcrumbActive">Solicitações Admin.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <div class="topbar-filter">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M1.5 3h10M3.5 6.5h6M5.5 10h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <select class="school-filter-select" id="schoolFilterSelect">
+            <option value="all">Todas as escolas</option>
+            <option value="ped1">PED Pituba</option>
+            <option value="ped2">PED Barra</option>
+            <option value="ped3">PED Paralela</option>
+            <option value="ped4">PED Imbuí</option>
+          </select>
+        </div>
+
+        <div class="topbar-search">
+          <svg class="search-icon" width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <circle cx="5.5" cy="5.5" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M9 9l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="searchInput" class="search-input" placeholder="Buscar..." />
+        </div>
+
+        <div class="view-toggle">
+          <button class="view-btn active" id="viewKanban" title="Kanban">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="2" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="5.5" y="2" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="10" y="2" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </button>
+          <button class="view-btn" id="viewList" title="Lista">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2 4h10M2 7h10M2 10h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <button class="btn-primary" id="newCardBtn">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M6.5 1.5v10M1.5 6.5h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span id="newCardBtnLabel">Nova Solicitação</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+      <!-- STATS BAR -->
+      <section class="stats-bar" id="statsBar">
+        <div class="stat-card">
+          <div class="stat-icon stat-icon--total">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <rect x="2" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="10" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="2" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="10" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statTotal">0</span>
+            <span class="stat-label">Total</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon stat-icon--abertas">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M9 5.5V9l2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statAbertas">0</span>
+            <span class="stat-label">Em aberto</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon stat-icon--urgente">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M9 3L2 15h14L9 3z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 8v3M9 13h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statUrgente">0</span>
+            <span class="stat-label">Urgentes</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon stat-icon--concluido">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statConcluidos">0</span>
+            <span class="stat-label">Concluídos</span>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card--sla">
+          <div class="stat-icon stat-icon--sla">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M9 5v4l3 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statSLA">0</span>
+            <span class="stat-label">SLA em risco</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- KANBAN (dinâmico via JS) -->
+      <section class="kanban-wrapper" id="kanbanView">
+        <div class="kanban-board" id="kanbanBoard"></div>
+      </section>
+
+      <!-- LIST VIEW -->
+      <section class="list-view hidden" id="listView">
+        <div class="list-table-wrapper">
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Escola</th>
+                <th>Categoria</th>
+                <th>Prioridade</th>
+                <th>Fase</th>
+                <th>Responsável</th>
+                <th>Prazo</th>
+                <th>Anexos</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="listTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══ MODAL ══════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal" id="modal" role="dialog" aria-modal="true">
+
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-module-badge" id="modalModuleBadge">Solicitações Admin.</div>
+        <h2 class="modal-title" id="modalTitle">Nova Solicitação</h2>
+        <p class="modal-subtitle" id="modalSubtitle">Preencha os campos abaixo</p>
+      </div>
+      <button class="modal-close" id="modalClose" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <form id="cardForm" autocomplete="off">
+        <input type="hidden" id="formCardId" />
+
+        <!-- Título -->
+        <div class="form-group form-group--full">
+          <label class="form-label" for="formTitulo">Título <span class="required">*</span></label>
+          <input type="text" class="form-input" id="formTitulo" placeholder="Descreva brevemente..." required />
+        </div>
+
+        <!-- Descrição -->
+        <div class="form-group form-group--full">
+          <label class="form-label" for="formDescricao">Descrição</label>
+          <textarea class="form-textarea" id="formDescricao" rows="2" placeholder="Detalhes, contexto ou instruções..."></textarea>
+        </div>
+
+        <!-- Row: Escola + Categoria -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="formEscola">Escola / Unidade <span class="required">*</span></label>
+            <select class="form-select" id="formEscola" required>
+              <option value="">Selecionar escola</option>
+              <option value="ped1">PED Pituba</option>
+              <option value="ped2">PED Barra</option>
+              <option value="ped3">PED Paralela</option>
+              <option value="ped4">PED Imbuí</option>
+              <option value="all">Todas as unidades</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="formCategoria">Categoria <span class="required">*</span></label>
+            <select class="form-select" id="formCategoria" required>
+              <!-- Populated dynamically by JS based on module -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Row: Prioridade + Fase -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="formPrioridade">Prioridade <span class="required">*</span></label>
+            <select class="form-select" id="formPrioridade" required>
+              <option value="baixa">🟢 Baixa</option>
+              <option value="media" selected>🟡 Média</option>
+              <option value="alta">🔴 Alta</option>
+              <option value="urgente">🚨 Urgente</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="formFase">Fase</label>
+            <select class="form-select" id="formFase">
+              <!-- Populated dynamically by JS based on module -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Row: Responsável + Prazo -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="formResponsavel">Responsável</label>
+            <select class="form-select" id="formResponsavel">
+              <option value="">Não atribuído</option>
+              <option value="Maria Silva">Maria Silva</option>
+              <option value="João Costa">João Costa</option>
+              <option value="Ana Oliveira">Ana Oliveira</option>
+              <option value="Pedro Alves">Pedro Alves</option>
+              <option value="Carla Mendes">Carla Mendes</option>
+              <option value="Roberto Lima">Roberto Lima</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="formPrazo">Prazo</label>
+            <input type="date" class="form-input" id="formPrazo" />
+          </div>
+        </div>
+
+        <!-- Campos financeiros (visível para Contas a Pagar/Receber/Compras) -->
+        <div class="form-row" id="financialFields" style="display:none">
+          <div class="form-group">
+            <label class="form-label" for="formValor">Valor (R$)</label>
+            <input type="number" class="form-input" id="formValor" placeholder="0,00" step="0.01" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="formFornecedor" id="fornecedorLabel">Fornecedor / Cliente</label>
+            <input type="text" class="form-input" id="formFornecedor" placeholder="Nome ou razão social" />
+          </div>
+        </div>
+
+        <div class="form-row" id="documentFields" style="display:none">
+          <div class="form-group">
+            <label class="form-label" for="formNumeroDoc" id="numDocLabel">Nº NF / Pedido</label>
+            <input type="text" class="form-input" id="formNumeroDoc" placeholder="Ex: NF-001234" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="formVencimento">Vencimento</label>
+            <input type="date" class="form-input" id="formVencimento" />
+          </div>
+        </div>
+
+        <!-- ══ LINK DE PAGAMENTO (Contas a Receber) ══ -->
+        <div class="form-group form-group--full form-divider" id="paymentLinkSection" style="display:none">
+          <label class="form-label">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="display:inline-block;vertical-align:-2px;margin-right:4px">
+              <path d="M7 1h4a1 1 0 011 1v4M6 12H2a1 1 0 01-1-1V7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              <path d="M11.5 1.5L5.5 7.5M8 1h4v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            Link de Pagamento
+          </label>
+
+          <!-- Tipo de pagamento + botão gerar (visível quando não há link) -->
+          <div id="genLinkRow">
+            <div class="form-row" style="margin-bottom:10px">
+              <div class="form-group">
+                <label class="form-label" for="formTipoPagamento">Tipo de Pagamento</label>
+                <select class="form-select" id="formTipoPagamento">
+                  <option value="pix">⚡ PIX</option>
+                  <option value="boleto">📄 Boleto</option>
+                  <option value="credito">💳 Cartão de Crédito</option>
+                  <option value="debito">💳 Cartão de Débito</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="btn-gen-link" id="genLinkBtn">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-2px">
+                <path d="M7 1l1.5 3.5H13L9.5 7l1.5 3.5L7 8.5 3 10.5 4.5 7 1 4.5h4.5L7 1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+              </svg>
+              Gerar Link de Pagamento
+            </button>
+          </div>
+
+          <!-- Link gerado (visível quando já existe link) -->
+          <div id="linkDisplayBox" class="payment-link-box" style="display:none">
+            <div class="link-box-header">
+              <div class="link-box-code-row">
+                <span class="link-box-label">Código</span>
+                <span class="link-box-code" id="linkCode">—</span>
+              </div>
+              <span class="link-status-badge" id="linkStatusBadge">Ativo</span>
+            </div>
+            <div class="link-box-url-row">
+              <code class="link-box-url" id="linkUrl">—</code>
+              <button type="button" class="btn-copy-link" id="copyLinkBtn" title="Copiar link">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                  <rect x="1" y="4" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                  <path d="M4 4V2.5A1.5 1.5 0 015.5 1H10a1.5 1.5 0 011.5 1.5V7A1.5 1.5 0 0110 8.5H9" stroke="currentColor" stroke-width="1.3"/>
+                </svg>
+                Copiar
+              </button>
+            </div>
+            <div class="link-box-tipo-row" id="linkTipoRow">
+              <span class="link-tipo-badge" id="linkTipoBadge">PIX</span>
+            </div>
+            <div id="confirmPaymentRow" style="display:none;margin-top:12px">
+              <button type="button" class="btn-confirm-payment" id="confirmPaymentBtn">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-2px">
+                  <path d="M2 7l3.5 3.5 6.5-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Confirmar Pagamento Recebido
+              </button>
+            </div>
+            <div id="paidBadgeRow" style="display:none;margin-top:10px">
+              <span class="paid-confirmed-badge">✅ Pagamento Confirmado</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ ANEXOS ══ -->
+        <div class="form-group form-group--full form-divider">
+          <label class="form-label">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="display:inline-block;vertical-align:-2px;margin-right:4px">
+              <path d="M7.5 1.5L11 5 5.5 10.5a3 3 0 01-4.25-4.25L7.5 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              <path d="M4 8.5l1.5 1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            Anexos
+            <span class="attach-count-badge" id="attachCountBadge" style="display:none">0</span>
+          </label>
+
+          <div class="attachments-area" id="attachmentsArea">
+
+            <!-- File list -->
+            <div class="attachments-list" id="attachmentsList"></div>
+
+            <!-- Drop zone -->
+            <label class="attach-drop-zone" for="fileInput" id="attachDropZone">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <path d="M14 18V8M14 8l-4 4M14 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M5 20a3 3 0 000 6h18a3 3 0 000-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <span class="attach-drop-text">Clique para selecionar ou arraste arquivos aqui</span>
+              <span class="attach-drop-hint">PDF, Word, Excel, imagens · Máx. 10 MB por arquivo</span>
+            </label>
+            <input type="file" id="fileInput" multiple style="display:none" accept="*/*" />
+          </div>
+        </div>
+
+        <!-- ══ COMENTÁRIOS (apenas no edit) ══ -->
+        <div class="form-group form-group--full form-divider" id="commentSection" style="display:none">
+          <label class="form-label">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="display:inline-block;vertical-align:-2px;margin-right:4px">
+              <path d="M2 2h9a1 1 0 011 1v5a1 1 0 01-1 1H5L2 11.5V3a1 1 0 010 0z" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+            Comentários internos
+          </label>
+          <div class="comments-list" id="commentsList"></div>
+          <div class="comment-input-row">
+            <div class="comment-avatar">ES</div>
+            <input type="text" class="form-input" id="commentInput" placeholder="Adicionar comentário interno..." />
+            <button type="button" class="btn-comment" id="addCommentBtn">Enviar</button>
+          </div>
+        </div>
+
+        <!-- ══ HISTÓRICO (apenas no edit) ══ -->
+        <div class="form-group form-group--full form-divider" id="historySection" style="display:none">
+          <label class="form-label">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="display:inline-block;vertical-align:-2px;margin-right:4px">
+              <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M6.5 4v3l2 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            Histórico de movimentação
+          </label>
+          <div class="history-list" id="historyList"></div>
+        </div>
+
+      </form>
+    </div>
+
+    <div class="modal-footer">
+      <div id="deleteCardArea" style="display:none">
+        <button type="button" class="btn-danger" id="deleteCardBtn">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2 3.5h9M5 3.5V2h3v1.5M5 5.5v4M8 5.5v4M3 3.5l.8 7h5.4l.8-7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Excluir
+        </button>
+      </div>
+      <div class="modal-footer-right">
+        <button type="button" class="btn-secondary" id="cancelModalBtn">Cancelar</button>
+        <button type="submit" form="cardForm" class="btn-primary" id="saveCardBtn">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2 6.5l3.5 3.5 5.5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Salvar
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="script.js"></script>
+</body>
+</html>

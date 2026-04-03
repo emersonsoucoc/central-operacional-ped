@@ -1,0 +1,8 @@
+{
+  "name": "central-operacional-ped",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Site estático — sem etapa de build'"
+  }
+}
