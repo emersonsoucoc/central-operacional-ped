@@ -89,6 +89,21 @@ const MODULES = {
     },
     lastPhase: 'concluido',
   },
+  ti: {
+    label: 'Suporte de T.I',
+    shortLabel: 'T.I',
+    btnLabel: 'Novo Chamado',
+    hasFinancial: false,
+    categorias: ['Hardware','Software','Rede / Conectividade','Segurança da Informação','Sistemas','Infraestrutura TI','Suporte ao Usuário','Outros'],
+    fases: {
+      aberto:               { label:'Aberto',            color:'#94A3B8', bg:'#F1F5F9' },
+      diagnostico:          { label:'Diagnóstico',       color:'#F59E0B', bg:'#FFFBEB' },
+      em_atendimento:       { label:'Em Atendimento',    color:'#3B82F6', bg:'#EFF6FF' },
+      aguardando_aprovacao: { label:'Aguard. Aprovação', color:'#8B5CF6', bg:'#F5F3FF' },
+      resolvido:            { label:'Resolvido',         color:'#10B981', bg:'#ECFDF5' },
+    },
+    lastPhase: 'resolvido',
+  },
 };
 
 const SCHOOLS = {
@@ -335,6 +350,57 @@ let allCards = [
       {texto:'Entregue e instalado',data:'2026-03-25 16:00',usuario:'Roberto Lima'}
     ], anexos:[] },
 
+  /* ── T.I ── */
+  { id:'ti1', modulo:'ti', titulo:'Servidor de arquivos offline — unidade Pituba',
+    descricao:'Servidor de arquivos caiu. Usuários sem acesso ao drive compartilhado.',
+    fase:'em_atendimento', prioridade:'urgente', escola:'ped1', categoria:'Infraestrutura TI',
+    responsavel:'João Costa', criadoEm:'2026-04-02', prazo:'2026-04-03',
+    valor:'', fornecedor:'', numDoc:'', vencimento:'',
+    comentarios:[{id:'ti_cm1',autor:'João Costa',texto:'Servidor reiniciado. Aguardando estabilidade dos serviços.',data:'2026-04-02 14:30'}],
+    historico:[
+      {texto:'Chamado aberto',data:'2026-04-02 13:00',usuario:'Pedro Alves'},
+      {texto:'Movido para <strong>Em Atendimento</strong>',data:'2026-04-02 13:30',usuario:'João Costa'}
+    ], anexos:[] },
+
+  { id:'ti2', modulo:'ti', titulo:'Atualização do sistema acadêmico — versão 4.2',
+    descricao:'Nova versão do ERP acadêmico precisa ser homologada antes do deploy em produção.',
+    fase:'diagnostico', prioridade:'alta', escola:'all', categoria:'Sistemas',
+    responsavel:'João Costa', criadoEm:'2026-03-28', prazo:'2026-04-15',
+    valor:'', fornecedor:'', numDoc:'', vencimento:'',
+    comentarios:[], historico:[
+      {texto:'Chamado aberto',data:'2026-03-28 09:00',usuario:'Carla Mendes'},
+      {texto:'Movido para <strong>Diagnóstico</strong> — análise de compatibilidade iniciada',data:'2026-03-29 10:00',usuario:'João Costa'}
+    ], anexos:[] },
+
+  { id:'ti3', modulo:'ti', titulo:'Troca de switch — sala de servidores Barra',
+    descricao:'Switch com porta danificada causando queda intermitente de rede no andar administrativo.',
+    fase:'aguardando_aprovacao', prioridade:'alta', escola:'ped2', categoria:'Rede / Conectividade',
+    responsavel:'João Costa', criadoEm:'2026-03-25', prazo:'2026-04-10',
+    valor:'', fornecedor:'', numDoc:'', vencimento:'',
+    comentarios:[{id:'ti_cm2',autor:'João Costa',texto:'Cotação enviada. Aguardando aprovação da diretoria para compra.',data:'2026-03-26 11:00'}],
+    historico:[
+      {texto:'Chamado aberto',data:'2026-03-25 09:00',usuario:'João Costa'},
+      {texto:'Movido para <strong>Aguard. Aprovação</strong>',data:'2026-03-26 10:00',usuario:'João Costa'}
+    ], anexos:[] },
+
+  { id:'ti4', modulo:'ti', titulo:'Instalação de antivírus corporativo — 180 máquinas',
+    descricao:'Renovação da licença e reinstalação do antivírus em toda a rede das 4 unidades.',
+    fase:'aberto', prioridade:'media', escola:'all', categoria:'Segurança da Informação',
+    responsavel:'', criadoEm:'2026-04-01', prazo:'2026-04-30',
+    valor:'', fornecedor:'', numDoc:'', vencimento:'',
+    comentarios:[], historico:[{texto:'Chamado aberto',data:'2026-04-01 09:00',usuario:'Emerson Santos'}], anexos:[] },
+
+  { id:'ti5', modulo:'ti', titulo:'Impressora da secretaria sem comunicação pós-update',
+    descricao:'Impressora HP da secretaria parou de imprimir após atualização automática do Windows.',
+    fase:'resolvido', prioridade:'baixa', escola:'ped3', categoria:'Hardware',
+    responsavel:'João Costa', criadoEm:'2026-03-30', prazo:'2026-04-02',
+    valor:'', fornecedor:'', numDoc:'', vencimento:'',
+    comentarios:[], historico:[
+      {texto:'Chamado aberto',data:'2026-03-30 08:00',usuario:'Ana Oliveira'},
+      {texto:'Driver reinstalado e impressora reconfigura na rede',data:'2026-03-30 11:00',usuario:'João Costa'},
+      {texto:'Movido para <strong>Resolvido</strong>',data:'2026-03-30 11:30',usuario:'João Costa'}
+    ], anexos:[] },
+
   /* ── PROCESSOS ── */
   { id:'pr1', modulo:'processos', titulo:'Revisão do Projeto Político Pedagógico 2026',
     descricao:'PPP deve ser atualizado para o novo ano letivo.',
@@ -488,7 +554,12 @@ function switchModule(modulo) {
   state.filterSearch  = '';
   document.getElementById('searchInput').value = '';
 
-  // Update nav
+  // Update URL hash without creating a browser history entry
+  if (location.hash.slice(1) !== modulo) {
+    history.replaceState(null, '', '#' + modulo);
+  }
+
+  // Update nav active state
   document.querySelectorAll('.nav-item[data-module]').forEach(el => {
     el.classList.toggle('active', el.dataset.module === modulo);
   });
@@ -1237,9 +1308,22 @@ function setViewMode(mode) {
    INIT
 ══════════════════════════════════════════════════════════ */
 function init() {
-  // Module navigation
+  // Hash-based routing: escuta mudanças na URL
+  window.addEventListener('hashchange', () => {
+    const hash = location.hash.slice(1);
+    if (MODULES[hash]) switchModule(hash);
+  });
+
+  // Module navigation (cliques na sidebar)
   document.querySelectorAll('.nav-item[data-module]').forEach(el => {
-    el.addEventListener('click', e => { e.preventDefault(); switchModule(el.dataset.module); });
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      const target = el.dataset.module;
+      if (MODULES[target]) {
+        history.pushState(null, '', '#' + target);
+        switchModule(target);
+      }
+    });
   });
 
   // School filter
@@ -1316,8 +1400,9 @@ function init() {
     if (e.key === 'Escape') closeModal();
   });
 
-  // Initial render
-  renderAll();
+  // Lê o hash da URL na carga inicial e ativa o módulo correto
+  const initialHash = location.hash.slice(1);
+  switchModule(MODULES[initialHash] ? initialHash : 'solicitacoes');
 
   console.log('%c🏫 Central Operacional — Grupo PED', 'color:#3B82F6;font-weight:bold;font-size:14px');
   console.log(`%c5 módulos · ${allCards.length} cards de exemplo`, 'color:#64748B;font-size:12px');
