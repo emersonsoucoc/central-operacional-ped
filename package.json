@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "mkdir -p dist && cp index.html app.css app.js dist/"
+    "build": "mkdir -p dist && cp index.html app.css app.js dist/",
+    "start": "serve dist --listen $PORT"
+  },
+  "dependencies": {
+    "serve": "^14.2.3"
   }
 }

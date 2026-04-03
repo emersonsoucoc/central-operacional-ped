@@ -135,9 +135,10 @@ ul,ol { list-style:none; }
 .school-name { font-size:12px; font-weight:600; color:#E2E8F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .school-count { font-size:10px; color:var(--registro-muted); }
 
-.sidebar-nav { flex:1; overflow-y:auto; padding:8px 0; }
+.sidebar-nav { flex:1; overflow-y:auto; padding:8px 0; display:flex; flex-direction:column; }
 .nav-section { padding:8px 0; }
 .nav-section+.nav-section { border-top:1px solid rgba(255,255,255,0.06); margin-top:4px; padding-top:12px; }
+.nav-section--sistema { margin-top:auto; border-top:1px solid rgba(255,255,255,0.07) !important; padding-top:12px; }
 .nav-label {
   display:block; font-size:10px; font-weight:600; color:var(--registro-subtle);
   letter-spacing:0.08em; padding:4px 18px 6px; text-transform:uppercase;

@@ -520,6 +520,7 @@ let state = {
   sidebarCollapsed: false,
   editingCardId: null,
   draggingCardId: null,
+  settingsTab:   'escolas',
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -1408,13 +1409,555 @@ function setViewMode(mode) {
 }
 
 /* ══════════════════════════════════════════════════════════
+   CONFIGURAÇÕES — Roteamento
+══════════════════════════════════════════════════════════ */
+function openSettings() {
+  state.currentModule = 'configuracoes';
+  if (location.hash.slice(1) !== 'configuracoes') {
+    history.replaceState(null, '', '#configuracoes');
+  }
+
+  // Atualiza estado ativo no menu lateral
+  document.querySelectorAll('.nav-item[data-module]').forEach(el => {
+    el.classList.toggle('active', el.dataset.module === 'configuracoes');
+  });
+
+  // Atualiza título e breadcrumb
+  document.getElementById('pageTitle').textContent        = 'Configurações';
+  document.getElementById('breadcrumbActive').textContent = 'Configurações';
+
+  // Oculta controles da topbar específicos de módulos
+  document.getElementById('newCardBtn').classList.add('hidden');
+  document.querySelector('.view-toggle').classList.add('hidden');
+  document.querySelector('.topbar-search').classList.add('hidden');
+
+  // Oculta kanban/list/stats e exibe settings
+  document.getElementById('statsBar').classList.add('hidden');
+  document.getElementById('kanbanView').classList.add('hidden');
+  document.getElementById('listView').classList.add('hidden');
+  document.getElementById('settingsView').classList.remove('hidden');
+
+  // Renderiza o painel ativo (padrão: escolas)
+  renderSettingsPanel(state.settingsTab || 'escolas');
+}
+
+function exitSettings() {
+  // Restaura controles da topbar
+  document.getElementById('newCardBtn').classList.remove('hidden');
+  document.querySelector('.view-toggle').classList.remove('hidden');
+  document.querySelector('.topbar-search').classList.remove('hidden');
+
+  // Oculta settings e restaura stats + conteúdo
+  document.getElementById('settingsView').classList.add('hidden');
+  document.getElementById('statsBar').classList.remove('hidden');
+}
+
+function switchSettingsTab(tab) {
+  state.settingsTab = tab;
+
+  // Atualiza botões do sub-menu
+  document.querySelectorAll('.settings-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+
+  renderSettingsPanel(tab);
+}
+
+/* ══════════════════════════════════════════════════════════
+   CONFIGURAÇÕES — Render dos painéis
+══════════════════════════════════════════════════════════ */
+function renderSettingsPanel(tab) {
+  const container = document.getElementById('settingsContent');
+  if (!container) return;
+  switch (tab) {
+    case 'escolas':    container.innerHTML = buildPanelEscolas();   bindEscolasEvents();   break;
+    case 'fluxos':     container.innerHTML = buildPanelFluxos();    bindFluxosEvents();    break;
+    case 'etiquetas':  container.innerHTML = buildPanelEtiquetas(); bindEtiquetasEvents(); break;
+    case 'aparencia':  container.innerHTML = buildPanelAparencia(); bindAparenciaEvents(); break;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────
+   PAINEL: ESCOLAS
+────────────────────────────────────────────────────────── */
+function buildPanelEscolas() {
+  const rows = settingsData.escolas.map(e => `
+    <div class="escola-item" data-id="${e.id}">
+      <div class="escola-avatar" style="background:${e.cor}">${e.sigla}</div>
+      <div class="escola-info">
+        <div class="escola-info-nome">${e.nome}</div>
+        <div class="escola-info-id">ID: ${e.id} &middot; Sigla: ${e.sigla}</div>
+      </div>
+      <div class="escola-status-toggle">
+        <label class="toggle-switch" title="${e.ativa ? 'Ativa' : 'Inativa'}">
+          <input type="checkbox" data-action="toggle-escola" data-id="${e.id}" ${e.ativa ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-size:11px">${e.ativa ? 'Ativa' : 'Inativa'}</span>
+      </div>
+      <div class="escola-actions">
+        <button class="btn-icon-sm" data-action="edit-escola" data-id="${e.id}" title="Editar">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M9.5 1.5l2 2-7 7H2.5v-2l7-7z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="btn-icon-sm btn-icon-danger" data-action="del-escola" data-id="${e.id}" title="Remover">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2 3.5h9M5 3.5V2h3v1.5M3 3.5l.8 7h5.4l.8-7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div class="settings-panel-header">
+      <div>
+        <h2>Escolas</h2>
+        <p>Gerencie as unidades cadastradas no sistema (${settingsData.escolas.length} unidades)</p>
+      </div>
+      <button class="btn-primary" id="addEscolaBtn">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M6.5 1.5v10M1.5 6.5h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Adicionar Escola
+      </button>
+    </div>
+    <div class="settings-card">${rows || '<p style="padding:24px;color:var(--quadro-muted);text-align:center">Nenhuma escola cadastrada.</p>'}</div>
+
+    <!-- Modal inline para adicionar/editar escola -->
+    <div class="escola-modal-overlay" id="escolaModalOverlay">
+      <div class="escola-modal">
+        <div class="escola-modal-header">
+          <h3 id="escolaModalTitle">Nova Escola</h3>
+          <button class="btn-icon-sm" id="escolaModalClose">&#x2715;</button>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">Nome da Escola *</label>
+          <input type="text" class="form-input" id="escolaInputNome" placeholder="Ex: PED Pituba" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Sigla (3-4 letras) *</label>
+            <input type="text" class="form-input" id="escolaInputSigla" placeholder="PIT" maxlength="4" style="text-transform:uppercase"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ID interno *</label>
+            <input type="text" class="form-input" id="escolaInputId" placeholder="ped5" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cor de identificacao</label>
+          <div class="escola-color-picker-grid" id="escolaColorGrid">
+            ${CORES_PALETTE.map(c => `<div class="color-swatch" data-cor="${c}" style="background:${c}" title="${c}"></div>`).join('')}
+          </div>
+          <input type="hidden" id="escolaInputCor" value="${CORES_PALETTE[0]}" />
+        </div>
+        <div class="escola-modal-footer">
+          <button class="btn-secondary" id="escolaModalCancel">Cancelar</button>
+          <button class="btn-primary" id="escolaModalSave">Salvar Escola</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindEscolasEvents() {
+  document.getElementById('addEscolaBtn').addEventListener('click', () => openEscolaModal());
+
+  document.getElementById('escolaModalClose').addEventListener('click', closeEscolaModal);
+  document.getElementById('escolaModalCancel').addEventListener('click', closeEscolaModal);
+  document.getElementById('escolaModalOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('escolaModalOverlay')) closeEscolaModal();
+  });
+
+  document.getElementById('escolaModalSave').addEventListener('click', saveEscola);
+
+  document.getElementById('escolaInputSigla').addEventListener('input', function() {
+    this.value = this.value.toUpperCase();
+  });
+
+  document.getElementById('escolaColorGrid').addEventListener('click', e => {
+    const swatch = e.target.closest('.color-swatch');
+    if (!swatch) return;
+    document.querySelectorAll('#escolaColorGrid .color-swatch').forEach(s => s.classList.remove('selected'));
+    swatch.classList.add('selected');
+    document.getElementById('escolaInputCor').value = swatch.dataset.cor;
+  });
+  const firstSwatch = document.querySelector('#escolaColorGrid .color-swatch');
+  if (firstSwatch) firstSwatch.classList.add('selected');
+
+  document.querySelector('.settings-card').addEventListener('click', e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const { action } = btn.dataset;
+    const { id } = btn.dataset;
+
+    if (action === 'toggle-escola') {
+      const escola = settingsData.escolas.find(s => s.id === id);
+      if (escola) {
+        escola.ativa = btn.checked;
+        const label = btn.closest('.escola-status-toggle').querySelector('span');
+        if (label) label.textContent = escola.ativa ? 'Ativa' : 'Inativa';
+      }
+    }
+    if (action === 'edit-escola') openEscolaModal(id);
+    if (action === 'del-escola') {
+      if (confirm('Remover esta escola do sistema?')) {
+        settingsData.escolas = settingsData.escolas.filter(s => s.id !== id);
+        renderSettingsPanel('escolas');
+        showToast('Escola removida', 'success');
+      }
+    }
+  });
+}
+
+let _editingEscolaId = null;
+function openEscolaModal(id) {
+  _editingEscolaId = id || null;
+  const overlay = document.getElementById('escolaModalOverlay');
+  document.getElementById('escolaModalTitle').textContent = id ? 'Editar Escola' : 'Nova Escola';
+  document.getElementById('escolaInputNome').value  = '';
+  document.getElementById('escolaInputSigla').value = '';
+  document.getElementById('escolaInputId').value    = '';
+  document.getElementById('escolaInputCor').value   = CORES_PALETTE[0];
+  document.querySelectorAll('#escolaColorGrid .color-swatch').forEach(s => s.classList.remove('selected'));
+  const firstSwatch = document.querySelector('#escolaColorGrid .color-swatch');
+  if (firstSwatch) firstSwatch.classList.add('selected');
+
+  if (id) {
+    const escola = settingsData.escolas.find(s => s.id === id);
+    if (escola) {
+      document.getElementById('escolaInputNome').value  = escola.nome;
+      document.getElementById('escolaInputSigla').value = escola.sigla;
+      document.getElementById('escolaInputId').value    = escola.id;
+      document.getElementById('escolaInputCor').value   = escola.cor;
+      document.querySelectorAll('#escolaColorGrid .color-swatch').forEach(s => {
+        s.classList.toggle('selected', s.dataset.cor === escola.cor);
+      });
+    }
+  }
+  overlay.classList.add('open');
+  setTimeout(() => document.getElementById('escolaInputNome').focus(), 50);
+}
+
+function closeEscolaModal() {
+  document.getElementById('escolaModalOverlay').classList.remove('open');
+  _editingEscolaId = null;
+}
+
+function saveEscola() {
+  const nome  = document.getElementById('escolaInputNome').value.trim();
+  const sigla = document.getElementById('escolaInputSigla').value.trim().toUpperCase();
+  const idVal = document.getElementById('escolaInputId').value.trim().toLowerCase().replace(/\s+/g,'_');
+  const cor   = document.getElementById('escolaInputCor').value;
+
+  if (!nome || !sigla || !idVal) {
+    showToast('Preencha todos os campos obrigatorios', 'warn'); return;
+  }
+
+  if (_editingEscolaId) {
+    const escola = settingsData.escolas.find(s => s.id === _editingEscolaId);
+    if (escola) { escola.nome = nome; escola.sigla = sigla; escola.cor = cor; }
+    showToast('Escola atualizada com sucesso', 'success');
+  } else {
+    if (settingsData.escolas.find(s => s.id === idVal)) {
+      showToast('Ja existe uma escola com esse ID', 'warn'); return;
+    }
+    settingsData.escolas.push({ id:idVal, nome, sigla, cor, ativa:true });
+    showToast('Escola adicionada com sucesso', 'success');
+  }
+
+  closeEscolaModal();
+  renderSettingsPanel('escolas');
+}
+
+/* ──────────────────────────────────────────────────────────
+   PAINEL: FLUXOS
+────────────────────────────────────────────────────────── */
+function buildPanelFluxos() {
+  const cards = Object.entries(MODULES).map(([key, mod]) => {
+    const phases = Object.entries(mod.fases).map(([pkey, phase]) => `
+      <div class="fluxo-phase-item">
+        <div class="fluxo-phase-dot" style="background:${phase.color}"></div>
+        <span class="fluxo-phase-label">${phase.label}</span>
+        <input type="color" class="fluxo-phase-color-input"
+          value="${phase.color}"
+          data-module="${key}" data-phase="${pkey}"
+          title="Alterar cor da fase" />
+      </div>`).join('');
+
+    return `
+      <div class="fluxo-module-card">
+        <div class="fluxo-module-header">
+          <span class="fluxo-module-name">${mod.label}</span>
+          <span class="fluxo-module-count">${Object.keys(mod.fases).length} fases</span>
+        </div>
+        <div class="fluxo-phases-list">${phases}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="settings-panel-header">
+      <div>
+        <h2>Fluxos</h2>
+        <p>Visualize e personalize as cores das fases de cada pipeline</p>
+      </div>
+    </div>
+    ${cards}`;
+}
+
+function bindFluxosEvents() {
+  document.getElementById('settingsContent').addEventListener('change', e => {
+    const input = e.target.closest('.fluxo-phase-color-input');
+    if (!input) return;
+    const modKey   = input.dataset.module;
+    const phaseKey = input.dataset.phase;
+    if (MODULES[modKey] && MODULES[modKey].fases[phaseKey]) {
+      MODULES[modKey].fases[phaseKey].color = input.value;
+      const dot = input.closest('.fluxo-phase-item').querySelector('.fluxo-phase-dot');
+      if (dot) dot.style.background = input.value;
+      showToast('Cor da fase atualizada', 'success');
+    }
+  });
+}
+
+/* ──────────────────────────────────────────────────────────
+   PAINEL: ETIQUETAS
+────────────────────────────────────────────────────────── */
+function buildPanelEtiquetas() {
+  const chips = settingsData.etiquetas.map(et => `
+    <div class="etiqueta-chip" style="background:${et.cor}">
+      ${et.nome}
+      <span class="etiqueta-chip-del" data-action="del-etiqueta" data-id="${et.id}" title="Remover">&#x2715;</span>
+    </div>`).join('');
+
+  return `
+    <div class="settings-panel-header">
+      <div>
+        <h2>Etiquetas</h2>
+        <p>Crie tags coloridas para categorizar e filtrar cards rapidamente</p>
+      </div>
+    </div>
+    <div class="settings-card">
+      <div class="etiquetas-grid" id="etiquetasGrid">
+        ${chips || '<span style="color:var(--quadro-muted);font-size:13px">Nenhuma etiqueta criada.</span>'}
+      </div>
+      <div class="etiqueta-form-row">
+        <input type="text" class="form-input" id="etiquetaInputNome"
+          placeholder="Nome da etiqueta..." maxlength="24"
+          style="max-width:220px"/>
+        <input type="color" class="etiqueta-color-picker" id="etiquetaInputCor"
+          value="#3B82F6" title="Escolher cor" />
+        <button class="btn-primary" id="addEtiquetaBtn">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Adicionar
+        </button>
+      </div>
+    </div>`;
+}
+
+function bindEtiquetasEvents() {
+  document.getElementById('addEtiquetaBtn').addEventListener('click', addEtiqueta);
+  document.getElementById('etiquetaInputNome').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addEtiqueta();
+  });
+  document.getElementById('etiquetasGrid').addEventListener('click', e => {
+    const del = e.target.closest('[data-action="del-etiqueta"]');
+    if (!del) return;
+    const { id } = del.dataset;
+    settingsData.etiquetas = settingsData.etiquetas.filter(et => et.id !== id);
+    renderSettingsPanel('etiquetas');
+    showToast('Etiqueta removida', 'success');
+  });
+}
+
+function addEtiqueta() {
+  const nome = document.getElementById('etiquetaInputNome').value.trim();
+  const cor  = document.getElementById('etiquetaInputCor').value;
+  if (!nome) { showToast('Digite um nome para a etiqueta', 'warn'); return; }
+  const id = 'et' + Date.now();
+  settingsData.etiquetas.push({ id, nome, cor });
+  renderSettingsPanel('etiquetas');
+  showToast(`Etiqueta "${nome}" criada`, 'success');
+}
+
+/* ──────────────────────────────────────────────────────────
+   PAINEL: APARENCIA
+────────────────────────────────────────────────────────── */
+function buildPanelAparencia() {
+  const { corPrimaria, nomeExibicao, logo } = settingsData.aparencia;
+  const swatches = CORES_PALETTE.map(c => `
+    <div class="color-swatch ${c === corPrimaria ? 'selected' : ''}"
+      data-cor="${c}" style="background:${c}" title="${c}"></div>`).join('');
+
+  const logoContent = logo
+    ? `<img src="${logo}" alt="Logo" style="width:100%;height:100%;object-fit:contain" />`
+    : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M3 9h18M9 21V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span style="font-size:10px;color:var(--quadro-faint);margin-top:4px">Logo</span>`;
+
+  return `
+    <div class="settings-panel-header">
+      <div>
+        <h2>Aparencia</h2>
+        <p>Personalize a identidade visual do sistema</p>
+      </div>
+    </div>
+
+    <div class="aparencia-section">
+      <p class="aparencia-section-title">Logo do Sistema</p>
+      <div class="logo-upload-area">
+        <label class="logo-preview-box" for="logoFileInput" title="Clique para trocar a logo">
+          ${logoContent}
+        </label>
+        <div>
+          <p style="font-size:13px;font-weight:600;margin-bottom:4px">Imagem da logo</p>
+          <p class="logo-upload-hint">PNG ou SVG recomendado &middot; Proporcao quadrada &middot; Max. 2 MB</p>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn-secondary" style="font-size:12px" onclick="document.getElementById('logoFileInput').click()">
+              Escolher arquivo
+            </button>
+            ${logo ? `<button class="btn-secondary" style="font-size:12px;color:var(--danger)" id="removeLogoBtn">Remover</button>` : ''}
+          </div>
+        </div>
+      </div>
+      <input type="file" id="logoFileInput" accept="image/*" style="display:none" />
+    </div>
+
+    <div class="aparencia-section">
+      <p class="aparencia-section-title">Nome do Sistema</p>
+      <div class="aparencia-input-row">
+        <input type="text" class="form-input" id="nomeExibicaoInput"
+          value="${nomeExibicao}" placeholder="Ex: Central Ops" maxlength="30" />
+        <div class="aparencia-preview-badge" id="nomePreviewBadge"
+          style="background:${corPrimaria}22;color:${corPrimaria};border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect width="14" height="14" rx="4" fill="${corPrimaria}"/>
+            <path d="M3 7h4M9 5h2M3 9h6" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          ${nomeExibicao}
+        </div>
+        <button class="btn-primary" id="saveNomeBtn">Salvar</button>
+      </div>
+    </div>
+
+    <div class="aparencia-section">
+      <p class="aparencia-section-title">Cor Principal</p>
+      <div class="color-picker-row">
+        <div class="color-swatch-options" id="colorSwatchGrid">${swatches}</div>
+        <input type="color" class="fluxo-phase-color-input" id="customColorInput"
+          value="${corPrimaria}" title="Cor personalizada" style="margin-left:8px;width:36px;height:36px" />
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px;align-items:center">
+        <div id="colorPreviewBadge"
+          style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:${corPrimaria};color:white;font-size:12px;font-weight:600">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <circle cx="6.5" cy="6.5" r="5" stroke="white" stroke-width="1.5"/>
+          </svg>
+          Cor selecionada
+        </div>
+        <button class="btn-primary" id="saveCorBtn">Aplicar Cor</button>
+      </div>
+    </div>`;
+}
+
+function bindAparenciaEvents() {
+  document.getElementById('logoFileInput').addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast('Arquivo muito grande (max. 2 MB)', 'warn'); return; }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      settingsData.aparencia.logo = ev.target.result;
+      renderSettingsPanel('aparencia');
+      showToast('Logo atualizada com sucesso', 'success');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  const removeLogoBtn = document.getElementById('removeLogoBtn');
+  if (removeLogoBtn) {
+    removeLogoBtn.addEventListener('click', () => {
+      settingsData.aparencia.logo = null;
+      renderSettingsPanel('aparencia');
+      showToast('Logo removida', 'success');
+    });
+  }
+
+  document.getElementById('saveNomeBtn').addEventListener('click', () => {
+    const val = document.getElementById('nomeExibicaoInput').value.trim();
+    if (!val) { showToast('Digite um nome valido', 'warn'); return; }
+    settingsData.aparencia.nomeExibicao = val;
+    const logoNameEl = document.querySelector('.logo-name');
+    if (logoNameEl) logoNameEl.textContent = val;
+    renderSettingsPanel('aparencia');
+    showToast('Nome atualizado com sucesso', 'success');
+  });
+
+  document.getElementById('nomeExibicaoInput').addEventListener('input', function() {
+    const badge = document.getElementById('nomePreviewBadge');
+    if (badge) {
+      const svgFill = settingsData.aparencia.corPrimaria;
+      badge.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <rect width="14" height="14" rx="4" fill="${svgFill}"/>
+          <path d="M3 7h4M9 5h2M3 9h6" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        ${this.value || 'Previa'}`;
+    }
+  });
+
+  document.getElementById('colorSwatchGrid').addEventListener('click', e => {
+    const swatch = e.target.closest('.color-swatch');
+    if (!swatch) return;
+    document.querySelectorAll('#colorSwatchGrid .color-swatch').forEach(s => s.classList.remove('selected'));
+    swatch.classList.add('selected');
+    const cor = swatch.dataset.cor;
+    document.getElementById('customColorInput').value = cor;
+    updateColorPreview(cor);
+  });
+
+  document.getElementById('customColorInput').addEventListener('input', function() {
+    document.querySelectorAll('#colorSwatchGrid .color-swatch').forEach(s => s.classList.remove('selected'));
+    updateColorPreview(this.value);
+  });
+
+  document.getElementById('saveCorBtn').addEventListener('click', () => {
+    const cor = document.getElementById('customColorInput').value;
+    settingsData.aparencia.corPrimaria = cor;
+    document.documentElement.style.setProperty('--accent',       cor);
+    document.documentElement.style.setProperty('--accent-hover', shadeColor(cor, -15));
+    document.documentElement.style.setProperty('--accent-light', shadeColor(cor, 85));
+    showToast('Cor principal aplicada ao sistema', 'success');
+    renderSettingsPanel('aparencia');
+  });
+}
+
+function updateColorPreview(cor) {
+  const badge = document.getElementById('colorPreviewBadge');
+  if (badge) badge.style.background = cor;
+}
+
+function shadeColor(hex, percent) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.min(255, Math.max(0, (num >> 16) + Math.round(percent * 2.55)));
+  const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + Math.round(percent * 2.55)));
+  const b = Math.min(255, Math.max(0, (num & 0xff) + Math.round(percent * 2.55)));
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+/* ══════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════ */
 function init() {
   // Hash-based routing: escuta mudanças na URL
   window.addEventListener('hashchange', () => {
     const hash = location.hash.slice(1);
-    if (MODULES[hash]) switchModule(hash);
+    if (hash === 'configuracoes') openSettings();
+    else if (MODULES[hash]) switchModule(hash);
   });
 
   // Module navigation (cliques na sidebar)
@@ -1422,11 +1965,20 @@ function init() {
     el.addEventListener('click', e => {
       e.preventDefault();
       const target = el.dataset.module;
-      if (MODULES[target]) {
+      if (target === 'configuracoes') {
+        history.pushState(null, '', '#configuracoes');
+        openSettings();
+      } else if (MODULES[target]) {
         history.pushState(null, '', '#' + target);
         switchModule(target);
       }
     });
+  });
+
+  // Settings: cliques nas abas do sub-menu
+  document.getElementById('settingsView').addEventListener('click', e => {
+    const tab = e.target.closest('.settings-tab-btn');
+    if (tab && tab.dataset.tab) switchSettingsTab(tab.dataset.tab);
   });
 
   // School filter
@@ -1505,7 +2057,8 @@ function init() {
 
   // Lê o hash da URL na carga inicial e ativa o módulo correto
   const initialHash = location.hash.slice(1);
-  switchModule(MODULES[initialHash] ? initialHash : 'solicitacoes');
+  if (initialHash === 'configuracoes') openSettings();
+  else switchModule(MODULES[initialHash] ? initialHash : 'solicitacoes');
 
   console.log('%c🏫 Central Operacional — Grupo PED', 'color:#3B82F6;font-weight:bold;font-size:14px');
   console.log(`%c5 módulos · ${allCards.length} cards de exemplo`, 'color:#64748B;font-size:12px');
