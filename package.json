@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "echo 'Site estático — sem etapa de build'"
+    "build": "mkdir -p dist && cp index.html styles.css script.js dist/"
   }
 }
