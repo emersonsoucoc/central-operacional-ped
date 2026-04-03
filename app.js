@@ -6,6 +6,12 @@
 'use strict';
 
 /* ══════════════════════════════════════════════════════════
+   INTEGRAÇÃO E-REDE — Link de Pagamento
+   Altere a URL abaixo após o deploy no Railway.
+══════════════════════════════════════════════════════════ */
+const PAYMENT_BACKEND_URL = 'https://SEU-APP.railway.app';
+
+/* ══════════════════════════════════════════════════════════
    CONFIG: MÓDULOS E FASES
 ══════════════════════════════════════════════════════════ */
 const MODULES = {
@@ -120,6 +126,35 @@ const PRIORITIES = {
   alta:    { label:'Alta',    icon:'▲', cls:'badge--prio-alta'    },
   urgente: { label:'Urgente', icon:'⚡', cls:'badge--prio-urgente' },
 };
+
+/* ══════════════════════════════════════════════════════════
+   SETTINGS DATA — Editável via interface
+══════════════════════════════════════════════════════════ */
+const settingsData = {
+  escolas: [
+    { id:'ped1', nome:'PED Pituba',    sigla:'PIT', cor:'#8B5CF6', ativa:true  },
+    { id:'ped2', nome:'PED Barra',     sigla:'BAR', cor:'#10B981', ativa:true  },
+    { id:'ped3', nome:'PED Paralela',  sigla:'PAR', cor:'#F59E0B', ativa:true  },
+    { id:'ped4', nome:'PED Imbuí',     sigla:'IMB', cor:'#EF4444', ativa:true  },
+  ],
+  etiquetas: [
+    { id:'et1', nome:'Urgente',     cor:'#EF4444' },
+    { id:'et2', nome:'Pendente',    cor:'#F59E0B' },
+    { id:'et3', nome:'Revisão',     cor:'#8B5CF6' },
+    { id:'et4', nome:'Aprovado',    cor:'#10B981' },
+    { id:'et5', nome:'Bloqueado',   cor:'#64748B' },
+  ],
+  aparencia: {
+    corPrimaria: '#3B82F6',
+    nomeExibicao: 'Central Ops',
+    logo: null,
+  },
+};
+
+const CORES_PALETTE = [
+  '#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444',
+  '#EC4899','#06B6D4','#F97316','#84CC16','#6366F1',
+];
 
 /* ══════════════════════════════════════════════════════════
    SEED DATA — Cards de Exemplo por Módulo
@@ -553,6 +588,9 @@ function switchModule(modulo) {
   state.currentModule = modulo;
   state.filterSearch  = '';
   document.getElementById('searchInput').value = '';
+
+  // Sai do modo configurações se estava ativo
+  exitSettings();
 
   // Update URL hash without creating a browser history entry
   if (location.hash.slice(1) !== modulo) {
@@ -1213,43 +1251,108 @@ function renderHistory(card) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   PAYMENT LINK — Contas a Receber
+   PAYMENT LINK — Contas a Receber (integração e-Rede)
 ══════════════════════════════════════════════════════════ */
-function generatePaymentLink(cardId) {
+
+/** Mapeia o tipo de pagamento interno para paymentOptions da API e-Rede. */
+function redePaymentOptions(tipo) {
+  if (tipo === 'pix')     return ['pix'];
+  if (tipo === 'credito') return ['credit'];
+  // boleto e débito não são suportados diretamente no link e-Rede; usa crédito
+  return ['credit'];
+}
+
+/** Retorna uma data no formato MM/DD/YYYY com N dias a partir de hoje. */
+function expirationDateInDays(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const mm   = String(d.getMonth() + 1).padStart(2, '0');
+  const dd   = String(d.getDate()).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
+async function generatePaymentLink(cardId) {
   const card = allCards.find(c => c.id === cardId);
   if (!card) return;
 
   // Captura tipo do select no modal
   const tipoEl = document.getElementById('formTipoPagamento');
-  const tipo = (tipoEl ? tipoEl.value : card.tipoPagamento) || 'pix';
+  const tipo   = (tipoEl ? tipoEl.value : card.tipoPagamento) || 'pix';
 
-  // Simula geração — substituir por chamada à API real
-  const rawCode = uid().toUpperCase().slice(0, 8);
-  const txCode  = 'TRX-' + rawCode;
-  const link    = 'https://pay.grupoped.com.br/link/TRX' + rawCode;
+  // Feedback visual no botão do modal
+  const btn = document.getElementById('genLinkBtn');
+  const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = 'Gerando...'; btn.disabled = true; }
 
-  card.tipoPagamento   = tipo;
-  card.linkPagamento   = link;
-  card.codigoTransacao = txCode;
-  card.linkStatus      = 'ativo';
+  try {
+    // Descrição limitada a 50 chars (limite da API e-Rede)
+    const rawDesc = (card.titulo || 'Cobrança').trim();
+    const description = rawDesc.length > 50 ? rawDesc.slice(0, 47) + '...' : rawDesc;
 
-  const oldFase   = card.fase;
-  const oldLabel  = getPhaseStyle('contas_receber', oldFase).label;
-  card.fase = 'aguardando_pagamento';
-  card.historico.push({
-    texto:   `Link de pagamento gerado: <strong>${txCode}</strong> (${tipo.toUpperCase()})`,
-    data:    now(),
-    usuario: 'Emerson Santos',
-  });
-  card.historico.push({
-    texto:   `Movido de <strong>${oldLabel}</strong> para <strong>Aguard. Pagamento</strong>`,
-    data:    now(),
-    usuario: 'Emerson Santos',
-  });
+    const amount = parseFloat(card.valor) || 0;
+    if (amount <= 0) throw new Error('O valor do card deve ser maior que zero.');
 
-  showToast(`Link gerado: ${txCode}`, 'success');
-  closeModal();
-  renderAll();
+    const body = {
+      amount,
+      description,
+      installments  : 1,
+      paymentOptions: redePaymentOptions(tipo),
+      expirationDate: expirationDateInDays(7),   // link válido por 7 dias
+    };
+
+    const res = await fetch(`${PAYMENT_BACKEND_URL}/api/gerar-link`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const msg = (errData.error && typeof errData.error === 'string')
+        ? errData.error
+        : `Erro ${res.status} ao gerar link.`;
+      throw new Error(msg);
+    }
+
+    const { url, paymentLinkId } = await res.json();
+
+    // Atualiza o card com os dados reais retornados pela e-Rede
+    const txCode = paymentLinkId || uid().toUpperCase().slice(0, 8);
+
+    card.tipoPagamento   = tipo;
+    card.linkPagamento   = url;
+    card.codigoTransacao = txCode;
+    card.linkStatus      = 'ativo';
+
+    const oldFase  = card.fase;
+    const oldLabel = getPhaseStyle('contas_receber', oldFase).label;
+    card.fase = 'aguardando_pagamento';
+
+    card.historico.push({
+      texto:   `Link de pagamento gerado via e-Rede: <strong>${txCode}</strong> (${tipo.toUpperCase()})`,
+      data:    now(),
+      usuario: 'Emerson Santos',
+    });
+    card.historico.push({
+      texto:   `Movido de <strong>${oldLabel}</strong> para <strong>Aguard. Pagamento</strong>`,
+      data:    now(),
+      usuario: 'Emerson Santos',
+    });
+
+    // Copia o link para a área de transferência automaticamente
+    try { await navigator.clipboard.writeText(url); } catch (_) { /* sem permissão */ }
+
+    showToast(`✅ Link gerado e copiado! (${txCode})`, 'success');
+    closeModal();
+    renderAll();
+
+  } catch (err) {
+    console.error('[e-Rede] Falha ao gerar link:', err);
+    showToast(`❌ ${err.message || 'Erro ao gerar link de pagamento.'}`, 'error');
+    // Restaura botão
+    if (btn) { btn.textContent = originalLabel; btn.disabled = false; }
+  }
 }
 
 function confirmPayment(cardId) {
