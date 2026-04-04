@@ -459,6 +459,22 @@ let MODULES = {
 /* Defaults para comparar — não alterar */
 const _DEFAULT_MODULE_KEYS = Object.keys(MODULES);
 
+/* ── Garante que módulos built-in sempre existam após qualquer override ── */
+const _BUILTIN_MODULES_SNAPSHOT = JSON.parse(JSON.stringify(MODULES));
+
+function patchBuiltinModules(saveAfter) {
+  let patched = false;
+  Object.entries(_BUILTIN_MODULES_SNAPSHOT).forEach(([key, mod]) => {
+    if (!MODULES[key]) {
+      MODULES[key] = mod;
+      patched = true;
+      console.log('[Modules] Módulo restaurado:', key);
+    }
+  });
+  // Só salva no banco quando chamado pós-login (evita chamada sem token)
+  if (patched && saveAfter) saveModulesData();
+}
+
 /* Persiste MODULES no localStorage + PostgreSQL */
 function saveModulesData() {
   try { localStorage.setItem('ped_modules', JSON.stringify(MODULES)); } catch(_) {}
@@ -478,6 +494,8 @@ function saveModulesData() {
       }
     }
   } catch(_) {}
+  // Garante que módulos built-in não foram perdidos no override do localStorage
+  patchBuiltinModules(false); // false = não salva na API (sem token ainda)
 })();
 
 const SCHOOLS = {
@@ -631,6 +649,8 @@ async function loadSettingsFromAPI() {
       // Carrega MODULES (fluxos customizados)
       if (data.modules && typeof data.modules === 'object' && Object.keys(data.modules).length > 0) {
         MODULES = data.modules;
+        // Garante que módulos built-in não foram apagados pelo banco de dados
+        patchBuiltinModules(true); // true = salva no banco se restaurou algo
         try { localStorage.setItem('ped_modules', JSON.stringify(MODULES)); } catch(_) {}
         changed = true;
       }
