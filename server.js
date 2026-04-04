@@ -15,10 +15,17 @@
 const express = require('express');
 const fetch   = require('node-fetch');
 const cors    = require('cors');
+const path    = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// ─── Serve frontend SPA (arquivos estáticos) ───────────────────────────────
+const STATIC_DIR = path.join(__dirname, 'dist');
+app.use(express.static(STATIC_DIR));
+// Fallback: qualquer rota não-API devolve o index.html (hash routing)
+app.get('/', (_, res) => res.sendFile(path.join(STATIC_DIR, 'index.html')));
 
 // ─── Configuração ──────────────────────────────────────────────────────────
 const PORT          = process.env.PORT || 3000;
