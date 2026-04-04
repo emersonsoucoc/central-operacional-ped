@@ -1597,10 +1597,13 @@ async function generatePaymentLink(cardId) {
     const amount = parseFloat(card.valor) || 0;
     if (amount <= 0) throw new Error('O valor do card deve ser maior que zero.');
 
+    const parcelasEl   = document.getElementById('formParcelas');
+    const installments = (tipo === 'credito' && parcelasEl) ? parseInt(parcelasEl.value, 10) : 1;
+
     const body = {
       amount,
       description,
-      installments  : 1,
+      installments,
       paymentOptions: redePaymentOptions(tipo),
       expirationDate: expirationDateInDays(7),   // link válido por 7 dias
     };
@@ -3496,6 +3499,17 @@ function init() {
   // View toggle
   document.getElementById('viewKanban').addEventListener('click', () => setViewMode('kanban'));
   document.getElementById('viewList').addEventListener('click',   () => setViewMode('list'));
+
+  // Mostrar/esconder parcelas ao mudar tipo de pagamento
+  document.getElementById('formTipoPagamento').addEventListener('change', function () {
+    const parcelasGroup = document.getElementById('parcelasGroup');
+    if (this.value === 'credito') {
+      parcelasGroup.style.display = '';
+    } else {
+      parcelasGroup.style.display = 'none';
+      document.getElementById('formParcelas').value = '1';
+    }
+  });
 
   // Payment link actions
   document.getElementById('genLinkBtn').addEventListener('click', () => {
