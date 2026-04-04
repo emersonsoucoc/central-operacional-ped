@@ -2032,7 +2032,7 @@ form { display:flex; flex-direction:column; gap:14px; }
    DASHBOARD GERAL
 ══════════════════════════════════════════════════════════ */
 .dashboard-view {
-  position: fixed; inset: 0; top: 57px; left: 220px;
+  position: fixed; inset: 0; top: var(--topbar-height); left: var(--sidebar-width);
   background: var(--quadro-bg); overflow-y: auto;
   padding: 24px 28px 40px; z-index: 90;
   animation: autoFadeIn .2s;
@@ -2041,7 +2041,7 @@ form { display:flex; flex-direction:column; gap:14px; }
 
 /* ── Agenda Edu (iframe) ── */
 .agenda-view {
-  position: fixed; inset: 0; top: 57px; left: 220px;
+  position: fixed; inset: 0; top: var(--topbar-height); left: var(--sidebar-width);
   background: var(--quadro-bg); z-index: 90;
   animation: autoFadeIn .2s;
 }

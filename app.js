@@ -2622,7 +2622,9 @@ function confirmDeleteFluxo(key) {
 
 function refreshSidebarNav() {
   // Recria os itens de nav do sidebar baseado no MODULES atual
-  const navSection = document.querySelector('.nav-section:first-child');
+  // A seção de fluxos é a segunda .nav-section (a primeira é FINANCEIRO/highlight)
+  const navSections = document.querySelectorAll('.sidebar-nav .nav-section');
+  const navSection = navSections[1] || navSections[0]; // Seção "FLUXOS"
   if (!navSection) return;
 
   // Remove itens antigos de fluxos (data-module que esteja em MODULES ou orphan)
@@ -5217,6 +5219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (getAuthToken()) {
     try {
       await loadSettingsFromAPI();
+      refreshSidebarNav();   // Reconstrói sidebar com MODULES do PostgreSQL (remove fluxos deletados)
       refreshEscolasSelects();
       await loadCardsFromAPI();
     } catch(err) {
