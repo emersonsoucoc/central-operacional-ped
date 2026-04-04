@@ -3319,13 +3319,19 @@ const TRIGGER_DEFS = [
     type   : 'card_enter_phase',
     label  : 'Um card entrar em uma fase',
     icon   : '<path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
-    params : [{ key:'fase', label:'Fase de entrada', type:'phase-select' }],
+    params : [
+      { key:'modulo', label:'Fluxo',            type:'module-select'       },
+      { key:'fase',   label:'Fase de entrada',  type:'phase-select-dynamic' },
+    ],
   },
   {
     type   : 'card_leave_phase',
     label  : 'Um card sair de uma fase',
     icon   : '<path d="M13 8H3M7 4L3 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
-    params : [{ key:'fase', label:'Fase de saída', type:'phase-select' }],
+    params : [
+      { key:'modulo', label:'Fluxo',          type:'module-select'       },
+      { key:'fase',   label:'Fase de saída',  type:'phase-select-dynamic' },
+    ],
   },
   {
     type   : 'card_created',
@@ -3426,11 +3432,15 @@ function saveAutomations() {
 /* ── Engine de execução ── */
 const AutomationEngine = {
   execute(eventType, card, extra = {}) {
-    const matching = state.automations.filter(a =>
-      a.enabled &&
-      a.modulo === card.modulo &&
-      a.trigger.type === eventType
-    );
+    const matching = state.automations.filter(a => {
+      if (!a.enabled) return false;
+      if (a.trigger.type !== eventType) return false;
+      // Para triggers com seletor de fluxo, filtra pelo fluxo configurado;
+      // se não especificou fluxo, usa o módulo da automação como escopo.
+      const triggerModulo = a.trigger.params?.modulo;
+      const escopoModulo  = triggerModulo || a.modulo;
+      return escopoModulo === card.modulo;
+    });
 
     matching.forEach(auto => {
       if (!this._matchesTrigger(auto.trigger, card, extra)) return;
@@ -3442,6 +3452,9 @@ const AutomationEngine = {
     switch (trigger.type) {
       case 'card_enter_phase':
       case 'card_leave_phase':
+        // Se o usuário escolheu um fluxo específico, verifica o módulo do card
+        if (trigger.params.modulo && trigger.params.modulo !== card.modulo) return false;
+        // Se escolheu uma fase específica, verifica a fase do evento
         return !trigger.params.fase || trigger.params.fase === extra.fase;
       case 'field_updated':
         return !trigger.params.campo || trigger.params.campo === extra.campo;
@@ -3698,26 +3711,53 @@ function buildParamFields(params, prefix) {
     let input = '';
 
     switch (p.type) {
+
+      /* ── Seletor de fluxo: lista todos os módulos criados ── */
+      case 'module-select': {
+        const moduleOpts = Object.entries(MODULES)
+          .map(([k, v]) => `<option value="${k}">${v.label}</option>`)
+          .join('');
+        input = `<select class="form-input auto-param-input" id="${id}"
+            data-key="${p.key}"
+            data-prefix="${prefix}"
+            onchange="onAutoModuleChange(this)">
+          <option value="">— Qualquer fluxo —</option>
+          ${moduleOpts}
+        </select>`;
+        break;
+      }
+
+      /* ── Seletor de fase dinâmico: preenchido via onAutoModuleChange ── */
+      case 'phase-select-dynamic':
+        input = `<select class="form-input auto-param-input" id="${id}" data-key="${p.key}" disabled>
+          <option value="">— Selecione um fluxo primeiro —</option>
+        </select>`;
+        break;
+
       case 'phase-select':
         input = `<select class="form-input auto-param-input" id="${id}" data-key="${p.key}">
           <option value="">— Qualquer fase —</option>
           ${phases.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}
         </select>`;
         break;
+
       case 'field-select':
         input = `<select class="form-input auto-param-input" id="${id}" data-key="${p.key}">
           <option value="">— Qualquer campo —</option>
           ${FIELD_OPTIONS.map(f => `<option value="${f.value}">${f.label}</option>`).join('')}
         </select>`;
         break;
+
       case 'method-select':
         input = `<select class="form-input auto-param-input" id="${id}" data-key="${p.key}">
           ${['POST','GET','PUT','PATCH'].map(m => `<option value="${m}">${m}</option>`).join('')}
         </select>`;
         break;
+
       case 'number':
         input = `<input type="number" class="form-input auto-param-input" id="${id}" data-key="${p.key}" min="1" max="365" placeholder="3"/>`;
         break;
+
       default:
         input = `<input type="text" class="form-input auto-param-input" id="${id}" data-key="${p.key}" placeholder="${p.label}..."/>`;
     }
@@ -3727,6 +3767,29 @@ function buildParamFields(params, prefix) {
       ${input}
     </div>`;
   }).join('');
+}
+
+/**
+ * Disparado quando o usuário muda o seletor de fluxo (module-select).
+ * Atualiza dinamicamente o seletor de fases correspondente (phase-select-dynamic).
+ */
+function onAutoModuleChange(selectEl) {
+  const modKey = selectEl.value;
+  const prefix = selectEl.dataset.prefix;          // 'trigger' ou 'action'
+  const phaseId = `auto_${prefix}_fase`;
+  const phaseEl = document.getElementById(phaseId);
+  if (!phaseEl) return;
+
+  if (!modKey || !MODULES[modKey]) {
+    phaseEl.innerHTML = '<option value="">— Selecione um fluxo primeiro —</option>';
+    phaseEl.disabled  = true;
+    return;
+  }
+
+  const phaseEntries = Object.entries(MODULES[modKey].fases || {});
+  phaseEl.innerHTML  = '<option value="">— Qualquer fase —</option>' +
+    phaseEntries.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+  phaseEl.disabled = false;
 }
 
 /* ── Salvar automação ── */
