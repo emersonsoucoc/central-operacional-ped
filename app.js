@@ -386,6 +386,12 @@ const settingsData = {
   ],
 };
 
+/* Carrega usuários salvos do localStorage (sobrescreve seed se existir) */
+(function() {
+  const saved = localStorage.getItem('ped_usuarios');
+  if (saved) { try { settingsData.usuarios = JSON.parse(saved); } catch(e) {} }
+})();
+
 const CORES_PALETTE = [
   '#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444',
   '#EC4899','#06B6D4','#F97316','#84CC16','#6366F1',
@@ -2986,6 +2992,19 @@ function buildPanelUsuarios() {
             <label class="form-label">Escolas com acesso *</label>
             <div class="user-escolas-checks">${escolaCheckboxes}</div>
           </div>
+          <div class="form-group" id="userSenhaGroup">
+            <label class="form-label" id="userSenhaLabel">Senha de acesso *</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="password" id="userSenhaInput" class="form-input" placeholder="Mínimo 6 caracteres" style="flex:1">
+              <button type="button" id="userSenhaToggle" class="btn-icon-sm" title="Mostrar/ocultar senha" style="flex-shrink:0;width:32px;height:32px">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <ellipse cx="7" cy="7" rx="5" ry="3.5" stroke="currentColor" stroke-width="1.3"/>
+                  <circle cx="7" cy="7" r="1.5" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+            <p class="form-hint" id="userSenhaHint"></p>
+          </div>
         </div>
         <div class="escola-modal-footer">
           <button class="btn-secondary" id="userModalCancel">Cancelar</button>
@@ -3006,6 +3025,19 @@ function bindUsuariosEvents() {
     const perfil = PERFIS[this.value];
     document.getElementById('userPerfilHint').textContent = perfil ? perfil.desc : '';
   });
+  /* Toggle visibilidade da senha */
+  document.getElementById('userSenhaToggle').addEventListener('click', function() {
+    const inp = document.getElementById('userSenhaInput');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+  /* Validação em tempo real */
+  document.getElementById('userSenhaInput').addEventListener('input', function() {
+    const hint = document.getElementById('userSenhaHint');
+    const v = this.value;
+    if (!v) { hint.textContent = ''; hint.style.color = ''; return; }
+    if (v.length < 6) { hint.textContent = 'Mínimo de 6 caracteres'; hint.style.color = '#EF4444'; }
+    else              { hint.textContent = '✓ Senha válida';          hint.style.color = '#10B981'; }
+  });
   document.getElementById('userListCard').addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
@@ -3017,18 +3049,25 @@ function bindUsuariosEvents() {
       if (!u) return;
       if (!confirm(`Remover o usuário "${u.nome}"? Esta ação não pode ser desfeita.`)) return;
       settingsData.usuarios = settingsData.usuarios.filter(u => u.id !== id);
+      removeFromLoginUsers(id);
+      saveUsuariosData();
       renderSettingsPanel('usuarios');
       showToast('Usuário removido.', 'success');
     } else if (btn.dataset.action === 'toggle-usuario') {
       const u = settingsData.usuarios.find(u => u.id === id);
       if (u) {
         u.ativo = !u.ativo;
+        const loginUser = USERS.find(lu => lu.id === id);
+        if (loginUser) loginUser.active = u.ativo;
+        saveUsers();
+        saveUsuariosData();
         const item = btn.closest('.user-item');
         if (item) {
           item.classList.toggle('user-item--inactive', !u.ativo);
           const statusText = item.querySelector('.user-status-toggle span');
           if (statusText) statusText.textContent = u.ativo ? 'Ativo' : 'Inativo';
         }
+        showToast(u.ativo ? `${u.nome} ativado.` : `${u.nome} desativado.`, 'success');
       }
     }
   });
@@ -3039,23 +3078,31 @@ function openUserModal(id) {
   const overlay = document.getElementById('userModalOverlay');
   document.getElementById('userNomeInput').value  = '';
   document.getElementById('userEmailInput').value = '';
+  document.getElementById('userSenhaInput').value = '';
+  document.getElementById('userSenhaInput').type  = 'password';
+  document.getElementById('userSenhaHint').textContent = '';
+  document.getElementById('userSenhaHint').style.color = '';
   document.getElementById('userPerfilInput').value = 'operador';
   document.getElementById('userPerfilHint').textContent = PERFIS.operador.desc;
   document.querySelectorAll('input[name="usr-escola"]').forEach(cb => cb.checked = false);
   if (id) {
     const u = settingsData.usuarios.find(u => u.id === id);
     if (!u) return;
-    document.getElementById('userModalTitle').textContent = 'Editar Usuário';
-    document.getElementById('userNomeInput').value   = u.nome;
-    document.getElementById('userEmailInput').value  = u.email;
-    document.getElementById('userPerfilInput').value = u.perfil;
+    document.getElementById('userModalTitle').textContent    = 'Editar Usuário';
+    document.getElementById('userSenhaLabel').textContent    = 'Nova senha (deixe em branco para manter)';
+    document.getElementById('userSenhaInput').placeholder   = 'Somente se quiser alterar';
+    document.getElementById('userNomeInput').value    = u.nome;
+    document.getElementById('userEmailInput').value   = u.email;
+    document.getElementById('userPerfilInput').value  = u.perfil;
     document.getElementById('userPerfilHint').textContent = PERFIS[u.perfil]?.desc || '';
     (u.escolas || []).forEach(eid => {
       const cb = document.querySelector(`input[name="usr-escola"][value="${eid}"]`);
       if (cb) cb.checked = true;
     });
   } else {
-    document.getElementById('userModalTitle').textContent = 'Adicionar Usuário';
+    document.getElementById('userModalTitle').textContent   = 'Adicionar Usuário';
+    document.getElementById('userSenhaLabel').textContent   = 'Senha de acesso *';
+    document.getElementById('userSenhaInput').placeholder  = 'Mínimo 6 caracteres';
     document.querySelectorAll('input[name="usr-escola"]').forEach(cb => cb.checked = true);
   }
   overlay.classList.add('active');
@@ -3067,27 +3114,75 @@ function closeUserModal() {
   _editingUserId = null;
 }
 
+/* ── Helpers de sincronização usuário ↔ login ── */
+function getPermissoesByPerfil(perfil) {
+  const all = ['ver','criar','editar','aprovar'];
+  const maps = {
+    admin:        { solicitacoes:all, contas_pagar:all, contas_receber:all, compras:all, processos:all, ti:all, central_pagamentos:all },
+    gestor:       { solicitacoes:all, contas_pagar:['ver','aprovar'], contas_receber:['ver','aprovar'], compras:['ver','criar','aprovar'], processos:all, ti:['ver','criar'], central_pagamentos:['ver'] },
+    operador:     { solicitacoes:['ver','criar','editar'], contas_pagar:['ver','criar'], contas_receber:['ver','criar'], compras:['ver','criar','editar'], processos:['ver','criar','editar'], ti:['ver','criar'], central_pagamentos:[] },
+    visualizador: { solicitacoes:['ver'], contas_pagar:['ver'], contas_receber:['ver'], compras:['ver'], processos:['ver'], ti:['ver'], central_pagamentos:[] },
+  };
+  return maps[perfil] || maps.visualizador;
+}
+
+function syncToLoginUsers(u, senha) {
+  const initials = u.nome.split(' ').slice(0,2).map(n => n[0]||'').join('').toUpperCase();
+  const school   = (u.escolas||[]).length >= settingsData.escolas.length ? 'all' : (u.escolas[0]||'all');
+  const existing = USERS.find(lu => lu.id === u.id);
+  if (existing) {
+    existing.name = u.nome; existing.email = u.email;
+    existing.role = PERFIS[u.perfil]?.label || u.perfil;
+    existing.initials = initials; existing.school = school; existing.active = u.ativo;
+    existing.permissions = getPermissoesByPerfil(u.perfil);
+    if (senha) existing.password = senha;
+  } else {
+    USERS.push({ id:u.id, name:u.nome, email:u.email, password:senha||'mudar123',
+      role:PERFIS[u.perfil]?.label||u.perfil, initials, school, active:u.ativo,
+      permissions:getPermissoesByPerfil(u.perfil) });
+  }
+  saveUsers();
+}
+
+function removeFromLoginUsers(id) {
+  const idx = USERS.findIndex(u => u.id === id);
+  if (idx !== -1) { USERS.splice(idx, 1); saveUsers(); }
+}
+
+function saveUsuariosData() {
+  localStorage.setItem('ped_usuarios', JSON.stringify(settingsData.usuarios));
+}
+
 function saveUsuario() {
   const nome   = document.getElementById('userNomeInput').value.trim();
   const email  = document.getElementById('userEmailInput').value.trim();
   const perfil = document.getElementById('userPerfilInput').value;
+  const senha  = document.getElementById('userSenhaInput').value.trim();
   const escolas = [...document.querySelectorAll('input[name="usr-escola"]:checked')].map(cb => cb.value);
-  if (!nome)   { showToast('Informe o nome do usuário.', 'error');   return; }
-  if (!email)  { showToast('Informe o e-mail do usuário.', 'error'); return; }
+  if (!nome)    { showToast('Informe o nome do usuário.', 'error');   return; }
+  if (!email)   { showToast('Informe o e-mail do usuário.', 'error'); return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('E-mail inválido.', 'error'); return; }
   if (!escolas.length) { showToast('Selecione ao menos uma escola.', 'error'); return; }
   if (_editingUserId) {
     const dup = settingsData.usuarios.find(u => u.email === email && u.id !== _editingUserId);
     if (dup) { showToast('Já existe um usuário com este e-mail.', 'error'); return; }
+    if (senha && senha.length < 6) { showToast('A senha deve ter ao menos 6 caracteres.', 'error'); return; }
     const u = settingsData.usuarios.find(u => u.id === _editingUserId);
     if (!u) return;
     u.nome = nome; u.email = email; u.perfil = perfil; u.escolas = escolas;
+    syncToLoginUsers(u, senha || null);
+    saveUsuariosData();
     showToast('Usuário atualizado!', 'success');
   } else {
+    if (!senha) { showToast('Informe uma senha para o novo usuário.', 'error'); return; }
+    if (senha.length < 6) { showToast('A senha deve ter ao menos 6 caracteres.', 'error'); return; }
     const dup = settingsData.usuarios.find(u => u.email === email);
     if (dup) { showToast('Já existe um usuário com este e-mail.', 'error'); return; }
-    settingsData.usuarios.push({ id:'usr'+uid(), nome, email, perfil, escolas, ativo:true, criadoEm:new Date().toISOString().slice(0,10) });
-    showToast('Usuário adicionado!', 'success');
+    const novoUsuario = { id:'usr'+uid(), nome, email, perfil, escolas, ativo:true, criadoEm:new Date().toISOString().slice(0,10) };
+    settingsData.usuarios.push(novoUsuario);
+    syncToLoginUsers(novoUsuario, senha);
+    saveUsuariosData();
+    showToast(`Usuário criado! Login: ${email} / Senha: ${senha}`, 'success');
   }
   closeUserModal();
   renderSettingsPanel('usuarios');
