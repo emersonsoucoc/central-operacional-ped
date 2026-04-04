@@ -887,9 +887,10 @@ function switchModule(modulo) {
   state.filterSearch  = '';
   document.getElementById('searchInput').value = '';
 
-  // Sai do modo configurações ou dashboard se estava ativo
+  // Sai do modo configurações, dashboard ou agenda se estava ativo
   exitSettings();
   closeDashboard();
+  closeAgenda();
 
   // Update URL hash without creating a browser history entry
   if (location.hash.slice(1) !== modulo) {
@@ -2036,8 +2037,9 @@ function openSettings() {
   document.querySelector('.view-toggle').classList.add('hidden');
   document.querySelector('.topbar-search').classList.add('hidden');
 
-  // Oculta kanban/list/stats/dashboard e exibe settings
+  // Oculta kanban/list/stats/dashboard/agenda e exibe settings
   closeDashboard();
+  closeAgenda();
   document.getElementById('statsBar').classList.add('hidden');
   document.getElementById('kanbanView').classList.add('hidden');
   document.getElementById('listView').classList.add('hidden');
@@ -4137,6 +4139,7 @@ function _evaluateAutomacoesInner(card, eventTipo, prevFase) {
 const _dashCharts = {};
 
 function openDashboard() {
+  closeAgenda();
   document.getElementById('newCardBtn')?.classList.add('hidden');
   document.querySelector('.view-toggle')?.classList.add('hidden');
   document.querySelector('.topbar-search')?.classList.add('hidden');
@@ -4160,6 +4163,37 @@ function closeDashboard() {
   // Restaura a view correta ao sair do dashboard
   document.getElementById('kanbanView').classList.toggle('hidden', state.viewMode !== 'kanban');
   document.getElementById('listView').classList.toggle('hidden',   state.viewMode !== 'list');
+}
+
+/* ── Agenda Edu (iframe interno) ── */
+const AGENDA_URL = 'https://web-production-39cab.up.railway.app';
+
+function openAgenda() {
+  closeDashboard();
+  document.getElementById('newCardBtn')?.classList.add('hidden');
+  document.querySelector('.view-toggle')?.classList.add('hidden');
+  document.querySelector('.topbar-search')?.classList.add('hidden');
+  document.getElementById('statsBar').classList.add('hidden');
+  document.getElementById('kanbanView').classList.add('hidden');
+  document.getElementById('listView').classList.add('hidden');
+  document.getElementById('settingsView').classList.add('hidden');
+  document.getElementById('dashboardView').classList.add('hidden');
+
+  const agendaView = document.getElementById('agendaView');
+  const agendaFrame = document.getElementById('agendaFrame');
+  agendaView.classList.remove('hidden');
+  // Só carrega o iframe na primeira vez (ou se src diferente)
+  if (!agendaFrame.src || !agendaFrame.src.startsWith(AGENDA_URL)) {
+    agendaFrame.src = AGENDA_URL;
+  }
+
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelector('.nav-item[data-module="agenda"]')?.classList.add('active');
+}
+
+function closeAgenda() {
+  const agendaView = document.getElementById('agendaView');
+  if (agendaView) agendaView.classList.add('hidden');
 }
 
 function renderDashboard() {
@@ -4310,6 +4344,7 @@ function init() {
     const hash = location.hash.slice(1);
     if (hash === 'configuracoes') openSettings();
     else if (hash === 'dashboard') openDashboard();
+    else if (hash === 'agenda') openAgenda();
     else if (MODULES[hash]) switchModule(hash);
   });
 
@@ -4324,6 +4359,9 @@ function init() {
       } else if (target === 'dashboard') {
         history.pushState(null, '', '#dashboard');
         openDashboard();
+      } else if (target === 'agenda') {
+        history.pushState(null, '', '#agenda');
+        openAgenda();
       } else if (MODULES[target]) {
         history.pushState(null, '', '#' + target);
         switchModule(target);
