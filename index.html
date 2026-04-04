@@ -287,6 +287,21 @@
           </span>
           <span class="nav-text">Relatórios</span>
         </a>
+        <a href="https://web-production-39cab.up.railway.app" target="_blank" rel="noopener" class="nav-item nav-item--external">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M5 5h2v6H5zM9 7h2v4H9z" fill="currentColor" opacity=".6"/>
+              <path d="M2 5h12" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </span>
+          <span class="nav-text">Agenda Escolar</span>
+          <span class="nav-external-icon">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M3 1h6v6M9 1L4 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </a>
       </div>
 
       <div class="nav-section nav-section--sistema">
@@ -345,10 +360,7 @@
           </svg>
           <select class="school-filter-select" id="schoolFilterSelect">
             <option value="all">Todas as escolas</option>
-            <option value="ped1">PED Pituba</option>
-            <option value="ped2">PED Barra</option>
-            <option value="ped3">PED Paralela</option>
-            <option value="ped4">PED Imbuí</option>
+            <!-- Populado dinamicamente por refreshEscolasSelects() -->
           </select>
         </div>
 
@@ -659,11 +671,7 @@
             <label class="form-label" for="formEscola" id="label-escola">Escola / Unidade <span class="required">*</span></label>
             <select class="form-select" id="formEscola" required>
               <option value="">Selecionar escola</option>
-              <option value="ped1">PED Pituba</option>
-              <option value="ped2">PED Barra</option>
-              <option value="ped3">PED Paralela</option>
-              <option value="ped4">PED Imbuí</option>
-              <option value="all">Todas as unidades</option>
+              <!-- Populado dinamicamente por refreshEscolasSelects() -->
             </select>
           </div>
           <div class="form-group" data-campo="categoria">

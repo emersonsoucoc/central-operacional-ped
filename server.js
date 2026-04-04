@@ -133,6 +133,21 @@ async function initDB() {
       EXECUTE FUNCTION set_updated_at();
   `);
   console.log('[DB] Tabela cards pronta.');
+
+  /* ── Tabela settings: key-value para configurações ── */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key         TEXT        PRIMARY KEY,
+      value       JSONB       NOT NULL DEFAULT '{}',
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    DROP TRIGGER IF EXISTS trg_settings_updated_at ON settings;
+    CREATE TRIGGER trg_settings_updated_at
+      BEFORE UPDATE ON settings FOR EACH ROW
+      EXECUTE FUNCTION set_updated_at();
+  `);
+  console.log('[DB] Tabela settings pronta.');
 }
 
 function rowToCard(r) {
@@ -242,6 +257,70 @@ app.patch('/api/cards/move', async (req, res) => {
     if (card.fase !== newFase) {
       await client.query('WITH ranked AS (SELECT id, ROW_NUMBER() OVER (ORDER BY position, created_at) - 1 AS rn FROM cards WHERE modulo = $1 AND fase = $2) UPDATE cards SET position = ranked.rn FROM ranked WHERE cards.id = ranked.id',
         [card.modulo, card.fase]);
+    }
+    await client.query('COMMIT');
+    res.json({ ok: true });
+  } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: err.message }); }
+  finally { client.release(); }
+});
+
+/* ── Rotas CRUD de settings ── */
+
+// GET /api/settings — retorna todas as configurações
+app.get('/api/settings', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT key, value FROM settings');
+    const result = {};
+    for (const r of rows) result[r.key] = r.value;
+    res.json(result);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/settings/:key — retorna uma seção específica
+app.get('/api/settings/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+    if (!key || typeof key !== 'string') return res.status(400).json({ error: 'key invalida.' });
+    const { rows } = await pool.query('SELECT value FROM settings WHERE key = $1', [key]);
+    if (!rows.length) return res.status(404).json({ error: 'Configuracao nao encontrada.' });
+    res.json(rows[0].value);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PUT /api/settings/:key — cria ou atualiza uma seção
+app.put('/api/settings/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+    const value = req.body;
+    if (!key || typeof key !== 'string') return res.status(400).json({ error: 'key invalida.' });
+    if (key.length > 100) return res.status(400).json({ error: 'key muito longa (max 100).' });
+    if (value === undefined || value === null) return res.status(400).json({ error: 'Body (value) obrigatorio.' });
+
+    const { rows } = await pool.query(
+      `INSERT INTO settings (key, value) VALUES ($1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+       RETURNING *`,
+      [key, JSON.stringify(value)]
+    );
+    res.json(rows[0].value);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PUT /api/settings — salva múltiplas seções de uma vez
+app.put('/api/settings', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const data = req.body;
+    if (!data || typeof data !== 'object' || Array.isArray(data))
+      return res.status(400).json({ error: 'Body deve ser um objeto { key: value, ... }.' });
+
+    await client.query('BEGIN');
+    for (const [key, value] of Object.entries(data)) {
+      await client.query(
+        `INSERT INTO settings (key, value) VALUES ($1, $2)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+        [key, JSON.stringify(value)]
+      );
     }
     await client.query('COMMIT');
     res.json({ ok: true });

@@ -319,7 +319,7 @@ function initLogin() {
 /* ══════════════════════════════════════════════════════════
    CONFIG: MÓDULOS E FASES
 ══════════════════════════════════════════════════════════ */
-const MODULES = {
+let MODULES = {
   solicitacoes: {
     label: 'Solicitações Administrativas',
     shortLabel: 'Solicitações Admin.',
@@ -456,6 +456,30 @@ const MODULES = {
   },
 };
 
+/* Defaults para comparar — não alterar */
+const _DEFAULT_MODULE_KEYS = Object.keys(MODULES);
+
+/* Persiste MODULES no localStorage + PostgreSQL */
+function saveModulesData() {
+  try { localStorage.setItem('ped_modules', JSON.stringify(MODULES)); } catch(_) {}
+  apiRequest('PUT', '/api/settings/modules', MODULES).catch(err => {
+    console.warn('[Settings API] Falha ao salvar modules:', err.message);
+  });
+}
+
+/* Carrega MODULES do localStorage (síncrono) */
+(function() {
+  try {
+    const saved = localStorage.getItem('ped_modules');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        MODULES = parsed;
+      }
+    }
+  } catch(_) {}
+})();
+
 const SCHOOLS = {
   all:  { nome:'Todas as Escolas',  sigla:'ALL', cor:'#3B82F6' },
   ped1: { nome:'PED Pituba',        sigla:'PIT', cor:'#8B5CF6' },
@@ -513,6 +537,7 @@ const SETTINGS_KEYS = {
 };
 
 function saveSettingsData(section) {
+  // 1. Salva backup local (sempre)
   if (section) {
     try { localStorage.setItem(SETTINGS_KEYS[section], JSON.stringify(settingsData[section])); } catch(_) {}
   } else {
@@ -520,9 +545,53 @@ function saveSettingsData(section) {
       try { localStorage.setItem(SETTINGS_KEYS[k], JSON.stringify(settingsData[k])); } catch(_) {}
     });
   }
+  // 2. Persiste no PostgreSQL via API (fire-and-forget)
+  if (section) {
+    apiRequest('PUT', `/api/settings/${section}`, settingsData[section]).catch(err => {
+      console.warn('[Settings API] Falha ao salvar', section, ':', err.message);
+    });
+  } else {
+    const payload = {};
+    Object.keys(SETTINGS_KEYS).forEach(k => { payload[k] = settingsData[k]; });
+    apiRequest('PUT', '/api/settings', payload).catch(err => {
+      console.warn('[Settings API] Falha ao salvar settings:', err.message);
+    });
+  }
+  // Atualiza selects de escola se a seção mudou
+  if (!section || section === 'escolas') {
+    try { refreshEscolasSelects(); } catch(_) {}
+  }
 }
 
-/* Carrega todas as seções salvas do localStorage */
+/* ── Atualiza todos os selects de escola no sistema ── */
+function refreshEscolasSelects() {
+  const escolas = (settingsData.escolas || []).filter(e => e.ativa !== false);
+
+  // 1. Filtro do topbar
+  const filterSel = document.getElementById('schoolFilterSelect');
+  if (filterSel) {
+    const curVal = filterSel.value;
+    filterSel.innerHTML = '<option value="all">Todas as escolas</option>';
+    escolas.forEach(e => {
+      filterSel.innerHTML += `<option value="${escHtml(e.id)}">${escHtml(e.nome)}</option>`;
+    });
+    filterSel.value = curVal; // restaura seleção
+  }
+
+  // 2. Select do modal de card
+  const formSel = document.getElementById('formEscola');
+  if (formSel) {
+    const curVal = formSel.value;
+    formSel.innerHTML = '<option value="">Selecionar escola</option>';
+    escolas.forEach(e => {
+      formSel.innerHTML += `<option value="${escHtml(e.id)}">${escHtml(e.nome)}</option>`;
+    });
+    formSel.innerHTML += '<option value="all">Todas as unidades</option>';
+    formSel.value = curVal;
+  }
+}
+
+/* Carrega settings do localStorage (síncrono, para não bloquear render) */
 (function() {
   Object.entries(SETTINGS_KEYS).forEach(([section, key]) => {
     try {
@@ -534,6 +603,70 @@ function saveSettingsData(section) {
     } catch(_) {}
   });
 })();
+
+/* Carrega settings do PostgreSQL (async, sobrescreve localStorage se encontrar) */
+async function loadSettingsFromAPI() {
+  try {
+    const data = await apiRequest('GET', '/api/settings');
+    if (data && typeof data === 'object') {
+      let changed = false;
+      Object.keys(SETTINGS_KEYS).forEach(section => {
+        if (data[section] && typeof data[section] === 'object') {
+          settingsData[section] = data[section];
+          try { localStorage.setItem(SETTINGS_KEYS[section], JSON.stringify(data[section])); } catch(_) {}
+          changed = true;
+        }
+      });
+      // Carrega automações do settings (AUTOMACOES array)
+      if (data.automacoes_settings && Array.isArray(data.automacoes_settings)) {
+        AUTOMACOES.length = 0;
+        data.automacoes_settings.forEach(a => AUTOMACOES.push(a));
+        try { localStorage.setItem('ped_automacoes_settings', JSON.stringify(AUTOMACOES)); } catch(_) {}
+      }
+      // Carrega automações do topbar (state.automations)
+      if (data.automations && Array.isArray(data.automations)) {
+        state.automations = data.automations;
+        try { localStorage.setItem('ped_automations', JSON.stringify(state.automations)); } catch(_) {}
+      }
+      // Carrega MODULES (fluxos customizados)
+      if (data.modules && typeof data.modules === 'object' && Object.keys(data.modules).length > 0) {
+        MODULES = data.modules;
+        try { localStorage.setItem('ped_modules', JSON.stringify(MODULES)); } catch(_) {}
+        changed = true;
+      }
+      if (changed) {
+        // Re-aplica cor principal se mudou
+        const { corPrimaria } = settingsData.aparencia;
+        if (corPrimaria && corPrimaria !== '#3B82F6') {
+          document.documentElement.style.setProperty('--accent',       corPrimaria);
+          document.documentElement.style.setProperty('--accent-hover', shadeColor(corPrimaria, -15));
+          document.documentElement.style.setProperty('--accent-light', shadeColor(corPrimaria, 85));
+        }
+        // Sincroniza USERS com usuarios do banco
+        syncUsersFromSettings();
+        console.log('[Settings] Carregado do PostgreSQL.');
+      }
+    }
+  } catch (err) {
+    console.warn('[Settings API] Falha ao carregar — usando backup local:', err.message);
+  }
+}
+
+/* Sincroniza array USERS com settingsData.usuarios */
+function syncUsersFromSettings() {
+  if (!settingsData.usuarios || !Array.isArray(settingsData.usuarios)) return;
+  USERS.length = 0;
+  settingsData.usuarios.forEach(u => {
+    if (u.ativo !== false) {
+      USERS.push({
+        nome:  u.nome,
+        email: u.email,
+        perfil: u.perfil,
+        escolas: u.escolas || [],
+      });
+    }
+  });
+}
 
 /* Restaura cor principal e nome salvo ao carregar a página */
 (function() {
@@ -2484,6 +2617,7 @@ function saveFluxo() {
 
   closeFluxoModal();
   renderSettingsPanel('fluxos');
+  saveModulesData(); // Persiste no PostgreSQL
 }
 
 function confirmDeleteFluxo(key) {
@@ -2497,6 +2631,8 @@ function confirmDeleteFluxo(key) {
   if (!confirm(msg)) return;
   delete MODULES[key];
   allCards = allCards.filter(c => c.modulo !== key);
+  persistCards();
+  saveModulesData(); // Persiste no PostgreSQL
   refreshSidebarNav();
   renderSettingsPanel('fluxos');
   showToast(`Fluxo "${mod.label}" removido`, 'success');
@@ -3567,6 +3703,14 @@ function renderCustomFields(modKey, card) {
 ══════════════════════════════════════════════════════════ */
 const AUTOMACOES = JSON.parse(localStorage.getItem('ped_automacoes_settings') || '[]');
 
+/* Salva AUTOMACOES no localStorage + PostgreSQL */
+function saveAutomacoesData() {
+  try { localStorage.setItem('ped_automacoes_settings', JSON.stringify(AUTOMACOES)); } catch(_) {}
+  apiRequest('PUT', '/api/settings/automacoes_settings', AUTOMACOES).catch(err => {
+    console.warn('[Settings API] Falha ao salvar automacoes_settings:', err.message);
+  });
+}
+
 const AUTO_TRIGGERS = [
   { id:'fase_mudou',       label:'Quando o card muda para uma fase' },
   { id:'card_criado',      label:'Quando um card é criado' },
@@ -3727,7 +3871,7 @@ function bindAutomacoesEvents() {
     const idx = parseInt(chk.dataset.idx);
     if (AUTOMACOES[idx]) {
       AUTOMACOES[idx].ativo = chk.checked;
-      localStorage.setItem('ped_automacoes_settings', JSON.stringify(AUTOMACOES));
+      saveAutomacoesData();
       chk.closest('.automacao-rule-card').classList.toggle('automacao-inativa', !chk.checked);
       showToast(chk.checked ? 'Automação ativada' : 'Automação pausada', 'success');
     }
@@ -3745,7 +3889,7 @@ function bindAutomacoesEvents() {
       if (!rule) return;
       if (!confirm(`Excluir a automação "${rule.nome}"?`)) return;
       AUTOMACOES.splice(idx, 1);
-      localStorage.setItem('ped_automacoes_settings', JSON.stringify(AUTOMACOES));
+      saveAutomacoesData();
       renderSettingsPanel('automacoes');
       showToast('Automação excluída', 'success');
     }
@@ -3923,7 +4067,7 @@ function saveAutomacao() {
     showToast('Automação criada!', 'success');
   }
 
-  localStorage.setItem('ped_automacoes_settings', JSON.stringify(AUTOMACOES));
+  saveAutomacoesData();
   closeAutoModal();
   renderSettingsPanel('automacoes');
 }
@@ -4533,7 +4677,10 @@ function loadAutomations() {
   } catch (_) { return []; }
 }
 function saveAutomations() {
-  localStorage.setItem('ped_automations', JSON.stringify(state.automations));
+  try { localStorage.setItem('ped_automations', JSON.stringify(state.automations)); } catch(_) {}
+  apiRequest('PUT', '/api/settings/automations', state.automations).catch(err => {
+    console.warn('[Settings API] Falha ao salvar automations:', err.message);
+  });
 }
 
 /* ── Engine de execução ── */
@@ -5038,7 +5185,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const _logoName = document.querySelector('.logo-name');
   if (_logoName && _ap.nomeExibicao) _logoName.textContent = _ap.nomeExibicao;
 
-  // Carrega cards do banco antes de renderizar
+  // Carrega settings e cards do banco antes de renderizar
+  await loadSettingsFromAPI();
+  refreshEscolasSelects();
   await loadCardsFromAPI();
   init();
 });
