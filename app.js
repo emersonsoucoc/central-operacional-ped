@@ -2069,7 +2069,8 @@ function openSettings() {
   document.querySelector('.view-toggle').classList.add('hidden');
   document.querySelector('.topbar-search').classList.add('hidden');
 
-  // Oculta kanban/list/stats e exibe settings
+  // Oculta kanban/list/stats/dashboard e exibe settings
+  closeDashboard();
   document.getElementById('statsBar').classList.add('hidden');
   document.getElementById('kanbanView').classList.add('hidden');
   document.getElementById('listView').classList.add('hidden');
