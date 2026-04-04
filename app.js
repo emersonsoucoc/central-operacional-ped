@@ -1760,31 +1760,153 @@ async function generatePaymentLink(cardId) {
   }
 }
 
-function confirmPayment(cardId) {
+// Gera PDF do comprovante usando jsPDF e retorna um File
+async function generateReceiptPdf(card, txData) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const valorFmt = formatCurrency(card.valor) || 'N/A';
+  const tipo     = (card.tipoPagamento || 'link').toUpperCase();
+  const txCode   = card.codigoTransacao || card.id;
+  const dataHora = now();
+  const txAmount = (txData && txData.amount != null)
+    ? 'R$ ' + Number(txData.amount).toFixed(2).replace('.', ',')
+    : valorFmt;
+  const txStatus = (txData && txData.status) ? txData.status : 'PAGO';
+
+  const pageW = doc.internal.pageSize.getWidth();
+  const cx = pageW / 2;
+
+  // ── Cabeçalho verde ─────────────────────────────────────────────────────
+  doc.setFillColor(16, 185, 129); // #10B981
+  doc.rect(0, 0, pageW, 52, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(255, 255, 255);
+  doc.text('✓  Comprovante de Pagamento', cx, 22, { align: 'center' });
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Grupo PED — Central Operacional', cx, 32, { align: 'center' });
+
+  // ── Valor em destaque ───────────────────────────────────────────────────
+  doc.setFillColor(240, 253, 244); // #F0FDF4
+  doc.rect(0, 52, pageW, 30, 'F');
+
+  doc.setFontSize(10);
+  doc.setTextColor(107, 114, 128);
+  doc.text('VALOR PAGO', cx, 62, { align: 'center' });
+
+  doc.setFontSize(26);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(6, 95, 70); // #065F46
+  doc.text(txAmount, cx, 76, { align: 'center' });
+
+  // ── Linhas de dados ─────────────────────────────────────────────────────
+  const rows = [
+    ['Descrição',          card.titulo || 'Cobrança'],
+    ['Código da Transação', txCode],
+    ['Forma de Pagamento',  tipo],
+    ['Status',             txStatus],
+    ['Data / Hora',        dataHora],
+  ];
+  if (card.fornecedor) rows.push(['Cliente / Aluno', card.fornecedor]);
+  if (card.numDoc)     rows.push(['Referência',      card.numDoc]);
+
+  let y = 98;
+  const labelX = 20;
+  const valueX = pageW - 20;
+
+  doc.setFontSize(10);
+  rows.forEach(([label, value]) => {
+    // linha separadora
+    doc.setDrawColor(243, 244, 246);
+    doc.line(20, y - 3, pageW - 20, y - 3);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(107, 114, 128);
+    doc.text(label, labelX, y + 4);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(17, 24, 39);
+    const valStr = String(value);
+    // Quebra linha se muito longo
+    const lines = doc.splitTextToSize(valStr, 90);
+    doc.text(lines, valueX, y + 4, { align: 'right' });
+
+    y += 14 + (lines.length - 1) * 5;
+  });
+
+  // ── Rodapé ───────────────────────────────────────────────────────────────
+  doc.setFillColor(249, 250, 251);
+  const pageH = doc.internal.pageSize.getHeight();
+  doc.rect(0, pageH - 20, pageW, 20, 'F');
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(156, 163, 175);
+  doc.text(`Gerado automaticamente pela Central Operacional Grupo PED · ${dataHora}`, cx, pageH - 9, { align: 'center' });
+
+  // Converte para File
+  const pdfBlob = doc.output('blob');
+  const fileName = `comprovante_${txCode}.pdf`;
+  return new File([pdfBlob], fileName, { type: 'application/pdf' });
+}
+
+async function confirmPayment(cardId) {
   const card = allCards.find(c => c.id === cardId);
   if (!card) return;
 
-  const modCfgC     = MODULES[card.modulo] || {};
-  card.linkStatus   = 'pago';
-  const oldFaseC    = card.fase;
-  const oldLabelC   = getPhaseStyle(card.modulo, oldFaseC).label;
-  const confirmPhase = modCfgC.paymentConfirmPhase || 'pagamento_efetuado';
-  card.fase          = confirmPhase;
-  const newConfLabel = getPhaseStyle(card.modulo, confirmPhase).label;
-  card.historico.push({
-    texto:   `<strong>Pagamento confirmado</strong> — ${formatCurrency(card.valor) || 'valor não informado'} via ${(card.tipoPagamento || 'link').toUpperCase()}`,
-    data:    now(),
-    usuario: 'Emerson Santos',
-  });
-  card.historico.push({
-    texto:   `Movido de <strong>${oldLabelC}</strong> para <strong>${newConfLabel}</strong>`,
-    data:    now(),
-    usuario: 'Emerson Santos',
-  });
+  const btn = document.getElementById('confirmPaymentBtn');
+  if (btn) { btn.textContent = 'Confirmando...'; btn.disabled = true; }
 
-  showToast('Pagamento confirmado! 🎉', 'success');
-  closeModal();
-  renderAll();
+  try {
+    // 1. Tenta buscar dados da transação na e-Rede
+    let txData = null;
+    if (card.codigoTransacao) {
+      try {
+        const r = await fetch(`${PAYMENT_BACKEND_URL}/api/status-link/${encodeURIComponent(card.codigoTransacao)}`);
+        if (r.ok) txData = await r.json();
+      } catch (_) { /* usa dados locais como fallback */ }
+    }
+
+    // 2. Gera PDF do comprovante e anexa ao card
+    const pdfFile = await generateReceiptPdf(card, txData);
+    addCardFile(cardId, pdfFile);
+
+    // 3. Atualiza estado do card
+    const modCfgC      = MODULES[card.modulo] || {};
+    card.linkStatus    = 'pago';
+    const oldFaseC     = card.fase;
+    const oldLabelC    = getPhaseStyle(card.modulo, oldFaseC).label;
+    const confirmPhase = modCfgC.paymentConfirmPhase || 'pagamento_efetuado';
+    card.fase          = confirmPhase;
+    const newConfLabel = getPhaseStyle(card.modulo, confirmPhase).label;
+
+    card.historico.push({
+      texto:   `<strong>Pagamento confirmado</strong> — ${formatCurrency(card.valor) || 'valor não informado'} via ${(card.tipoPagamento || 'link').toUpperCase()}`,
+      data:    now(),
+      usuario: 'Emerson Santos',
+    });
+    card.historico.push({
+      texto:   `Comprovante PDF gerado e anexado: <strong>${pdfFile.name}</strong>`,
+      data:    now(),
+      usuario: 'Sistema',
+    });
+    card.historico.push({
+      texto:   `Movido de <strong>${oldLabelC}</strong> para <strong>${newConfLabel}</strong>`,
+      data:    now(),
+      usuario: 'Emerson Santos',
+    });
+
+    showToast('Pagamento confirmado! Comprovante PDF anexado ao card ✅', 'success');
+    closeModal();
+    renderAll();
+
+  } catch (err) {
+    if (btn) { btn.textContent = 'Confirmar Recebimento'; btn.disabled = false; }
+    showToast(`Erro ao confirmar: ${err.message}`, 'error');
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
