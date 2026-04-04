@@ -328,6 +328,17 @@ app.put('/api/settings', async (req, res) => {
   finally { client.release(); }
 });
 
+// DELETE /api/settings/:key — remove uma chave de settings
+app.delete('/api/settings/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+    if (!key || typeof key !== 'string') return res.status(400).json({ error: 'key invalida.' });
+    const result = await pool.query('DELETE FROM settings WHERE key = $1', [key]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Configuracao nao encontrada.' });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 /* ── Integração e-Rede — Link de Pagamento ── */
 
 const CLIENT_ID     = process.env.REDE_CLIENT_ID;

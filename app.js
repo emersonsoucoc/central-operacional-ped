@@ -64,7 +64,11 @@ let USERS = JSON.parse(localStorage.getItem('ped_users') || 'null') || [
 ];
 
 function saveUsers() {
-  localStorage.setItem('ped_users', JSON.stringify(USERS));
+  try { localStorage.setItem('ped_users', JSON.stringify(USERS)); } catch(_) {}
+  // Persiste no PostgreSQL
+  apiRequest('PUT', '/api/settings/users', USERS).catch(err => {
+    console.warn('[Settings API] Falha ao salvar users:', err.message);
+  });
 }
 
 /* ─── Reset de emergência via URL (?reset=1) ───────────────────────────────
@@ -73,9 +77,13 @@ function saveUsers() {
 ─────────────────────────────────────────────────────────────────────────── */
 (function () {
   if (new URLSearchParams(window.location.search).get('reset') === '1') {
+    // Limpa localStorage
     localStorage.removeItem('ped_users');
     localStorage.removeItem('ped_auth_user');
     localStorage.removeItem('ped_usuarios');
+    // Limpa do PostgreSQL também (fire-and-forget)
+    fetch(`${PAYMENT_BACKEND_URL}/api/settings/users`, { method: 'DELETE' }).catch(() => {});
+    fetch(`${PAYMENT_BACKEND_URL}/api/settings/usuarios`, { method: 'DELETE' }).catch(() => {});
     // Redireciona sem o parâmetro para evitar reset em F5
     const clean = window.location.pathname + (window.location.hash || '');
     window.location.replace(clean);
@@ -633,6 +641,17 @@ async function loadSettingsFromAPI() {
         MODULES = data.modules;
         try { localStorage.setItem('ped_modules', JSON.stringify(MODULES)); } catch(_) {}
         changed = true;
+      }
+      // Carrega USERS (lista de login com permissões)
+      if (data.users && Array.isArray(data.users) && data.users.length > 0) {
+        USERS.length = 0;
+        data.users.forEach(u => USERS.push(u));
+        try { localStorage.setItem('ped_users', JSON.stringify(USERS)); } catch(_) {}
+      }
+      // Carrega tema (dark/light)
+      if (data.theme && typeof data.theme === 'string') {
+        document.documentElement.dataset.theme = data.theme;
+        try { localStorage.setItem('ped_theme', data.theme); } catch(_) {}
       }
       if (changed) {
         // Re-aplica cor principal se mudou
@@ -2939,9 +2958,13 @@ function shadeColor(hex, percent) {
 /* ── Tema claro / escuro ── */
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
-  localStorage.setItem('ped_theme', theme);
+  try { localStorage.setItem('ped_theme', theme); } catch(_) {}
+  // Persiste no PostgreSQL
+  apiRequest('PUT', '/api/settings/theme', theme).catch(err => {
+    console.warn('[Settings API] Falha ao salvar theme:', err.message);
+  });
 }
-/* Aplica tema salvo ao carregar */
+/* Aplica tema salvo ao carregar (localStorage como fallback rápido) */
 (function() {
   const saved = localStorage.getItem('ped_theme');
   if (saved) document.documentElement.dataset.theme = saved;
