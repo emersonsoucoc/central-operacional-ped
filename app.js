@@ -502,10 +502,54 @@ const settingsData = {
   ],
 };
 
-/* Carrega usuários salvos do localStorage (sobrescreve seed se existir) */
+/* ── Persistência completa do settingsData ────────────────────
+   Cada seção salva em chave separada para evitar conflitos.
+   Carrega do localStorage ao iniciar; sobrescreve os defaults. */
+const SETTINGS_KEYS = {
+  escolas:    'ped_escolas',
+  etiquetas:  'ped_etiquetas',
+  aparencia:  'ped_aparencia',
+  usuarios:   'ped_usuarios',
+};
+
+function saveSettingsData(section) {
+  if (section) {
+    try { localStorage.setItem(SETTINGS_KEYS[section], JSON.stringify(settingsData[section])); } catch(_) {}
+  } else {
+    Object.keys(SETTINGS_KEYS).forEach(k => {
+      try { localStorage.setItem(SETTINGS_KEYS[k], JSON.stringify(settingsData[k])); } catch(_) {}
+    });
+  }
+}
+
+/* Carrega todas as seções salvas do localStorage */
 (function() {
-  const saved = localStorage.getItem('ped_usuarios');
-  if (saved) { try { settingsData.usuarios = JSON.parse(saved); } catch(e) {} }
+  Object.entries(SETTINGS_KEYS).forEach(([section, key]) => {
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') settingsData[section] = parsed;
+      }
+    } catch(_) {}
+  });
+})();
+
+/* Restaura cor principal e nome salvo ao carregar a página */
+(function() {
+  const { corPrimaria } = settingsData.aparencia;
+  if (corPrimaria && corPrimaria !== '#3B82F6') {
+    document.documentElement.style.setProperty('--accent',       corPrimaria);
+    document.documentElement.style.setProperty('--accent-hover', shadeColorEarly(corPrimaria, -15));
+    document.documentElement.style.setProperty('--accent-light', shadeColorEarly(corPrimaria, 85));
+  }
+  function shadeColorEarly(hex, pct) {
+    const n = parseInt(hex.replace('#',''),16);
+    const r = Math.min(255, Math.max(0, (n >> 16) + Math.round(pct * 2.55)));
+    const g = Math.min(255, Math.max(0, ((n >> 8) & 0xff) + Math.round(pct * 2.55)));
+    const b = Math.min(255, Math.max(0, (n & 0xff) + Math.round(pct * 2.55)));
+    return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+  }
 })();
 
 const CORES_PALETTE = [
@@ -2025,6 +2069,7 @@ function bindEscolasEvents() {
       const escola = settingsData.escolas.find(s => s.id === id);
       if (escola) {
         escola.ativa = btn.checked;
+        saveSettingsData('escolas');
         const label = btn.closest('.escola-status-toggle').querySelector('span');
         if (label) label.textContent = escola.ativa ? 'Ativa' : 'Inativa';
       }
@@ -2033,6 +2078,7 @@ function bindEscolasEvents() {
     if (action === 'del-escola') {
       if (confirm('Remover esta escola do sistema?')) {
         settingsData.escolas = settingsData.escolas.filter(s => s.id !== id);
+        saveSettingsData('escolas');
         renderSettingsPanel('escolas');
         showToast('Escola removida', 'success');
       }
@@ -2096,6 +2142,7 @@ function saveEscola() {
     showToast('Escola adicionada com sucesso', 'success');
   }
 
+  saveSettingsData('escolas');
   closeEscolaModal();
   renderSettingsPanel('escolas');
 }
@@ -2537,6 +2584,7 @@ function bindEtiquetasEvents() {
     if (!del) return;
     const { id } = del.dataset;
     settingsData.etiquetas = settingsData.etiquetas.filter(et => et.id !== id);
+    saveSettingsData('etiquetas');
     renderSettingsPanel('etiquetas');
     showToast('Etiqueta removida', 'success');
   });
@@ -2548,6 +2596,7 @@ function addEtiqueta() {
   if (!nome) { showToast('Digite um nome para a etiqueta', 'warn'); return; }
   const id = 'et' + Date.now();
   settingsData.etiquetas.push({ id, nome, cor });
+  saveSettingsData('etiquetas');
   renderSettingsPanel('etiquetas');
   showToast(`Etiqueta "${nome}" criada`, 'success');
 }
@@ -2661,6 +2710,7 @@ function bindAparenciaEvents() {
     const reader = new FileReader();
     reader.onload = ev => {
       settingsData.aparencia.logo = ev.target.result;
+      saveSettingsData('aparencia');
       renderSettingsPanel('aparencia');
       showToast('Logo atualizada com sucesso', 'success');
     };
@@ -2671,6 +2721,7 @@ function bindAparenciaEvents() {
   if (removeLogoBtn) {
     removeLogoBtn.addEventListener('click', () => {
       settingsData.aparencia.logo = null;
+      saveSettingsData('aparencia');
       renderSettingsPanel('aparencia');
       showToast('Logo removida', 'success');
     });
@@ -2680,6 +2731,7 @@ function bindAparenciaEvents() {
     const val = document.getElementById('nomeExibicaoInput').value.trim();
     if (!val) { showToast('Digite um nome valido', 'warn'); return; }
     settingsData.aparencia.nomeExibicao = val;
+    saveSettingsData('aparencia');
     const logoNameEl = document.querySelector('.logo-name');
     if (logoNameEl) logoNameEl.textContent = val;
     renderSettingsPanel('aparencia');
@@ -2720,6 +2772,7 @@ function bindAparenciaEvents() {
     document.documentElement.style.setProperty('--accent',       cor);
     document.documentElement.style.setProperty('--accent-hover', shadeColor(cor, -15));
     document.documentElement.style.setProperty('--accent-light', shadeColor(cor, 85));
+    saveSettingsData('aparencia');
     showToast('Cor principal aplicada ao sistema', 'success');
     renderSettingsPanel('aparencia');
   });
@@ -3040,7 +3093,7 @@ function removeFromLoginUsers(id) {
 }
 
 function saveUsuariosData() {
-  localStorage.setItem('ped_usuarios', JSON.stringify(settingsData.usuarios));
+  saveSettingsData('usuarios');
 }
 
 function saveUsuario() {
@@ -4980,6 +5033,11 @@ function initAutomationPanel() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Aplica configurações de aparência salvas à sidebar
+  const _ap = settingsData.aparencia;
+  const _logoName = document.querySelector('.logo-name');
+  if (_logoName && _ap.nomeExibicao) _logoName.textContent = _ap.nomeExibicao;
+
   // Carrega cards do banco antes de renderizar
   await loadCardsFromAPI();
   init();
