@@ -377,6 +377,13 @@ const settingsData = {
     nomeExibicao: 'Central Ops',
     logo: null,
   },
+  usuarios: [
+    { id:'usr1', nome:'Emerson Santos',  email:'emerson.santos@grupoped.com.br', perfil:'admin',        escolas:['ped1','ped2','ped3','ped4'], ativo:true,  criadoEm:'2026-01-10' },
+    { id:'usr2', nome:'Maria Silva',     email:'maria.silva@grupoped.com.br',    perfil:'gestor',       escolas:['ped1','ped2'],              ativo:true,  criadoEm:'2026-01-15' },
+    { id:'usr3', nome:'João Oliveira',   email:'joao.oliveira@grupoped.com.br',  perfil:'operador',     escolas:['ped3'],                     ativo:true,  criadoEm:'2026-02-01' },
+    { id:'usr4', nome:'Ana Costa',       email:'ana.costa@grupoped.com.br',      perfil:'operador',     escolas:['ped1','ped4'],              ativo:true,  criadoEm:'2026-02-10' },
+    { id:'usr5', nome:'Carlos Mendes',   email:'carlos.mendes@grupoped.com.br',  perfil:'visualizador', escolas:['ped2'],                     ativo:false, criadoEm:'2026-03-05' },
+  ],
 };
 
 const CORES_PALETTE = [
@@ -1873,7 +1880,9 @@ function renderSettingsPanel(tab) {
     case 'escolas':    container.innerHTML = buildPanelEscolas();   bindEscolasEvents();   break;
     case 'fluxos':     container.innerHTML = buildPanelFluxos();    bindFluxosEvents();    break;
     case 'etiquetas':  container.innerHTML = buildPanelEtiquetas(); bindEtiquetasEvents(); break;
-    case 'aparencia':  container.innerHTML = buildPanelAparencia(); bindAparenciaEvents(); break;
+    case 'aparencia':   container.innerHTML = buildPanelAparencia();  bindAparenciaEvents();  break;
+    case 'automacoes':  container.innerHTML = buildPanelAutomacoes(); bindAutomacoesEvents(); break;
+    case 'usuarios':    container.innerHTML = buildPanelUsuarios();   bindUsuariosEvents();   break;
   }
 }
 
@@ -2687,6 +2696,242 @@ function shadeColor(hex, percent) {
   const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + Math.round(percent * 2.55)));
   const b = Math.min(255, Math.max(0, (num & 0xff) + Math.round(percent * 2.55)));
   return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+/* ══════════════════════════════════════════════════════════
+   PAINEL: USUÁRIOS
+══════════════════════════════════════════════════════════ */
+
+const PERFIS = {
+  admin:        { label:'Administrador', cor:'#3B82F6', desc:'Acesso total ao sistema e às configurações' },
+  gestor:       { label:'Gestor',        cor:'#8B5CF6', desc:'Acesso total aos módulos, sem configurações' },
+  operador:     { label:'Operador',      cor:'#10B981', desc:'Cria, edita e move cards' },
+  visualizador: { label:'Visualizador',  cor:'#94A3B8', desc:'Somente leitura' },
+};
+
+let _editingUserId = null;
+
+function buildPanelUsuarios() {
+  const total  = settingsData.usuarios.length;
+  const ativos = settingsData.usuarios.filter(u => u.ativo).length;
+
+  const rows = settingsData.usuarios.map(u => {
+    const perfil   = PERFIS[u.perfil] || PERFIS.visualizador;
+    const initials = u.nome.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase();
+    const escolasNome = (u.escolas || [])
+      .map(id => { const e = settingsData.escolas.find(s => s.id === id); return e ? e.sigla : id; })
+      .join(', ') || '—';
+
+    return `
+    <div class="user-item ${u.ativo ? '' : 'user-item--inactive'}" data-id="${escHtml(u.id)}">
+      <div class="user-avatar" style="background:${perfil.cor}">${escHtml(initials)}</div>
+      <div class="user-info">
+        <div class="user-info-nome">${escHtml(u.nome)}</div>
+        <div class="user-info-email">${escHtml(u.email)}</div>
+        <div class="user-info-meta">
+          <span class="user-perfil-badge" style="background:${perfil.cor}20;color:${perfil.cor}">${perfil.label}</span>
+          <span class="user-escolas-tag">${escHtml(escolasNome)}</span>
+        </div>
+      </div>
+      <div class="user-status-toggle">
+        <label class="toggle-switch" title="${u.ativo ? 'Ativo' : 'Inativo'}">
+          <input type="checkbox" data-action="toggle-usuario" data-id="${escHtml(u.id)}" ${u.ativo ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-size:11px;color:var(--quadro-muted)">${u.ativo ? 'Ativo' : 'Inativo'}</span>
+      </div>
+      <div class="user-actions">
+        <button class="btn-icon-sm" data-action="edit-usuario" data-id="${escHtml(u.id)}" title="Editar usuário">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M9.5 1.5l2 2-7 7H2.5v-2l7-7z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="btn-icon-sm btn-icon-danger" data-action="del-usuario" data-id="${escHtml(u.id)}" title="Remover usuário">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2 3.5h9M5 3.5V2h3v1.5M3 3.5l.8 7h5.4l.8-7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const escolaCheckboxes = settingsData.escolas.map(e => `
+    <label class="user-escola-check">
+      <input type="checkbox" name="usr-escola" value="${escHtml(e.id)}">
+      <span class="user-escola-check-dot" style="background:${e.cor}"></span>
+      ${escHtml(e.nome)}
+    </label>`).join('');
+
+  const perfilOptions = Object.entries(PERFIS).map(([key, p]) =>
+    `<option value="${key}">${p.label} — ${p.desc}</option>`
+  ).join('');
+
+  return `
+    <div class="settings-panel-header">
+      <div>
+        <h2>Usuários</h2>
+        <p>Gerencie quem tem acesso ao sistema (${ativos} ativos de ${total})</p>
+      </div>
+      <button class="btn-primary" id="addUsuarioBtn">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M6.5 1.5v10M1.5 6.5h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Adicionar Usuário
+      </button>
+    </div>
+
+    <div class="user-filter-row">
+      <input type="text" id="userSearchInput" class="user-search-input" placeholder="Buscar por nome ou e-mail…">
+      <select id="userPerfilFilter" class="user-perfil-filter">
+        <option value="">Todos os perfis</option>
+        ${Object.entries(PERFIS).map(([k,p]) => `<option value="${k}">${p.label}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="settings-card" id="userListCard">
+      ${rows || '<p style="padding:24px;color:var(--quadro-muted);text-align:center">Nenhum usuário cadastrado.</p>'}
+    </div>
+
+    <div class="escola-modal-overlay" id="userModalOverlay">
+      <div class="escola-modal" style="max-width:500px">
+        <div class="escola-modal-header">
+          <h3 id="userModalTitle">Adicionar Usuário</h3>
+          <button class="escola-modal-close" id="userModalClose">&times;</button>
+        </div>
+        <div class="escola-modal-body" style="display:flex;flex-direction:column;gap:16px">
+          <div class="form-group">
+            <label class="form-label">Nome completo *</label>
+            <input type="text" id="userNomeInput" class="form-input" placeholder="Ex: Maria Silva">
+          </div>
+          <div class="form-group">
+            <label class="form-label">E-mail *</label>
+            <input type="email" id="userEmailInput" class="form-input" placeholder="Ex: maria@grupoped.com.br">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Perfil de acesso *</label>
+            <select id="userPerfilInput" class="form-input">${perfilOptions}</select>
+            <p class="form-hint" id="userPerfilHint"></p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Escolas com acesso *</label>
+            <div class="user-escolas-checks">${escolaCheckboxes}</div>
+          </div>
+        </div>
+        <div class="escola-modal-footer">
+          <button class="btn-secondary" id="userModalCancel">Cancelar</button>
+          <button class="btn-primary" id="userModalSave">Salvar Usuário</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindUsuariosEvents() {
+  document.getElementById('addUsuarioBtn').addEventListener('click', () => openUserModal(null));
+  document.getElementById('userSearchInput').addEventListener('input', filterUserList);
+  document.getElementById('userPerfilFilter').addEventListener('change', filterUserList);
+  document.getElementById('userModalClose').addEventListener('click', closeUserModal);
+  document.getElementById('userModalCancel').addEventListener('click', closeUserModal);
+  document.getElementById('userModalSave').addEventListener('click', saveUsuario);
+  document.getElementById('userPerfilInput').addEventListener('change', function() {
+    const perfil = PERFIS[this.value];
+    document.getElementById('userPerfilHint').textContent = perfil ? perfil.desc : '';
+  });
+  document.getElementById('userListCard').addEventListener('click', e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.action === 'edit-usuario') {
+      openUserModal(id);
+    } else if (btn.dataset.action === 'del-usuario') {
+      const u = settingsData.usuarios.find(u => u.id === id);
+      if (!u) return;
+      if (!confirm(`Remover o usuário "${u.nome}"? Esta ação não pode ser desfeita.`)) return;
+      settingsData.usuarios = settingsData.usuarios.filter(u => u.id !== id);
+      renderSettingsPanel('usuarios');
+      showToast('Usuário removido.', 'success');
+    } else if (btn.dataset.action === 'toggle-usuario') {
+      const u = settingsData.usuarios.find(u => u.id === id);
+      if (u) {
+        u.ativo = !u.ativo;
+        const item = btn.closest('.user-item');
+        if (item) {
+          item.classList.toggle('user-item--inactive', !u.ativo);
+          const statusText = item.querySelector('.user-status-toggle span');
+          if (statusText) statusText.textContent = u.ativo ? 'Ativo' : 'Inativo';
+        }
+      }
+    }
+  });
+}
+
+function openUserModal(id) {
+  _editingUserId = id;
+  const overlay = document.getElementById('userModalOverlay');
+  document.getElementById('userNomeInput').value  = '';
+  document.getElementById('userEmailInput').value = '';
+  document.getElementById('userPerfilInput').value = 'operador';
+  document.getElementById('userPerfilHint').textContent = PERFIS.operador.desc;
+  document.querySelectorAll('input[name="usr-escola"]').forEach(cb => cb.checked = false);
+  if (id) {
+    const u = settingsData.usuarios.find(u => u.id === id);
+    if (!u) return;
+    document.getElementById('userModalTitle').textContent = 'Editar Usuário';
+    document.getElementById('userNomeInput').value   = u.nome;
+    document.getElementById('userEmailInput').value  = u.email;
+    document.getElementById('userPerfilInput').value = u.perfil;
+    document.getElementById('userPerfilHint').textContent = PERFIS[u.perfil]?.desc || '';
+    (u.escolas || []).forEach(eid => {
+      const cb = document.querySelector(`input[name="usr-escola"][value="${eid}"]`);
+      if (cb) cb.checked = true;
+    });
+  } else {
+    document.getElementById('userModalTitle').textContent = 'Adicionar Usuário';
+    document.querySelectorAll('input[name="usr-escola"]').forEach(cb => cb.checked = true);
+  }
+  overlay.classList.add('active');
+  document.getElementById('userNomeInput').focus();
+}
+
+function closeUserModal() {
+  document.getElementById('userModalOverlay').classList.remove('active');
+  _editingUserId = null;
+}
+
+function saveUsuario() {
+  const nome   = document.getElementById('userNomeInput').value.trim();
+  const email  = document.getElementById('userEmailInput').value.trim();
+  const perfil = document.getElementById('userPerfilInput').value;
+  const escolas = [...document.querySelectorAll('input[name="usr-escola"]:checked')].map(cb => cb.value);
+  if (!nome)   { showToast('Informe o nome do usuário.', 'error');   return; }
+  if (!email)  { showToast('Informe o e-mail do usuário.', 'error'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('E-mail inválido.', 'error'); return; }
+  if (!escolas.length) { showToast('Selecione ao menos uma escola.', 'error'); return; }
+  if (_editingUserId) {
+    const dup = settingsData.usuarios.find(u => u.email === email && u.id !== _editingUserId);
+    if (dup) { showToast('Já existe um usuário com este e-mail.', 'error'); return; }
+    const u = settingsData.usuarios.find(u => u.id === _editingUserId);
+    if (!u) return;
+    u.nome = nome; u.email = email; u.perfil = perfil; u.escolas = escolas;
+    showToast('Usuário atualizado!', 'success');
+  } else {
+    const dup = settingsData.usuarios.find(u => u.email === email);
+    if (dup) { showToast('Já existe um usuário com este e-mail.', 'error'); return; }
+    settingsData.usuarios.push({ id:'usr'+uid(), nome, email, perfil, escolas, ativo:true, criadoEm:new Date().toISOString().slice(0,10) });
+    showToast('Usuário adicionado!', 'success');
+  }
+  closeUserModal();
+  renderSettingsPanel('usuarios');
+}
+
+function filterUserList() {
+  const search = (document.getElementById('userSearchInput')?.value || '').toLowerCase();
+  const pf     = document.getElementById('userPerfilFilter')?.value || '';
+  document.querySelectorAll('.user-item').forEach(item => {
+    const u = settingsData.usuarios.find(u => u.id === item.dataset.id);
+    if (!u) return;
+    const ok = (!search || u.nome.toLowerCase().includes(search) || u.email.toLowerCase().includes(search)) && (!pf || u.perfil === pf);
+    item.style.display = ok ? '' : 'none';
+  });
 }
 
 /* ══════════════════════════════════════════════════════════

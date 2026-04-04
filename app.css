@@ -1899,3 +1899,55 @@ form { display:flex; flex-direction:column; gap:14px; }
   .login-divider { color:rgba(148,163,184,0.4); }
   .login-divider::before,.login-divider::after { background:rgba(148,163,184,0.15); }
 }
+
+/* ══════════════════════════════════════════════════════════
+   USUÁRIOS — Painel de Gestão de Usuários
+══════════════════════════════════════════════════════════ */
+
+.user-filter-row { display:flex; gap:10px; margin-bottom:14px; }
+.user-search-input {
+  flex:1; padding:8px 12px; border:1px solid var(--quadro-border);
+  border-radius:7px; background:var(--quadro-surface); color:var(--quadro-text);
+  font-size:13px; outline:none; transition:border-color var(--t-fast);
+}
+.user-search-input:focus { border-color:var(--accent); }
+.user-perfil-filter {
+  padding:8px 10px; border:1px solid var(--quadro-border); border-radius:7px;
+  background:var(--quadro-surface); color:var(--quadro-text); font-size:13px;
+  outline:none; cursor:pointer; min-width:160px;
+}
+.user-item {
+  display:flex; align-items:center; gap:14px; padding:14px 18px;
+  border-bottom:1px solid var(--quadro-border); transition:background var(--t-fast);
+}
+.user-item:last-child { border-bottom:none; }
+.user-item:hover { background:var(--quadro-card); }
+.user-item--inactive { opacity:0.55; }
+.user-avatar {
+  width:40px; height:40px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; color:#fff; font-size:14px; font-weight:600;
+  flex-shrink:0; letter-spacing:0.5px;
+}
+.user-info { flex:1; min-width:0; }
+.user-info-nome  { font-size:14px; font-weight:600; color:var(--quadro-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.user-info-email { font-size:12px; color:var(--quadro-muted); margin:1px 0 5px; }
+.user-info-meta  { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.user-perfil-badge {
+  display:inline-block; padding:2px 8px; border-radius:99px;
+  font-size:11px; font-weight:600; letter-spacing:0.3px;
+}
+.user-escolas-tag {
+  font-size:11px; color:var(--quadro-muted); background:var(--quadro-card);
+  border:1px solid var(--quadro-border); border-radius:5px; padding:1px 7px;
+}
+.user-status-toggle { display:flex; flex-direction:column; align-items:center; gap:3px; flex-shrink:0; }
+.user-actions { display:flex; gap:4px; flex-shrink:0; opacity:0; transition:opacity var(--t-fast); }
+.user-item:hover .user-actions { opacity:1; }
+.user-escolas-checks { display:flex; flex-direction:column; gap:8px; padding:4px 0; }
+.user-escola-check {
+  display:flex; align-items:center; gap:8px; font-size:13px;
+  color:var(--quadro-text); cursor:pointer; user-select:none;
+}
+.user-escola-check input[type="checkbox"] { width:15px; height:15px; cursor:pointer; accent-color:var(--accent); }
+.user-escola-check-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.form-hint { font-size:11px; color:var(--quadro-muted); margin-top:4px; min-height:14px; }
