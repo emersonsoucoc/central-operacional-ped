@@ -760,6 +760,14 @@ function renderKanban() {
     });
   });
 
+  // Attach phase config (gear) button events
+  board.querySelectorAll('.column-cfg-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openPhaseEditor(btn.dataset.phase);
+    });
+  });
+
   setupDropZones();
 }
 
@@ -774,6 +782,8 @@ function buildColumnHTML(phaseKey, phase, phaseCards) {
       </div>`
     : phaseCards.map(card => buildCardHTML(card)).join('');
 
+  const isLast = MODULES[state.currentModule]?.lastPhase === phaseKey;
+
   return `
     <div class="kanban-column" data-phase="${phaseKey}">
       <div class="column-header" style="border-top-color:${phase.color}">
@@ -781,12 +791,21 @@ function buildColumnHTML(phaseKey, phase, phaseCards) {
           <span class="phase-dot" style="background:${phase.color}"></span>
           <h3 class="column-title">${escHtml(phase.label)}</h3>
           <span class="column-count">${phaseCards.length}</span>
+          ${isLast ? '<span class="phase-final-badge">Fase Final</span>' : ''}
         </div>
-        <button class="column-add-btn" data-phase="${phaseKey}" title="Adicionar">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </button>
+        <div class="column-header-actions">
+          <button class="column-cfg-btn" data-phase="${phaseKey}" title="Editar fase">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.93 2.93l1.06 1.06M10.01 10.01l1.06 1.06M2.93 11.07l1.06-1.06M10.01 3.99l1.06-1.06" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button class="column-add-btn" data-phase="${phaseKey}" title="Adicionar card">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
       <div class="column-body" id="col-${phaseKey}" data-phase="${phaseKey}">
         ${cardsHTML}
@@ -3300,6 +3319,7 @@ function init() {
   // Carrega automações salvas
   state.automations = loadAutomations();
   initAutomationPanel();
+  initPhaseEditor();
 
   const initialHash = location.hash.slice(1);
   if (initialHash === 'configuracoes') openSettings();
@@ -3307,6 +3327,126 @@ function init() {
 
   console.log('%c🏫 Central Operacional — Grupo PED', 'color:#3B82F6;font-weight:bold;font-size:14px');
   console.log(`%c${Object.keys(MODULES).length} módulos · ${allCards.length} cards de exemplo`, 'color:#64748B;font-size:12px');
+}
+
+/* ══════════════════════════════════════════════════════════
+   EDITOR DE FASE — Configuração por coluna do Kanban
+══════════════════════════════════════════════════════════ */
+
+const PHASE_COLORS = [
+  '#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444',
+  '#EC4899','#06B6D4','#F97316','#6366F1','#14B8A6',
+  '#84CC16','#A855F7','#64748B','#0EA5E9','#D946EF',
+];
+const PHASE_BG_COLORS = [
+  '#EFF6FF','#F5F3FF','#ECFDF5','#FFFBEB','#FEF2F2',
+  '#FDF2F8','#F0FDFA','#FFF7ED','#EEF2FF','#F0FDFA',
+  '#F7FEE7','#FAF5FF','#F8FAFC','#F0F9FF','#FDF4FF',
+];
+
+let _editingPhaseKey = null;
+
+function openPhaseEditor(phaseKey) {
+  const mod   = getCurrentModule();
+  const phase = mod.fases[phaseKey];
+  if (!phase) return;
+
+  _editingPhaseKey = phaseKey;
+
+  /* Preenche campos */
+  document.getElementById('phaseEditorTitle').textContent = `Editar fase — ${phase.label}`;
+  document.getElementById('phaseInputLabel').value        = phase.label;
+  document.getElementById('phaseColorCustom').value       = phase.color  || '#3B82F6';
+  document.getElementById('phaseBgCustom').value          = phase.bg     || '#EFF6FF';
+  document.getElementById('phaseInputSLA').value          = phase.slaDias || '';
+  document.getElementById('phaseIsFinal').checked         = (mod.lastPhase === phaseKey);
+
+  /* Paleta de cores principais */
+  renderPhasePalette('phaseColorPalette', phase.color, PHASE_COLORS, (cor) => {
+    document.getElementById('phaseColorCustom').value = cor;
+    updatePhasePreview();
+  });
+
+  /* Paleta de cores de fundo */
+  renderPhasePalette('phaseBgPalette', phase.bg, PHASE_BG_COLORS, (cor) => {
+    document.getElementById('phaseBgCustom').value = cor;
+  });
+
+  updatePhasePreview();
+
+  /* Eventos inline de cor */
+  document.getElementById('phaseColorCustom').oninput = updatePhasePreview;
+  document.getElementById('phaseBgCustom').oninput    = () => {};
+
+  document.getElementById('phaseEditorOverlay').classList.add('active');
+  document.getElementById('phaseInputLabel').focus();
+}
+
+function renderPhasePalette(containerId, selectedColor, palette, onSelect) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = palette.map(cor => `
+    <button type="button"
+      class="phase-swatch ${cor === selectedColor ? 'selected' : ''}"
+      data-cor="${cor}"
+      style="background:${cor}"
+      title="${cor}"></button>`).join('');
+
+  el.querySelectorAll('.phase-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      el.querySelectorAll('.phase-swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+      onSelect(sw.dataset.cor);
+    });
+  });
+}
+
+function updatePhasePreview() {
+  const label = document.getElementById('phaseInputLabel').value || 'Fase';
+  const color = document.getElementById('phaseColorCustom').value;
+  document.getElementById('phasePreviewDot').style.background   = color;
+  document.getElementById('phaseEditorDot').style.background    = color;
+  document.getElementById('phasePreviewLabel').textContent      = label;
+  document.getElementById('phasePreviewLabel').style.color      = color;
+}
+
+function savePhaseEditor() {
+  const label   = document.getElementById('phaseInputLabel').value.trim();
+  if (!label) { showToast('O nome da fase não pode estar vazio', 'warn'); return; }
+
+  const color   = document.getElementById('phaseColorCustom').value;
+  const bg      = document.getElementById('phaseBgCustom').value;
+  const slaDias = parseInt(document.getElementById('phaseInputSLA').value) || 0;
+  const isFinal = document.getElementById('phaseIsFinal').checked;
+  const mod     = getCurrentModule();
+
+  /* Atualiza a fase */
+  mod.fases[_editingPhaseKey].label   = label;
+  mod.fases[_editingPhaseKey].color   = color;
+  mod.fases[_editingPhaseKey].bg      = bg;
+  mod.fases[_editingPhaseKey].slaDias = slaDias || undefined;
+
+  /* Atualiza fase final */
+  if (isFinal) mod.lastPhase = _editingPhaseKey;
+  else if (mod.lastPhase === _editingPhaseKey) mod.lastPhase = Object.keys(mod.fases).at(-1);
+
+  closePhaseEditor();
+  showToast(`Fase "${label}" atualizada!`, 'success');
+  renderAll();
+}
+
+function closePhaseEditor() {
+  document.getElementById('phaseEditorOverlay').classList.remove('active');
+  _editingPhaseKey = null;
+}
+
+function initPhaseEditor() {
+  document.getElementById('phaseEditorClose').addEventListener('click', closePhaseEditor);
+  document.getElementById('phaseEditorCancel').addEventListener('click', closePhaseEditor);
+  document.getElementById('phaseEditorSave').addEventListener('click', savePhaseEditor);
+  document.getElementById('phaseEditorOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('phaseEditorOverlay')) closePhaseEditor();
+  });
+  document.getElementById('phaseInputLabel').addEventListener('input', updatePhasePreview);
 }
 
 /* ══════════════════════════════════════════════════════════

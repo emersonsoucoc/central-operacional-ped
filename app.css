@@ -1447,3 +1447,151 @@ form { display:flex; flex-direction:column; gap:14px; }
   border-top:1px solid var(--quadro-border);
   justify-content:flex-end;
 }
+
+/* ══════════════════════════════════════════════════════════
+   COLUMN HEADER — gear icon + fase final badge
+══════════════════════════════════════════════════════════ */
+.column-header-actions {
+  display:flex; align-items:center; gap:4px;
+}
+.column-cfg-btn {
+  width:26px; height:26px; border-radius:6px;
+  border:none; background:transparent; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--quadro-muted);
+  opacity:0; transition:opacity var(--t-fast), background var(--t-fast), color var(--t-fast);
+}
+.kanban-column:hover .column-cfg-btn { opacity:1; }
+.column-cfg-btn:hover {
+  background:var(--accent-light);
+  color:var(--accent);
+}
+.phase-final-badge {
+  display:inline-flex; align-items:center;
+  padding:1px 6px; border-radius:4px;
+  background:#ECFDF5; color:#059669;
+  font-size:10px; font-weight:600;
+  margin-left:4px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   MODAL EDITAR FASE
+══════════════════════════════════════════════════════════ */
+.phase-editor-overlay {
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.42);
+  z-index:500;
+  display:none; align-items:center; justify-content:center;
+}
+.phase-editor-overlay.active {
+  display:flex;
+  animation:autoFadeIn .18s ease forwards;
+}
+
+.phase-editor-panel {
+  width:420px; max-width:calc(100vw - 32px);
+  background:var(--quadro-surface);
+  border-radius:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.22);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+  max-height:90vh;
+}
+
+.phase-editor-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 20px 14px;
+  border-bottom:1px solid var(--quadro-border);
+  flex-shrink:0;
+}
+.phase-editor-title {
+  display:flex; align-items:center; gap:10px;
+  font-size:14px; font-weight:700; color:var(--quadro-text);
+}
+.phase-editor-dot {
+  width:12px; height:12px; border-radius:50%; flex-shrink:0;
+  transition:background .2s;
+}
+
+.phase-editor-body {
+  padding:20px; overflow-y:auto; flex:1;
+}
+
+/* Paleta de cores */
+.phase-color-row {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  margin-bottom:8px;
+}
+.phase-color-palette,
+.phase-bg-palette {
+  display:flex; gap:5px; flex-wrap:wrap; flex:1;
+}
+.phase-swatch {
+  width:22px; height:22px; border-radius:5px;
+  border:2px solid transparent;
+  cursor:pointer; padding:0;
+  transition:transform var(--t-fast), border-color var(--t-fast);
+}
+.phase-swatch:hover { transform:scale(1.15); }
+.phase-swatch.selected {
+  border-color:#fff;
+  box-shadow:0 0 0 2px currentColor;
+  outline:2px solid var(--accent);
+}
+.phase-custom-color {
+  width:36px; height:28px;
+  border:1px solid var(--quadro-border);
+  border-radius:6px; cursor:pointer;
+  padding:2px; background:var(--quadro-card);
+}
+
+/* Prévia */
+.phase-color-preview-row {
+  display:flex; align-items:center; gap:7px;
+  padding:7px 10px; border-radius:7px;
+  background:var(--quadro-bg);
+  border:1px solid var(--quadro-border);
+}
+.phase-preview-dot {
+  width:10px; height:10px; border-radius:50%; flex-shrink:0;
+  transition:background .15s;
+}
+.phase-preview-label {
+  font-size:13px; font-weight:600;
+  transition:color .15s;
+}
+
+/* SLA */
+.phase-sla-row {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+}
+.phase-sla-hint {
+  font-size:11px; color:var(--quadro-muted); flex:1;
+}
+
+/* Fase final toggle */
+.phase-final-toggle-label {
+  display:flex; align-items:flex-start; gap:10px; cursor:pointer;
+  padding:12px; border-radius:9px;
+  border:1px solid var(--quadro-border);
+  background:var(--quadro-bg);
+  transition:border-color var(--t-fast);
+}
+.phase-final-toggle-label:hover { border-color:var(--accent); }
+.phase-final-toggle-label input[type="checkbox"] {
+  margin-top:2px; width:15px; height:15px;
+  accent-color:var(--accent); flex-shrink:0;
+}
+.phase-final-toggle-text {
+  display:flex; flex-direction:column; gap:3px;
+}
+.phase-final-toggle-text strong { font-size:13px; color:var(--quadro-text); }
+.phase-final-toggle-text small  { font-size:11px; color:var(--quadro-muted); }
+
+/* Footer */
+.phase-editor-footer {
+  display:flex; justify-content:flex-end; gap:8px;
+  padding:14px 20px;
+  border-top:1px solid var(--quadro-border);
+  flex-shrink:0;
+}

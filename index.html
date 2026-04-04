@@ -690,6 +690,83 @@
   </div>
 </div>
 
+<!-- ══ MODAL EDITAR FASE ════════════════════════════════════ -->
+<div class="phase-editor-overlay" id="phaseEditorOverlay">
+  <div class="phase-editor-panel">
+
+    <div class="phase-editor-header">
+      <div class="phase-editor-title">
+        <span class="phase-editor-dot" id="phaseEditorDot"></span>
+        <span id="phaseEditorTitle">Editar fase</span>
+      </div>
+      <button class="btn-icon-sm" id="phaseEditorClose">&#x2715;</button>
+    </div>
+
+    <div class="phase-editor-body">
+
+      <!-- Nome -->
+      <div class="form-group">
+        <label class="form-label">Nome da fase *</label>
+        <input type="text" class="form-input" id="phaseInputLabel" maxlength="40" placeholder="Ex: Em análise"/>
+      </div>
+
+      <!-- Cor -->
+      <div class="form-group">
+        <label class="form-label">Cor de identificação</label>
+        <div class="phase-color-row">
+          <div class="phase-color-palette" id="phaseColorPalette"></div>
+          <input type="color" class="phase-custom-color" id="phaseColorCustom" title="Cor personalizada"/>
+        </div>
+        <div class="phase-color-preview-row">
+          <span class="phase-preview-dot" id="phasePreviewDot"></span>
+          <span class="phase-preview-label" id="phasePreviewLabel">Prévia do nome</span>
+        </div>
+      </div>
+
+      <!-- Cor de fundo (bg) -->
+      <div class="form-group">
+        <label class="form-label">Cor de fundo do card</label>
+        <div class="phase-color-row">
+          <div class="phase-bg-palette" id="phaseBgPalette"></div>
+          <input type="color" class="phase-custom-color" id="phaseBgCustom" title="Fundo personalizado"/>
+        </div>
+      </div>
+
+      <!-- SLA -->
+      <div class="form-group">
+        <label class="form-label">SLA — prazo de alerta (dias)</label>
+        <div class="phase-sla-row">
+          <input type="number" class="form-input" id="phaseInputSLA" min="0" max="365" placeholder="Ex: 3" style="width:100px"/>
+          <span class="phase-sla-hint">Alertar quando o card estiver nesta fase por mais de X dias</span>
+        </div>
+      </div>
+
+      <!-- Fase final -->
+      <div class="form-group">
+        <label class="phase-final-toggle-label">
+          <input type="checkbox" id="phaseIsFinal"/>
+          <span class="phase-final-toggle-text">
+            <strong>Marcar como fase final</strong>
+            <small>Cards nesta fase serão contados como "Concluídos"</small>
+          </span>
+        </label>
+      </div>
+
+    </div>
+
+    <div class="phase-editor-footer">
+      <button class="btn-secondary" id="phaseEditorCancel">Cancelar</button>
+      <button class="btn-primary" id="phaseEditorSave">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Salvar fase
+      </button>
+    </div>
+
+  </div>
+</div>
+
 <!-- TOAST CONTAINER -->
 <div class="toast-container" id="toastContainer"></div>
 
