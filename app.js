@@ -874,8 +874,9 @@ function switchModule(modulo) {
   state.filterSearch  = '';
   document.getElementById('searchInput').value = '';
 
-  // Sai do modo configurações se estava ativo
+  // Sai do modo configurações ou dashboard se estava ativo
   exitSettings();
+  closeDashboard();
 
   // Update URL hash without creating a browser history entry
   if (location.hash.slice(1) !== modulo) {
@@ -1760,96 +1761,143 @@ async function generatePaymentLink(cardId) {
   }
 }
 
-// Gera PDF do comprovante usando jsPDF e retorna um File
+// Gera PDF com dados reais da e-Rede (transactionId, NSU, bandeira, etc.)
 async function generateReceiptPdf(card, txData) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
+  // ── Extrai campos reais da e-Rede ─────────────────────────────────────────
+  const tx       = (txData && Array.isArray(txData.transactions) && txData.transactions[0]) || null;
   const valorFmt = formatCurrency(card.valor) || 'N/A';
-  const tipo     = (card.tipoPagamento || 'link').toUpperCase();
   const txCode   = card.codigoTransacao || card.id;
   const dataHora = now();
-  const txAmount = (txData && txData.amount != null)
-    ? 'R$ ' + Number(txData.amount).toFixed(2).replace('.', ',')
-    : valorFmt;
-  const txStatus = (txData && txData.status) ? txData.status : 'PAGO';
+
+  // Valor: prioriza transação > link > card
+  const txAmount = tx && tx.amount != null
+    ? 'R$ ' + Number(tx.amount).toFixed(2).replace('.', ',')
+    : txData && txData.amount != null
+      ? 'R$ ' + Number(txData.amount).toFixed(2).replace('.', ',')
+      : valorFmt;
+
+  // Status real
+  const txStatus = tx ? (tx.status || 'APPROVED') : (txData && txData.status ? txData.status : 'PAGO');
+
+  // Data/hora real da transação
+  let txDateTime = dataHora;
+  if (tx && tx.dateTime) {
+    try { txDateTime = new Date(tx.dateTime).toLocaleString('pt-BR', { timeZone: 'America/Bahia' }); }
+    catch (_) { txDateTime = tx.dateTime; }
+  }
+
+  // Campos extras da e-Rede
+  const txId       = tx && tx.transactionId     ? tx.transactionId     : null;
+  const nsu        = tx && tx.nsu               ? tx.nsu               : null;
+  const authCode   = tx && tx.authorizationCode ? tx.authorizationCode : null;
+  const brand      = tx && tx.brand             ? tx.brand             : null;
+  const last4      = tx && tx.last4Digits       ? tx.last4Digits       : null;
+  const cardHolder = tx && tx.cardHolder        ? tx.cardHolder        : null;
+  const parcelas   = tx && tx.installments      ? tx.installments      : null;
+
+  // Forma de pagamento enriquecida com bandeira real
+  let tipoPgto = (card.tipoPagamento || 'link').toUpperCase();
+  if (brand)  tipoPgto = brand + (last4 ? '  ****' + last4 : '');
+  if (parcelas && parcelas > 1) tipoPgto += '  —  ' + parcelas + 'x';
 
   const pageW = doc.internal.pageSize.getWidth();
-  const cx = pageW / 2;
+  const pageH = doc.internal.pageSize.getHeight();
+  const cx    = pageW / 2;
+  const lx    = 20;
+  const vx    = pageW - 20;
 
-  // ── Cabeçalho verde ─────────────────────────────────────────────────────
-  doc.setFillColor(16, 185, 129); // #10B981
-  doc.rect(0, 0, pageW, 52, 'F');
-
+  // ── Cabeçalho verde ──────────────────────────────────────────────────────
+  doc.setFillColor(16, 185, 129);
+  doc.rect(0, 0, pageW, 48, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
+  doc.setFontSize(18);
   doc.setTextColor(255, 255, 255);
-  doc.text('✓  Comprovante de Pagamento', cx, 22, { align: 'center' });
-
-  doc.setFontSize(11);
+  doc.text('Comprovante de Pagamento', cx, 18, { align: 'center' });
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text('Grupo PED — Central Operacional', cx, 32, { align: 'center' });
+  doc.text('Grupo PED — Central Operacional', cx, 28, { align: 'center' });
+  doc.setFontSize(8);
+  doc.setTextColor(209, 250, 229);
+  doc.text('Dados gerados com informações oficiais da Rede Adquirente', cx, 38, { align: 'center' });
 
-  // ── Valor em destaque ───────────────────────────────────────────────────
-  doc.setFillColor(240, 253, 244); // #F0FDF4
-  doc.rect(0, 52, pageW, 30, 'F');
-
-  doc.setFontSize(10);
+  // ── Caixa do valor ────────────────────────────────────────────────────────
+  doc.setFillColor(240, 253, 244);
+  doc.rect(0, 48, pageW, 26, 'F');
+  doc.setFontSize(8.5);
   doc.setTextColor(107, 114, 128);
-  doc.text('VALOR PAGO', cx, 62, { align: 'center' });
-
-  doc.setFontSize(26);
+  doc.text('VALOR PAGO', cx, 57, { align: 'center' });
+  doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(6, 95, 70); // #065F46
-  doc.text(txAmount, cx, 76, { align: 'center' });
+  doc.setTextColor(6, 95, 70);
+  doc.text(txAmount, cx, 69, { align: 'center' });
 
-  // ── Linhas de dados ─────────────────────────────────────────────────────
-  const rows = [
-    ['Descrição',          card.titulo || 'Cobrança'],
-    ['Código da Transação', txCode],
-    ['Forma de Pagamento',  tipo],
-    ['Status',             txStatus],
-    ['Data / Hora',        dataHora],
-  ];
-  if (card.fornecedor) rows.push(['Cliente / Aluno', card.fornecedor]);
-  if (card.numDoc)     rows.push(['Referência',      card.numDoc]);
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  let y = 84;
 
-  let y = 98;
-  const labelX = 20;
-  const valueX = pageW - 20;
+  const sectionHeader = (label) => {
+    doc.setFillColor(239, 246, 255);
+    doc.rect(lx, y, pageW - 40, 7, 'F');
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(59, 130, 246);
+    doc.text(label, lx + 2, y + 5);
+    y += 10;
+    doc.setFontSize(9.5);
+  };
 
-  doc.setFontSize(10);
-  rows.forEach(([label, value]) => {
-    // linha separadora
-    doc.setDrawColor(243, 244, 246);
-    doc.line(20, y - 3, pageW - 20, y - 3);
-
+  const addRow = (label, value) => {
+    doc.setDrawColor(229, 231, 235);
+    doc.line(lx, y, pageW - lx, y);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(107, 114, 128);
-    doc.text(label, labelX, y + 4);
-
+    doc.text(label, lx, y + 5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(17, 24, 39);
-    const valStr = String(value);
-    // Quebra linha se muito longo
-    const lines = doc.splitTextToSize(valStr, 90);
-    doc.text(lines, valueX, y + 4, { align: 'right' });
+    const lines = doc.splitTextToSize(String(value), 95);
+    doc.text(lines, vx, y + 5, { align: 'right' });
+    y += 12 + (lines.length - 1) * 4.5;
+  };
 
-    y += 14 + (lines.length - 1) * 5;
-  });
+  // ── Seção 1: Identificação da cobrança ───────────────────────────────────
+  sectionHeader('IDENTIFICAÇÃO DA COBRANÇA');
+  addRow('Descrição',           card.titulo || 'Cobrança');
+  if (card.fornecedor) addRow('Cliente / Aluno', card.fornecedor);
+  if (card.numDoc)     addRow('Referência',      card.numDoc);
+  addRow('ID do Link (e-Rede)', txCode);
+  y += 4;
 
-  // ── Rodapé ───────────────────────────────────────────────────────────────
+  // ── Seção 2: Dados oficiais Rede (só exibe se vieram da API) ─────────────
+  if (txId || nsu || authCode) {
+    sectionHeader('DADOS OFICIAIS REDE ADQUIRENTE');
+    if (txId)     addRow('ID da Transação',     txId);
+    if (nsu)      addRow('NSU',                 nsu);
+    if (authCode) addRow('Cód. de Autorização', authCode);
+    y += 4;
+  }
+
+  // ── Seção 3: Detalhes do pagamento ───────────────────────────────────────
+  sectionHeader('DETALHES DO PAGAMENTO');
+  addRow('Forma de Pagamento', tipoPgto);
+  if (cardHolder) addRow('Nome no Cartão', cardHolder);
+  addRow('Status',             txStatus);
+  addRow('Data / Hora Pgto.',  txDateTime);
+  addRow('Gerado em',          dataHora);
+
+  // ── Rodapé ────────────────────────────────────────────────────────────────
   doc.setFillColor(249, 250, 251);
-  const pageH = doc.internal.pageSize.getHeight();
-  doc.rect(0, pageH - 20, pageW, 20, 'F');
-  doc.setFontSize(9);
+  doc.rect(0, pageH - 16, pageW, 16, 'F');
+  doc.setDrawColor(229, 231, 235);
+  doc.line(0, pageH - 16, pageW, pageH - 16);
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(156, 163, 175);
-  doc.text(`Gerado automaticamente pela Central Operacional Grupo PED · ${dataHora}`, cx, pageH - 9, { align: 'center' });
+  doc.text('Central Operacional — Grupo PED  |  Documento não substitui nota fiscal', cx, pageH - 7, { align: 'center' });
 
-  // Converte para File
   const pdfBlob = doc.output('blob');
-  const fileName = `comprovante_${txCode}.pdf`;
+  const fileName = 'comprovante_' + txCode + '.pdf';
   return new File([pdfBlob], fileName, { type: 'application/pdf' });
 }
 
@@ -3875,6 +3923,172 @@ function evaluateAutomacoes(card, eventTipo, prevFase) {
 }
 
 /* ══════════════════════════════════════════════════════════
+   DASHBOARD GERAL
+══════════════════════════════════════════════════════════ */
+
+const _dashCharts = {};
+
+function openDashboard() {
+  document.getElementById('newCardBtn')?.classList.add('hidden');
+  document.querySelector('.view-toggle')?.classList.add('hidden');
+  document.querySelector('.topbar-search')?.classList.add('hidden');
+  document.getElementById('statsBar').classList.add('hidden');
+  document.getElementById('kanbanView').classList.add('hidden');
+  document.getElementById('listView').classList.add('hidden');
+  document.getElementById('settingsView').classList.add('hidden');
+  document.getElementById('dashboardView').classList.remove('hidden');
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelector('.nav-item[data-module="dashboard"]')?.classList.add('active');
+  renderDashboard();
+}
+
+function closeDashboard() {
+  document.getElementById('dashboardView').classList.add('hidden');
+  document.getElementById('newCardBtn')?.classList.remove('hidden');
+  document.querySelector('.view-toggle')?.classList.remove('hidden');
+  document.querySelector('.topbar-search')?.classList.remove('hidden');
+}
+
+function renderDashboard() {
+  Object.keys(_dashCharts).forEach(k => { if (_dashCharts[k]) { _dashCharts[k].destroy(); delete _dashCharts[k]; } });
+
+  const cards = allCards;
+  const hoje  = new Date(); hoje.setHours(0,0,0,0);
+
+  const total      = cards.length;
+  const concluidos = cards.filter(c => MODULES[c.modulo]?.lastPhase === c.fase).length;
+  const taxaConc   = total ? Math.round((concluidos / total) * 100) : 0;
+  const slaVencido = cards.filter(c => {
+    if (!c.prazo) return false;
+    if (MODULES[c.modulo]?.lastPhase === c.fase) return false;
+    return new Date(c.prazo) < hoje;
+  });
+  const mesAtual = hoje.toISOString().slice(0,7);
+  const criados30 = cards.filter(c => (c.criadoEm || '').startsWith(mesAtual)).length;
+
+  document.getElementById('dashKpis').innerHTML = `
+    <div class="dash-kpi-card">
+      <div class="dash-kpi-icon dash-kpi-icon--blue">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
+      </div>
+      <div class="dash-kpi-body"><span class="dash-kpi-value">${total}</span><span class="dash-kpi-label">Total de Cards</span></div>
+    </div>
+    <div class="dash-kpi-card">
+      <div class="dash-kpi-icon dash-kpi-icon--green">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/><path d="M6.5 10l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="dash-kpi-body"><span class="dash-kpi-value">${concluidos}</span><span class="dash-kpi-label">Concluídos</span></div>
+    </div>
+    <div class="dash-kpi-card">
+      <div class="dash-kpi-icon ${slaVencido.length > 0 ? 'dash-kpi-icon--red' : 'dash-kpi-icon--gray'}">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <div class="dash-kpi-body"><span class="dash-kpi-value" style="color:${slaVencido.length > 0 ? '#EF4444' : 'inherit'}">${slaVencido.length}</span><span class="dash-kpi-label">SLA Vencido</span></div>
+    </div>
+    <div class="dash-kpi-card">
+      <div class="dash-kpi-icon dash-kpi-icon--purple">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 17V8l7-5 7 5v9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="7.5" y="12" width="5" height="5" rx="0.5" stroke="currentColor" stroke-width="1.5"/></svg>
+      </div>
+      <div class="dash-kpi-body"><span class="dash-kpi-value">${criados30}</span><span class="dash-kpi-label">Criados este mês</span></div>
+    </div>
+    <div class="dash-kpi-card">
+      <div class="dash-kpi-icon dash-kpi-icon--amber">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2v4M10 14v4M2 10h4M14 10h4M4.22 4.22l2.83 2.83M12.95 12.95l2.83 2.83M4.22 15.78l2.83-2.83M12.95 7.05l2.83-2.83" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <div class="dash-kpi-body"><span class="dash-kpi-value">${taxaConc}%</span><span class="dash-kpi-label">Taxa de conclusão</span></div>
+    </div>`;
+
+  // Chart: Cards por Módulo (Doughnut)
+  const MOD_COLORS = ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444','#EC4899','#06B6D4','#F97316'];
+  const modLabels = [], modData = [], modColors = [];
+  let ci = 0;
+  Object.entries(MODULES).forEach(([key, mod]) => {
+    const count = cards.filter(c => c.modulo === key).length;
+    if (count > 0) { modLabels.push(mod.shortLabel || mod.label); modData.push(count); modColors.push(MOD_COLORS[ci++ % MOD_COLORS.length]); }
+  });
+  document.getElementById('dashModuloBadge').textContent = `${modData.reduce((a,b)=>a+b,0)} cards`;
+  _dashCharts.modulo = new Chart(document.getElementById('chartPorModulo'), {
+    type: 'doughnut',
+    data: { labels: modLabels, datasets: [{ data: modData, backgroundColor: modColors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 12 }, padding: 12, usePointStyle: true } } }, cutout: '65%' }
+  });
+
+  // Chart: Cards por Escola (Bar)
+  const escLabels = settingsData.escolas.map(e => e.sigla);
+  const escData   = settingsData.escolas.map(e => cards.filter(c => c.escola === e.id).length);
+  const escColors = settingsData.escolas.map(e => e.cor);
+  document.getElementById('dashEscolaBadge').textContent = `${settingsData.escolas.length} unidades`;
+  _dashCharts.escola = new Chart(document.getElementById('chartPorEscola'), {
+    type: 'bar',
+    data: { labels: escLabels, datasets: [{ label: 'Cards', data: escData, backgroundColor: escColors.map(c => c + 'CC'), borderColor: escColors, borderWidth: 2, borderRadius: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f0f0f0' } }, x: { ticks: { font: { size: 12, weight: '600' } }, grid: { display: false } } } }
+  });
+
+  // Chart: Cards por Fase (Bar horizontal)
+  const faseMap = {};
+  cards.forEach(c => {
+    const mod = MODULES[c.modulo]; if (!mod) return;
+    const fase = mod.fases?.[c.fase];
+    const key  = fase?.label || c.fase;
+    const cor  = fase?.color || '#94A3B8';
+    if (!faseMap[key]) faseMap[key] = { count: 0, color: cor };
+    faseMap[key].count++;
+  });
+  const faseSorted = Object.entries(faseMap).sort((a,b) => b[1].count - a[1].count).slice(0,10);
+  _dashCharts.fase = new Chart(document.getElementById('chartPorFase'), {
+    type: 'bar',
+    data: { labels: faseSorted.map(([k]) => k), datasets: [{ label: 'Cards', data: faseSorted.map(([,v]) => v.count), backgroundColor: faseSorted.map(([,v]) => v.color + 'BB'), borderColor: faseSorted.map(([,v]) => v.color), borderWidth: 2, borderRadius: 5 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f0f0f0' } }, y: { ticks: { font: { size: 12 } }, grid: { display: false } } } }
+  });
+
+  // SLA Vencido
+  document.getElementById('dashSlaCount').textContent = slaVencido.length;
+  if (slaVencido.length === 0) {
+    document.getElementById('dashSlaList').innerHTML = '<p class="dash-empty">Nenhum card com SLA vencido. ✓</p>';
+  } else {
+    const sorted = [...slaVencido].sort((a,b) => new Date(a.prazo) - new Date(b.prazo));
+    document.getElementById('dashSlaList').innerHTML = sorted.slice(0,8).map(c => {
+      const mod = MODULES[c.modulo]; const fase = mod?.fases?.[c.fase];
+      const escola = settingsData.escolas.find(e => e.id === c.escola);
+      const dias = Math.floor((hoje - new Date(c.prazo)) / 86400000);
+      return `<div class="dash-sla-item" data-id="${escHtml(c.id)}">
+        <div class="dash-sla-dot" style="background:${fase?.color || '#94A3B8'}"></div>
+        <div class="dash-sla-info">
+          <span class="dash-sla-titulo">${escHtml(c.titulo)}</span>
+          <span class="dash-sla-meta">${escHtml(mod?.shortLabel || c.modulo)} · ${escHtml(escola?.sigla || c.escola)}</span>
+        </div>
+        <span class="dash-sla-dias">+${dias}d</span>
+      </div>`;
+    }).join('');
+    document.getElementById('dashSlaList').addEventListener('click', e => {
+      const item = e.target.closest('.dash-sla-item');
+      if (!item) return;
+      const card = allCards.find(c => c.id === item.dataset.id);
+      if (card) { switchModule(card.modulo); openModal(card.id); }
+    });
+  }
+
+  // Atividade Recente
+  const events = [];
+  cards.forEach(c => { (c.historico || []).forEach(h => events.push({ ...h, cardTitulo: c.titulo, cardId: c.id, modulo: c.modulo })); });
+  const parse = s => { if (!s) return 0; const [d='',t=''] = s.split(' '); const [dd='1',mm='1',aaaa='2000'] = d.split('/'); return new Date(`${aaaa}-${mm}-${dd}T${t||'00:00'}`).getTime(); };
+  events.sort((a,b) => parse(b.data) - parse(a.data));
+  document.getElementById('dashActivity').innerHTML = events.slice(0,10).map(ev => {
+    const mod = MODULES[ev.modulo];
+    return `<div class="dash-activity-item">
+      <div class="dash-activity-dot"></div>
+      <div class="dash-activity-info">
+        <span class="dash-activity-texto">${escHtml(ev.texto)}</span>
+        <span class="dash-activity-meta">${escHtml(ev.cardTitulo)} · ${escHtml(mod?.shortLabel || ev.modulo)} · ${escHtml(ev.usuario || '')}</span>
+      </div>
+      <span class="dash-activity-data">${escHtml(ev.data || '')}</span>
+    </div>`;
+  }).join('') || '<p class="dash-empty">Nenhuma atividade registrada.</p>';
+
+  document.getElementById('dashRefreshBtn').onclick = renderDashboard;
+}
+
+/* ══════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════ */
 function init() {
@@ -3882,6 +4096,7 @@ function init() {
   window.addEventListener('hashchange', () => {
     const hash = location.hash.slice(1);
     if (hash === 'configuracoes') openSettings();
+    else if (hash === 'dashboard') openDashboard();
     else if (MODULES[hash]) switchModule(hash);
   });
 
@@ -3893,6 +4108,9 @@ function init() {
       if (target === 'configuracoes') {
         history.pushState(null, '', '#configuracoes');
         openSettings();
+      } else if (target === 'dashboard') {
+        history.pushState(null, '', '#dashboard');
+        openDashboard();
       } else if (MODULES[target]) {
         history.pushState(null, '', '#' + target);
         switchModule(target);
