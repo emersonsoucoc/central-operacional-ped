@@ -514,412 +514,83 @@ const CORES_PALETTE = [
 ];
 
 /* ══════════════════════════════════════════════════════════
-   SEED DATA — Cards de Exemplo por Módulo
+   CARDS — persistidos via API PostgreSQL (Railway)
+   Fallback: localStorage para modo offline
 ══════════════════════════════════════════════════════════ */
-let allCards = [
-  /* ── SOLICITAÇÕES ── */
-  { id:'s1', modulo:'solicitacoes', titulo:'Substituição de ar-condicionado — Sala 12',
-    descricao:'Equipamento com defeito. Afeta aulas no período da tarde.',
-    fase:'pendente', prioridade:'alta', escola:'ped1', categoria:'Manutenção',
-    responsavel:'Maria Silva', criadoEm:'2026-03-20', prazo:'2026-04-05',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[{id:'cm1',autor:'Maria Silva',texto:'Técnico agendado para amanhã.',data:'2026-03-21 09:00'}],
-    historico:[{texto:'Card criado',data:'2026-03-20 08:00',usuario:'Emerson Santos'}], anexos:[] },
+const CARDS_KEY = 'ped_cards_v1';           // fallback local
+const API_URL   = PAYMENT_BACKEND_URL;       // mesmo backend e-Rede
 
-  { id:'s2', modulo:'solicitacoes', titulo:'Solicitação de notebook para coordenação pedagógica',
-    descricao:'Notebook com 8 anos de uso. Desempenho crítico.',
-    fase:'pendente', prioridade:'media', escola:'ped2', categoria:'TI',
-    responsavel:'João Costa', criadoEm:'2026-03-25', prazo:'2026-04-15',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[], historico:[{texto:'Card criado',data:'2026-03-25 10:30',usuario:'Ana Oliveira'}], anexos:[] },
+// ── Helper de fetch para a API ────────────────────────────
+async function apiRequest(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API_URL}${path}`, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error(err.error || `Erro ${res.status}`);
+  }
+  return res.json();
+}
 
-  { id:'s3', modulo:'solicitacoes', titulo:'Reposição de material de limpeza — estoque zerado',
-    descricao:'Urgente! Produtos de limpeza acabaram.',
-    fase:'pendente', prioridade:'urgente', escola:'ped3', categoria:'Compras',
-    responsavel:'', criadoEm:'2026-04-01', prazo:'2026-04-03',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[], historico:[{texto:'Card criado',data:'2026-04-01 07:30',usuario:'Pedro Alves'}], anexos:[] },
+// ── Carrega cards da API (chamado no init) ────────────────
+async function loadCardsFromAPI() {
+  try {
+    const data = await apiRequest('GET', '/api/cards');
+    if (Array.isArray(data)) {
+      allCards = data;
+      // Atualiza backup local
+      try { localStorage.setItem(CARDS_KEY, JSON.stringify(allCards)); } catch(_) {}
+      return;
+    }
+  } catch (err) {
+    console.warn('[API] Falha ao carregar cards — usando backup local:', err.message);
+  }
+  // Fallback: localStorage
+  try {
+    const raw = localStorage.getItem(CARDS_KEY);
+    if (raw) { const p = JSON.parse(raw); if (Array.isArray(p)) { allCards = p; return; } }
+  } catch(_) {}
+  allCards = [];
+}
 
-  { id:'s4', modulo:'solicitacoes', titulo:'Revisão do contrato de terceirização — vigilância',
-    descricao:'Contrato vence em maio. Avaliar renovação ou nova licitação.',
-    fase:'em_andamento', prioridade:'alta', escola:'ped1', categoria:'Financeiro',
-    responsavel:'Carla Mendes', criadoEm:'2026-03-15', prazo:'2026-04-20',
-    valor:'', fornecedor:'Segurança Total Ltda', numDoc:'CT-2024-077', vencimento:'',
-    comentarios:[{id:'cm2',autor:'Carla Mendes',texto:'Aguardando cotação de 3 empresas.',data:'2026-03-18 14:00'}],
-    historico:[
-      {texto:'Card criado',data:'2026-03-15 09:00',usuario:'Emerson Santos'},
-      {texto:'Movido para <strong>Em Andamento</strong>',data:'2026-03-17 11:00',usuario:'Carla Mendes'}
-    ], anexos:[] },
+// ── persistCards: salva backup local (não é a fonte principal) ────────────
+function persistCards() {
+  try { localStorage.setItem(CARDS_KEY, JSON.stringify(allCards)); } catch(_) {}
+}
 
-  { id:'s5', modulo:'solicitacoes', titulo:'Adequação do refeitório — Exigências ANVISA',
-    descricao:'Visita da ANVISA prevista. Ajustes na cozinha e armazenamento.',
-    fase:'aguardando_validacao', prioridade:'urgente', escola:'ped1', categoria:'Infraestrutura',
-    responsavel:'Maria Silva', criadoEm:'2026-03-05', prazo:'2026-04-08',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[{id:'cm3',autor:'Maria Silva',texto:'Laudos prontos. Aguardando aprovação da diretoria.',data:'2026-03-28 16:00'}],
-    historico:[
-      {texto:'Card criado',data:'2026-03-05 09:00',usuario:'Maria Silva'},
-      {texto:'Movido para <strong>Em Andamento</strong>',data:'2026-03-08 10:00',usuario:'Maria Silva'},
-      {texto:'Movido para <strong>Aguard. Validação</strong>',data:'2026-03-28 15:00',usuario:'Maria Silva'}
-    ], anexos:[] },
+// ── API: criar card ───────────────────────────────────────
+function apiCreateCard(card) {
+  apiRequest('POST', '/api/cards', card).catch(err => {
+    console.error('[API] Erro ao criar card:', err.message);
+    showToast('Aviso: card salvo localmente — verifique conexão.', 'warn');
+  });
+}
 
-  { id:'s6', modulo:'solicitacoes', titulo:'Configuração do sistema de ponto eletrônico',
-    descricao:'Integração com folha finalizada com sucesso.',
-    fase:'concluido', prioridade:'media', escola:'ped4', categoria:'RH',
-    responsavel:'Ana Oliveira', criadoEm:'2026-02-20', prazo:'2026-03-31',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-02-20 09:00',usuario:'Ana Oliveira'},
-      {texto:'Movido para <strong>Concluído</strong>',data:'2026-03-28 14:00',usuario:'Ana Oliveira'}
-    ], anexos:[] },
+// ── API: atualizar card ───────────────────────────────────
+function apiUpdateCard(card) {
+  apiRequest('PUT', `/api/cards/${card.id}`, card).catch(err => {
+    console.error('[API] Erro ao atualizar card:', err.message);
+  });
+}
 
-  /* ── CONTAS A PAGAR ── */
-  { id:'p1', modulo:'contas_pagar', titulo:'Fatura de energia elétrica — Abril 2026',
-    descricao:'Conta de energia da unidade principal.',
-    fase:'solicitacao_criada', prioridade:'alta', escola:'ped1', categoria:'Utilidades',
-    responsavel:'Carla Mendes', criadoEm:'2026-04-01', prazo:'2026-04-10',
-    valor:'4850.00', fornecedor:'Coelba', numDoc:'NF-2026-004123', vencimento:'2026-04-10',
-    comentarios:[], historico:[{texto:'Card criado',data:'2026-04-01 09:00',usuario:'Carla Mendes'}], anexos:[] },
+// ── API: excluir card ─────────────────────────────────────
+function apiDeleteCard(cardId) {
+  apiRequest('DELETE', `/api/cards/${cardId}`).catch(err => {
+    console.error('[API] Erro ao excluir card:', err.message);
+  });
+}
 
-  { id:'p2', modulo:'contas_pagar', titulo:'Pagamento de serviço de internet — Março/Abril',
-    descricao:'Contrato mensal de internet empresarial 1Gbps.',
-    fase:'aguardando_aprovacao', prioridade:'media', escola:'ped2', categoria:'TI',
-    responsavel:'João Costa', criadoEm:'2026-03-28', prazo:'2026-04-05',
-    valor:'1200.00', fornecedor:'Vivo Empresas', numDoc:'NF-099234', vencimento:'2026-04-05',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-03-28 09:00',usuario:'João Costa'},
-      {texto:'Movido para <strong>Aguard. Aprovação</strong>',data:'2026-03-29 10:00',usuario:'João Costa'}
-    ], anexos:[] },
+// ── API: mover card (drag & drop) ────────────────────────
+function apiMoveCard(cardId, newFase, newPosition) {
+  apiRequest('PATCH', '/api/cards/move', { cardId, newFase, newPosition }).catch(err => {
+    console.error('[API] Erro ao mover card:', err.message);
+  });
+}
 
-  { id:'p3', modulo:'contas_pagar', titulo:'Manutenção preventiva — elevadores',
-    descricao:'Manutenção trimestral obrigatória dos elevadores.',
-    fase:'aprovado', prioridade:'media', escola:'ped3', categoria:'Manutenção',
-    responsavel:'Roberto Lima', criadoEm:'2026-03-20', prazo:'2026-04-15',
-    valor:'3200.00', fornecedor:'TecnoElev Manutenção', numDoc:'OS-2026-0881', vencimento:'2026-04-15',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-03-20 09:00',usuario:'Roberto Lima'},
-      {texto:'Aprovado por <strong>Emerson Santos</strong>',data:'2026-03-22 14:00',usuario:'Emerson Santos'}
-    ], anexos:[] },
-
-  { id:'p4', modulo:'contas_pagar', titulo:'Aluguel sede administrativa — Maio 2026',
-    descricao:'Aluguel mensal da sede administrativa.',
-    fase:'aguardando_pagamento', prioridade:'alta', escola:'all', categoria:'Aluguel',
-    responsavel:'Carla Mendes', criadoEm:'2026-03-25', prazo:'2026-05-05',
-    valor:'8500.00', fornecedor:'Imóveis Brasil Ltda', numDoc:'REC-2026-00045', vencimento:'2026-05-05',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-03-25 09:00',usuario:'Carla Mendes'},
-      {texto:'Movido para <strong>Aguard. Pagamento</strong>',data:'2026-03-30 11:00',usuario:'Carla Mendes'}
-    ], anexos:[] },
-
-  { id:'p5', modulo:'contas_pagar', titulo:'Serviço de limpeza — Fevereiro 2026',
-    descricao:'Contrato de limpeza e conservação.',
-    fase:'pago', prioridade:'baixa', escola:'ped4', categoria:'Serviços',
-    responsavel:'Ana Oliveira', criadoEm:'2026-02-25', prazo:'2026-03-10',
-    valor:'6800.00', fornecedor:'LimpaMax Serviços', numDoc:'NF-20260234', vencimento:'2026-03-10',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-02-25 09:00',usuario:'Ana Oliveira'},
-      {texto:'Pago via <strong>transferência bancária</strong>',data:'2026-03-09 15:00',usuario:'Ana Oliveira'}
-    ], anexos:[] },
-
-  /* ── CONTAS A RECEBER ── */
-  { id:'r1', modulo:'contas_receber', titulo:'Mensalidades Abril — Turma 3º Ano Médio (30 alunos)',
-    descricao:'30 alunos · R$ 1.250,00/aluno. Gerar links individuais via PIX.',
-    fase:'criar_link', prioridade:'alta', escola:'ped1', categoria:'Mensalidades',
-    responsavel:'Maria Silva', criadoEm:'2026-04-01', prazo:'2026-04-10',
-    valor:'37500.00', fornecedor:'Turma 3M-A/B/C', numDoc:'', vencimento:'2026-04-10',
-    tipoPagamento:'pix', linkPagamento:'', codigoTransacao:'', linkStatus:'pendente',
-    comentarios:[], historico:[{texto:'Card criado — aguardando geração do link',data:'2026-04-01 08:00',usuario:'Maria Silva'}], anexos:[] },
-
-  { id:'r2', modulo:'contas_receber', titulo:'Matrículas novas — Abril/Maio 2026 (28 alunos)',
-    descricao:'28 novas matrículas. Boleto gerado e enviado por e-mail.',
-    fase:'aguardando_pagamento', prioridade:'alta', escola:'ped2', categoria:'Matrículas',
-    responsavel:'João Costa', criadoEm:'2026-03-20', prazo:'2026-04-15',
-    valor:'42000.00', fornecedor:'Novos alunos 2026', numDoc:'FAT-2026-0028', vencimento:'2026-04-15',
-    tipoPagamento:'boleto', linkPagamento:'https://pay.grupoped.com.br/link/TRX2B28F4A', codigoTransacao:'TRX-2B28F4A1', linkStatus:'ativo',
-    comentarios:[{id:'cm6a',autor:'João Costa',texto:'Boleto enviado para os responsáveis. Aguardando pagamento.',data:'2026-03-21 10:00'}],
-    historico:[
-      {texto:'Card criado',data:'2026-03-20 09:00',usuario:'João Costa'},
-      {texto:'Link de pagamento gerado: <strong>TRX-2B28F4A1</strong>',data:'2026-03-20 09:30',usuario:'João Costa'},
-      {texto:'Movido para <strong>Aguard. Pagamento</strong>',data:'2026-03-20 09:35',usuario:'João Costa'}
-    ], anexos:[] },
-
-  { id:'r3', modulo:'contas_receber', titulo:'Material didático — 1º Semestre 2026 (PIX em lote)',
-    descricao:'450 alunos · Pagamento via PIX. Link gerado e confirmado.',
-    fase:'pagamento_efetuado', prioridade:'media', escola:'ped3', categoria:'Material Didático',
-    responsavel:'Ana Oliveira', criadoEm:'2026-03-10', prazo:'2026-03-31',
-    valor:'58500.00', fornecedor:'Alunos 1S/2026', numDoc:'FAT-2026-0015', vencimento:'2026-03-31',
-    tipoPagamento:'pix', linkPagamento:'https://pay.grupoped.com.br/link/TRX9C74E2B', codigoTransacao:'TRX-9C74E2B3', linkStatus:'pago',
-    comentarios:[{id:'cm6b',autor:'Ana Oliveira',texto:'Pagamento confirmado automaticamente via integração.',data:'2026-03-29 14:00'}],
-    historico:[
-      {texto:'Card criado',data:'2026-03-10 09:00',usuario:'Ana Oliveira'},
-      {texto:'Link de pagamento gerado: <strong>TRX-9C74E2B3</strong>',data:'2026-03-10 09:20',usuario:'Ana Oliveira'},
-      {texto:'<strong>Pagamento efetuado</strong> — R$ 58.500,00 via PIX',data:'2026-03-29 14:00',usuario:'Sistema (Integração)'}
-    ], anexos:[] },
-
-  { id:'r4', modulo:'contas_receber', titulo:'Mensalidades Março — PED Imbuí (inadimplentes)',
-    descricao:'12 alunos com boleto vencido. Reenvio de link necessário.',
-    fase:'aguardando_pagamento', prioridade:'urgente', escola:'ped4', categoria:'Mensalidades',
-    responsavel:'Roberto Lima', criadoEm:'2026-03-01', prazo:'2026-03-15',
-    valor:'15000.00', fornecedor:'12 alunos em atraso', numDoc:'FAT-2026-0009', vencimento:'2026-03-15',
-    tipoPagamento:'boleto', linkPagamento:'https://pay.grupoped.com.br/link/TRX4D11C9F', codigoTransacao:'TRX-4D11C9F8', linkStatus:'ativo',
-    comentarios:[{id:'cm6c',autor:'Roberto Lima',texto:'Cobrança reforçada via WhatsApp. Aguardando retorno.',data:'2026-04-01 10:00'}],
-    historico:[
-      {texto:'Card criado',data:'2026-03-01 09:00',usuario:'Roberto Lima'},
-      {texto:'Link gerado e boleto enviado',data:'2026-03-01 09:30',usuario:'Roberto Lima'},
-      {texto:'Pagamento não efetuado no prazo — <strong>em atraso</strong>',data:'2026-03-16 00:01',usuario:'Sistema'}
-    ], anexos:[] },
-
-  { id:'r5', modulo:'contas_receber', titulo:'Taxa de uso de laboratório — Turmas TI',
-    descricao:'Taxa semestral confirmada. Processando faturamento final.',
-    fase:'processando', prioridade:'baixa', escola:'ped1', categoria:'Taxa de Serviços',
-    responsavel:'Carla Mendes', criadoEm:'2026-03-05', prazo:'2026-04-30',
-    valor:'9800.00', fornecedor:'Turmas TI 1S/2026', numDoc:'FAT-2026-0022', vencimento:'2026-04-30',
-    tipoPagamento:'credito', linkPagamento:'https://pay.grupoped.com.br/link/TRX7E55A1C', codigoTransacao:'TRX-7E55A1C2', linkStatus:'pago',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-03-05 09:00',usuario:'Carla Mendes'},
-      {texto:'Link gerado e pagamento confirmado',data:'2026-03-20 15:00',usuario:'Sistema (Integração)'},
-      {texto:'Movido para <strong>Processando CR</strong>',data:'2026-03-20 15:30',usuario:'Carla Mendes'}
-    ], anexos:[] },
-
-  { id:'r6', modulo:'contas_receber', titulo:'Evento Formatura — Turma 2025',
-    descricao:'Arrecadação da formatura totalmente quitada.',
-    fase:'concluido', prioridade:'baixa', escola:'ped2', categoria:'Eventos',
-    responsavel:'Carla Mendes', criadoEm:'2026-02-10', prazo:'2026-03-30',
-    valor:'24500.00', fornecedor:'Turma Formandos 2025', numDoc:'REC-2026-FORM', vencimento:'2026-03-30',
-    tipoPagamento:'pix', linkPagamento:'https://pay.grupoped.com.br/link/TRX1A88D3E', codigoTransacao:'TRX-1A88D3E9', linkStatus:'pago',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-02-10 09:00',usuario:'Carla Mendes'},
-      {texto:'Pagamento integral confirmado via PIX',data:'2026-03-28 16:00',usuario:'Sistema (Integração)'},
-      {texto:'Faturamento concluído',data:'2026-03-29 10:00',usuario:'Carla Mendes'}
-    ], anexos:[] },
-
-  /* ── COMPRAS ── */
-  { id:'c1', modulo:'compras', titulo:'Aquisição de 20 cadeiras escolares ergonômicas',
-    descricao:'Substituição das cadeiras quebradas nas salas 5 a 8.',
-    fase:'solicitacao', prioridade:'media', escola:'ped1', categoria:'Móveis',
-    responsavel:'Pedro Alves', criadoEm:'2026-03-28', prazo:'2026-04-20',
-    valor:'4600.00', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[], historico:[{texto:'Card criado',data:'2026-03-28 09:00',usuario:'Pedro Alves'}], anexos:[] },
-
-  { id:'c2', modulo:'compras', titulo:'Notebooks para laboratório de informática — 15 unidades',
-    descricao:'Renovação do parque tecnológico. Core i5, 8GB RAM.',
-    fase:'cotacao', prioridade:'alta', escola:'ped3', categoria:'Equipamentos TI',
-    responsavel:'João Costa', criadoEm:'2026-03-20', prazo:'2026-04-30',
-    valor:'52500.00', fornecedor:'Dell / Lenovo', numDoc:'COT-2026-0041', vencimento:'',
-    comentarios:[{id:'cm7',autor:'João Costa',texto:'3 cotações em andamento. Dell e Lenovo responderam.',data:'2026-03-25 14:00'}],
-    historico:[
-      {texto:'Card criado',data:'2026-03-20 09:00',usuario:'João Costa'},
-      {texto:'Movido para <strong>Cotação</strong>',data:'2026-03-22 10:00',usuario:'João Costa'}
-    ], anexos:[] },
-
-  { id:'c3', modulo:'compras', titulo:'Material de escritório — 2º Trimestre 2026',
-    descricao:'Papéis, canetas, grampos e suprimentos gerais.',
-    fase:'aprovacao', prioridade:'baixa', escola:'all', categoria:'Material de Escritório',
-    responsavel:'Ana Oliveira', criadoEm:'2026-03-10', prazo:'2026-04-05',
-    valor:'2800.00', fornecedor:'Kalunga Empresas', numDoc:'COT-2026-0038', vencimento:'',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-03-10 09:00',usuario:'Ana Oliveira'},
-      {texto:'Movido para <strong>Aprovação</strong>',data:'2026-03-15 11:00',usuario:'Ana Oliveira'}
-    ], anexos:[] },
-
-  { id:'c4', modulo:'compras', titulo:'Merenda escolar — Fornecedor Abril/Maio',
-    descricao:'Contrato de fornecimento de merenda.',
-    fase:'pedido_realizado', prioridade:'alta', escola:'ped2', categoria:'Alimentação',
-    responsavel:'Maria Silva', criadoEm:'2026-03-18', prazo:'2026-04-01',
-    valor:'18400.00', fornecedor:'NutriEscola Alimentos', numDoc:'PO-2026-0192', vencimento:'2026-04-01',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-03-18 09:00',usuario:'Maria Silva'},
-      {texto:'Pedido realizado',data:'2026-03-25 14:00',usuario:'Maria Silva'}
-    ], anexos:[] },
-
-  { id:'c5', modulo:'compras', titulo:'Projetores interativos — Salas 1 a 5',
-    descricao:'5 projetores Epson 4K instalados.',
-    fase:'entregue', prioridade:'media', escola:'ped1', categoria:'Equipamentos TI',
-    responsavel:'Roberto Lima', criadoEm:'2026-02-15', prazo:'2026-03-30',
-    valor:'35000.00', fornecedor:'TecnoEdu Distribuidora', numDoc:'NF-20260567', vencimento:'',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-02-15 09:00',usuario:'Roberto Lima'},
-      {texto:'Entregue e instalado',data:'2026-03-25 16:00',usuario:'Roberto Lima'}
-    ], anexos:[] },
-
-  /* ── CENTRAL DE PAGAMENTOS ── */
-  { id:'cp1', modulo:'central_pagamentos', titulo:'Mensalidade Abril/2026 — João Pereira (Turma 2A)',
-    descricao:'Responsável: Maria Pereira · CPF: 123.456.789-00 · Turma 2º Ano A',
-    fase:'nova_cobranca', prioridade:'alta', escola:'ped1', categoria:'Mensalidade',
-    responsavel:'Emerson Santos', criadoEm:'2026-04-01', prazo:'2026-04-10',
-    valor:'1250.00', fornecedor:'Maria Pereira', numDoc:'123.456.789-00', vencimento:'2026-04-10',
-    tipoPagamento:'pix', linkPagamento:'', codigoTransacao:'', linkStatus:'pendente',
-    comentarios:[], historico:[{texto:'Cobrança criada',data:'2026-04-01 08:00',usuario:'Emerson Santos'}], anexos:[] },
-
-  { id:'cp2', modulo:'central_pagamentos', titulo:'Matrícula 2026 — Lucas Almeida',
-    descricao:'Matrícula antecipada para o ano letivo 2026. Turma 1º Ano.',
-    fase:'aguardando_pagamento', prioridade:'media', escola:'ped2', categoria:'Matrícula',
-    responsavel:'Emerson Santos', criadoEm:'2026-03-28', prazo:'2026-04-15',
-    valor:'800.00', fornecedor:'Ana Almeida', numDoc:'987.654.321-00', vencimento:'2026-04-15',
-    tipoPagamento:'pix', linkPagamento:'https://payments.useredecloud.com.br/pagamentos/pt/TRX8A2F1B', codigoTransacao:'TRX8A2F1B', linkStatus:'ativo',
-    comentarios:[{id:'cpcm1',autor:'Emerson Santos',texto:'Link enviado por e-mail para a responsável.',data:'2026-03-28 10:00'}],
-    historico:[
-      {texto:'Cobrança criada',data:'2026-03-28 09:00',usuario:'Emerson Santos'},
-      {texto:'Link de pagamento gerado via e-Rede: <strong>TRX8A2F1B</strong> (PIX)',data:'2026-03-28 09:15',usuario:'Emerson Santos'},
-      {texto:'Movido de <strong>Nova Cobrança</strong> para <strong>Aguard. Pagamento</strong>',data:'2026-03-28 09:15',usuario:'Emerson Santos'},
-    ], anexos:[] },
-
-  { id:'cp3', modulo:'central_pagamentos', titulo:'Material Didático 1º Sem — Beatriz Souza',
-    descricao:'Kit de materiais didáticos primeiro semestre. Turma 3A.',
-    fase:'pago', prioridade:'baixa', escola:'ped3', categoria:'Material Didático',
-    responsavel:'Emerson Santos', criadoEm:'2026-03-10', prazo:'2026-03-31',
-    valor:'350.00', fornecedor:'Carlos Souza', numDoc:'456.789.123-00', vencimento:'2026-03-31',
-    tipoPagamento:'pix', linkPagamento:'https://payments.useredecloud.com.br/pagamentos/pt/TRX5C3D9E', codigoTransacao:'TRX5C3D9E', linkStatus:'pago',
-    comentarios:[], historico:[
-      {texto:'Cobrança criada',data:'2026-03-10 09:00',usuario:'Emerson Santos'},
-      {texto:'Link gerado: <strong>TRX5C3D9E</strong> (PIX)',data:'2026-03-10 09:20',usuario:'Emerson Santos'},
-      {texto:'<strong>Pagamento confirmado</strong> — R$ 350,00 via PIX',data:'2026-03-28 14:30',usuario:'Emerson Santos'},
-      {texto:'Movido de <strong>Aguard. Pagamento</strong> para <strong>Pago ✓</strong>',data:'2026-03-28 14:30',usuario:'Emerson Santos'},
-    ], anexos:[] },
-
-  { id:'cp4', modulo:'central_pagamentos', titulo:'Mensalidade Março/2026 — Rafael Lima (inadimplente)',
-    descricao:'Boleto vencido. Link expirado. Aguardando reemissão.',
-    fase:'vencido', prioridade:'urgente', escola:'ped4', categoria:'Mensalidade',
-    responsavel:'Emerson Santos', criadoEm:'2026-03-01', prazo:'2026-03-15',
-    valor:'1250.00', fornecedor:'Sandra Lima', numDoc:'321.654.987-00', vencimento:'2026-03-15',
-    tipoPagamento:'pix', linkPagamento:'https://payments.useredecloud.com.br/pagamentos/pt/TRX1D7F4A', codigoTransacao:'TRX1D7F4A', linkStatus:'expirado',
-    comentarios:[{id:'cpcm2',autor:'Emerson Santos',texto:'Responsável informada do vencimento. Aguarda novo link.',data:'2026-04-01 10:00'}],
-    historico:[
-      {texto:'Cobrança criada',data:'2026-03-01 09:00',usuario:'Emerson Santos'},
-      {texto:'Link gerado: <strong>TRX1D7F4A</strong> (PIX)',data:'2026-03-01 09:10',usuario:'Emerson Santos'},
-      {texto:'Pagamento não realizado — link expirado em 15/03/2026',data:'2026-03-16 00:01',usuario:'Sistema'},
-      {texto:'Movido para <strong>Vencido</strong>',data:'2026-03-16 00:01',usuario:'Sistema'},
-    ], anexos:[] },
-
-  /* ── T.I ── */
-  { id:'ti1', modulo:'ti', titulo:'Servidor de arquivos offline — unidade Pituba',
-    descricao:'Servidor de arquivos caiu. Usuários sem acesso ao drive compartilhado.',
-    fase:'em_atendimento', prioridade:'urgente', escola:'ped1', categoria:'Infraestrutura TI',
-    responsavel:'João Costa', criadoEm:'2026-04-02', prazo:'2026-04-03',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[{id:'ti_cm1',autor:'João Costa',texto:'Servidor reiniciado. Aguardando estabilidade dos serviços.',data:'2026-04-02 14:30'}],
-    historico:[
-      {texto:'Chamado aberto',data:'2026-04-02 13:00',usuario:'Pedro Alves'},
-      {texto:'Movido para <strong>Em Atendimento</strong>',data:'2026-04-02 13:30',usuario:'João Costa'}
-    ], anexos:[] },
-
-  { id:'ti2', modulo:'ti', titulo:'Atualização do sistema acadêmico — versão 4.2',
-    descricao:'Nova versão do ERP acadêmico precisa ser homologada antes do deploy em produção.',
-    fase:'diagnostico', prioridade:'alta', escola:'all', categoria:'Sistemas',
-    responsavel:'João Costa', criadoEm:'2026-03-28', prazo:'2026-04-15',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[], historico:[
-      {texto:'Chamado aberto',data:'2026-03-28 09:00',usuario:'Carla Mendes'},
-      {texto:'Movido para <strong>Diagnóstico</strong> — análise de compatibilidade iniciada',data:'2026-03-29 10:00',usuario:'João Costa'}
-    ], anexos:[] },
-
-  { id:'ti3', modulo:'ti', titulo:'Troca de switch — sala de servidores Barra',
-    descricao:'Switch com porta danificada causando queda intermitente de rede no andar administrativo.',
-    fase:'aguardando_aprovacao', prioridade:'alta', escola:'ped2', categoria:'Rede / Conectividade',
-    responsavel:'João Costa', criadoEm:'2026-03-25', prazo:'2026-04-10',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[{id:'ti_cm2',autor:'João Costa',texto:'Cotação enviada. Aguardando aprovação da diretoria para compra.',data:'2026-03-26 11:00'}],
-    historico:[
-      {texto:'Chamado aberto',data:'2026-03-25 09:00',usuario:'João Costa'},
-      {texto:'Movido para <strong>Aguard. Aprovação</strong>',data:'2026-03-26 10:00',usuario:'João Costa'}
-    ], anexos:[] },
-
-  { id:'ti4', modulo:'ti', titulo:'Instalação de antivírus corporativo — 180 máquinas',
-    descricao:'Renovação da licença e reinstalação do antivírus em toda a rede das 4 unidades.',
-    fase:'aberto', prioridade:'media', escola:'all', categoria:'Segurança da Informação',
-    responsavel:'', criadoEm:'2026-04-01', prazo:'2026-04-30',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[], historico:[{texto:'Chamado aberto',data:'2026-04-01 09:00',usuario:'Emerson Santos'}], anexos:[] },
-
-  { id:'ti5', modulo:'ti', titulo:'Impressora da secretaria sem comunicação pós-update',
-    descricao:'Impressora HP da secretaria parou de imprimir após atualização automática do Windows.',
-    fase:'resolvido', prioridade:'baixa', escola:'ped3', categoria:'Hardware',
-    responsavel:'João Costa', criadoEm:'2026-03-30', prazo:'2026-04-02',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[], historico:[
-      {texto:'Chamado aberto',data:'2026-03-30 08:00',usuario:'Ana Oliveira'},
-      {texto:'Driver reinstalado e impressora reconfigura na rede',data:'2026-03-30 11:00',usuario:'João Costa'},
-      {texto:'Movido para <strong>Resolvido</strong>',data:'2026-03-30 11:30',usuario:'João Costa'}
-    ], anexos:[] },
-
-  /* ── RECURSOS HUMANOS ── */
-  { id:'rh1', modulo:'recursos_humanos', titulo:'Admissão — Fernanda Rocha (Auxiliar de Secretaria)',
-    descricao:'Candidata aprovada no processo seletivo. Aguarda documentação completa para contratação.',
-    fase:'em_analise', prioridade:'alta', escola:'ped1', categoria:'Admissão',
-    responsavel:'Emerson Santos', criadoEm:'2026-03-28', prazo:'2026-04-10',
-    comentarios:[{id:'c1',autor:'Emerson Santos',texto:'Documentos enviados por e-mail, aguardando conferência.',data:'2026-03-29 09:00'}],
-    historico:[
-      {texto:'Card criado',data:'2026-03-28 08:30',usuario:'Emerson Santos'},
-      {texto:'Movido para <strong>Em análise</strong>',data:'2026-03-28 09:00',usuario:'Emerson Santos'}
-    ], anexos:[] },
-
-  { id:'rh2', modulo:'recursos_humanos', titulo:'Solicitação de férias — João Oliveira (Jul/Ago 2026)',
-    descricao:'Colaborador solicita 30 dias de férias em julho e agosto.',
-    fase:'aprovado', prioridade:'media', escola:'ped3', categoria:'Férias',
-    responsavel:'Emerson Santos', criadoEm:'2026-03-15', prazo:'2026-06-30',
-    comentarios:[],
-    historico:[
-      {texto:'Card criado',data:'2026-03-15 10:00',usuario:'Emerson Santos'},
-      {texto:'Movido para <strong>Aprovado</strong>',data:'2026-03-20 14:00',usuario:'Emerson Santos'}
-    ], anexos:[] },
-
-  { id:'rh3', modulo:'recursos_humanos', titulo:'Treinamento — Formação em Primeiros Socorros',
-    descricao:'Capacitação obrigatória para funcionários das quatro unidades. 8h presenciais.',
-    fase:'recebido', prioridade:'media', escola:'all', categoria:'Treinamento',
-    responsavel:'', criadoEm:'2026-04-01', prazo:'2026-04-30',
-    comentarios:[],
-    historico:[{texto:'Card criado',data:'2026-04-01 08:00',usuario:'Emerson Santos'}], anexos:[] },
-
-  { id:'rh4', modulo:'recursos_humanos', titulo:'Desligamento — Carlos Mendes (30/04/2026)',
-    descricao:'Rescisão por iniciativa do colaborador. Calcular verbas rescisórias e agendar entrevista de saída.',
-    fase:'em_execucao', prioridade:'alta', escola:'ped2', categoria:'Desligamento',
-    responsavel:'Emerson Santos', criadoEm:'2026-04-02', prazo:'2026-04-30',
-    comentarios:[{id:'c2',autor:'Emerson Santos',texto:'TRCT em elaboração pelo contador.',data:'2026-04-02 11:00'}],
-    historico:[
-      {texto:'Card criado',data:'2026-04-02 08:00',usuario:'Emerson Santos'},
-      {texto:'Movido para <strong>Em execução</strong>',data:'2026-04-02 10:00',usuario:'Emerson Santos'}
-    ], anexos:[] },
-
-  /* ── PROCESSOS ── */
-  { id:'pr1', modulo:'processos', titulo:'Revisão do Projeto Político Pedagógico 2026',
-    descricao:'PPP deve ser atualizado para o novo ano letivo.',
-    fase:'pendente', prioridade:'alta', escola:'all', categoria:'Pedagógico',
-    responsavel:'Maria Silva', criadoEm:'2026-03-01', prazo:'2026-04-30',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[], historico:[{texto:'Card criado',data:'2026-03-01 09:00',usuario:'Maria Silva'}], anexos:[] },
-
-  { id:'pr2', modulo:'processos', titulo:'Auditoria interna — Processos de RH',
-    descricao:'Revisão dos processos de contratação e demissão.',
-    fase:'em_andamento', prioridade:'media', escola:'ped1', categoria:'RH',
-    responsavel:'Carla Mendes', criadoEm:'2026-03-10', prazo:'2026-04-20',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[{id:'cm8',autor:'Carla Mendes',texto:'Revisando documentos de 2024 e 2025.',data:'2026-03-18 11:00'}],
-    historico:[
-      {texto:'Card criado',data:'2026-03-10 09:00',usuario:'Carla Mendes'},
-      {texto:'Movido para <strong>Em Andamento</strong>',data:'2026-03-12 10:00',usuario:'Carla Mendes'}
-    ], anexos:[] },
-
-  { id:'pr3', modulo:'processos', titulo:'Certificação ISO 9001 — Renovação anual',
-    descricao:'Auditoria externa de renovação da certificação.',
-    fase:'aguardando_validacao', prioridade:'alta', escola:'all', categoria:'Qualidade',
-    responsavel:'Pedro Alves', criadoEm:'2026-02-15', prazo:'2026-04-15',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-02-15 09:00',usuario:'Pedro Alves'},
-      {texto:'Aguardando auditoria externa',data:'2026-03-20 14:00',usuario:'Pedro Alves'}
-    ], anexos:[] },
-
-  { id:'pr4', modulo:'processos', titulo:'Plano de evacuação e simulacro de emergência',
-    descricao:'Exercício realizado com sucesso em todas as unidades.',
-    fase:'concluido', prioridade:'urgente', escola:'all', categoria:'Segurança',
-    responsavel:'Roberto Lima', criadoEm:'2026-02-01', prazo:'2026-03-15',
-    valor:'', fornecedor:'', numDoc:'', vencimento:'',
-    comentarios:[], historico:[
-      {texto:'Card criado',data:'2026-02-01 09:00',usuario:'Roberto Lima'},
-      {texto:'Simulacro realizado com <strong>98% de participação</strong>',data:'2026-03-14 17:00',usuario:'Roberto Lima'},
-      {texto:'Movido para <strong>Concluído</strong>',data:'2026-03-14 17:30',usuario:'Roberto Lima'}
-    ], anexos:[] },
-];
+let allCards = [];  // preenchido em init() via loadCardsFromAPI()
 
 /* ══════════════════════════════════════════════════════════
    FILE STORE — armazena objetos File em memória (por sessão)
@@ -1366,7 +1037,11 @@ function setupDropZones() {
         const oldPhase = card.fase;
         const oldLabel = getPhaseStyle(state.currentModule, oldPhase).label;
         const newLabel = getPhaseStyle(state.currentModule, targetPhase).label;
+        // Calcula posição dentro da nova fase
+        const newPos = allCards.filter(c => c.modulo === state.currentModule && c.fase === targetPhase).length;
         card.fase = targetPhase;
+        persistCards();
+        apiMoveCard(card.id, targetPhase, newPos);
         card.historico.push({
           texto:`Movido de <strong>${oldLabel}</strong> para <strong>${newLabel}</strong>`,
           data: now(), usuario:'Emerson Santos',
@@ -1550,6 +1225,8 @@ function saveCard(e) {
     }
     card.historico.push({ texto:'Card atualizado', data:now(), usuario:'Emerson Santos' });
     AutomationEngine.execute('field_updated', card, { campo: 'responsavel' });
+    persistCards();
+    apiUpdateCard(card);
     showToast('Card atualizado!', 'success');
   } else {
     const newCard = {
@@ -1562,6 +1239,8 @@ function saveCard(e) {
       anexos:[],
     };
     allCards.unshift(newCard);
+    persistCards();
+    apiCreateCard(newCard);
     AutomationEngine.execute('card_created',     newCard, {});
     AutomationEngine.execute('card_enter_phase', newCard, { fase });
 
@@ -1583,8 +1262,11 @@ function saveCard(e) {
 function deleteCard() {
   if (!state.editingCardId) return;
   if (!confirm('Excluir este card? Esta ação não pode ser desfeita.')) return;
-  allCards = allCards.filter(c => c.id !== state.editingCardId);
-  fileStore.delete(state.editingCardId);
+  const deletingId = state.editingCardId;
+  allCards = allCards.filter(c => c.id !== deletingId);
+  persistCards();
+  apiDeleteCard(deletingId);
+  fileStore.delete(deletingId);
   closeModal();
   renderAll();
   showToast('Card excluído', 'error');
@@ -1803,6 +1485,8 @@ async function autoGeneratePaymentLink(card, installments) {
     const oldLabel = getPhaseStyle(card.modulo, oldFase).label;
     const genPhase = modCfg.paymentGenPhase || 'aguardando_pagamento';
     card.fase      = genPhase;
+    persistCards();
+    apiUpdateCard(card);
     const newLabel = getPhaseStyle(card.modulo, genPhase).label;
 
     card.historico.push({
@@ -2089,6 +1773,8 @@ async function confirmPayment(cardId) {
     const oldLabelC    = getPhaseStyle(card.modulo, oldFaseC).label;
     const confirmPhase = modCfgC.paymentConfirmPhase || 'pagamento_efetuado';
     card.fase          = confirmPhase;
+    persistCards();
+    apiUpdateCard(card);
     const newConfLabel = getPhaseStyle(card.modulo, confirmPhase).label;
 
     card.historico.push({
@@ -2185,9 +1871,13 @@ function exitSettings() {
   document.querySelector('.view-toggle').classList.remove('hidden');
   document.querySelector('.topbar-search').classList.remove('hidden');
 
-  // Oculta settings e restaura stats + conteúdo
+  // Oculta settings e restaura stats + visões de conteúdo
   document.getElementById('settingsView').classList.add('hidden');
   document.getElementById('statsBar').classList.remove('hidden');
+
+  // Restaura a view correta (kanban ou lista) que foi ocultada ao abrir settings
+  document.getElementById('kanbanView').classList.toggle('hidden', state.viewMode !== 'kanban');
+  document.getElementById('listView').classList.toggle('hidden',   state.viewMode !== 'list');
 }
 
 function switchSettingsTab(tab) {
@@ -4239,9 +3929,14 @@ function openDashboard() {
 
 function closeDashboard() {
   document.getElementById('dashboardView').classList.add('hidden');
+  document.getElementById('statsBar').classList.remove('hidden');
   document.getElementById('newCardBtn')?.classList.remove('hidden');
   document.querySelector('.view-toggle')?.classList.remove('hidden');
   document.querySelector('.topbar-search')?.classList.remove('hidden');
+
+  // Restaura a view correta ao sair do dashboard
+  document.getElementById('kanbanView').classList.toggle('hidden', state.viewMode !== 'kanban');
+  document.getElementById('listView').classList.toggle('hidden',   state.viewMode !== 'list');
 }
 
 function renderDashboard() {
@@ -5246,4 +4941,8 @@ function initAutomationPanel() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', async () => {
+  // Carrega cards do banco antes de renderizar
+  await loadCardsFromAPI();
+  init();
+});
