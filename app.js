@@ -4698,6 +4698,15 @@ const ACTION_DEFS = [
     params : [{ key:'targetFase', label:'Mover para a fase', type:'phase-select' }],
   },
   {
+    type   : 'copy_to_module',
+    label  : 'Copiar card para outro fluxo',
+    icon   : '<rect x="1" y="5" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.4"/><rect x="8" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 5V4a3 3 0 013-3h0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+    params : [
+      { key:'modulo', label:'Fluxo de destino',  type:'module-select'        },
+      { key:'fase',   label:'Fase inicial',       type:'phase-select-dynamic' },
+    ],
+  },
+  {
     type   : 'update_field',
     label  : 'Atualize um campo no card',
     icon   : '<path d="M11 2.5l2.5 2.5-7 7H4V9.5l7-7z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -4862,6 +4871,57 @@ const AutomationEngine = {
             usuario: 'Sistema (Automação)',
           });
         }
+        break;
+      }
+
+      case 'copy_to_module': {
+        const targetModulo = action.params.modulo;
+        if (!targetModulo || !MODULES[targetModulo]) {
+          showToast(`⚡ Automação "${auto.nome}": fluxo de destino não configurado`, 'warn');
+          break;
+        }
+        const destMod  = MODULES[targetModulo];
+        const destFases = Object.keys(destMod.fases || {});
+        if (!destFases.length) break;
+
+        // Fase de entrada no destino: usa a configurada, senão a primeira do módulo
+        const targetFase = (action.params.fase && destMod.fases[action.params.fase])
+          ? action.params.fase
+          : destFases[0];
+
+        const origemLabel = MODULES[card.modulo]?.label || card.modulo;
+        const destFaseLabel = destMod.fases[targetFase].label;
+
+        // Clona o card, preservando todos os campos, e adapta para o destino
+        const newCard = Object.assign({}, card, {
+          id          : 'cp_' + uid(),
+          modulo      : targetModulo,
+          fase        : targetFase,
+          historico   : [{
+            texto  : `⚡ <strong>Automação "${escHtml(auto.nome)}"</strong>: Card criado automaticamente a partir de `
+                   + `<strong>${escHtml(card.titulo)}</strong> no fluxo <strong>${escHtml(origemLabel)}</strong>`,
+            data   : now(),
+            usuario: 'Sistema (Automação)',
+          }],
+          comentarios : [],          // comentários não são copiados (ficam no card original)
+          anexos      : [],          // anexos idem
+          linkPagamento   : '',      // dados de pagamento não migram
+          codigoTransacao : '',
+          linkStatus      : 'pendente',
+        });
+
+        allCards.unshift(newCard);
+
+        // Registra no card de origem
+        card.historico.push({
+          texto  : `⚡ <strong>Automação "${escHtml(auto.nome)}"</strong>: Card copiado para o fluxo `
+                 + `<strong>${escHtml(destMod.label)}</strong> na fase <strong>${escHtml(destFaseLabel)}</strong>`,
+          data   : now(),
+          usuario: 'Sistema (Automação)',
+        });
+
+        setTimeout(() => { renderAll(); renderNavBadges(); }, 60);
+        showToast(`⚡ Card copiado para "${destMod.label}" — ${destFaseLabel}`, 'success');
         break;
       }
     }
@@ -5047,11 +5107,15 @@ function buildParamFields(params, prefix) {
         const moduleOpts = Object.entries(MODULES)
           .map(([k, v]) => `<option value="${k}">${v.label}</option>`)
           .join('');
+        // Para ações (destino), o rótulo muda para indicar seleção obrigatória
+        const emptyLabel = prefix === 'action'
+          ? '— Selecione o fluxo de destino —'
+          : '— Qualquer fluxo —';
         input = `<select class="form-input auto-param-input" id="${id}"
             data-key="${p.key}"
             data-prefix="${prefix}"
             onchange="onAutoModuleChange(this)">
-          <option value="">— Qualquer fluxo —</option>
+          <option value="">${emptyLabel}</option>
           ${moduleOpts}
         </select>`;
         break;
@@ -5139,6 +5203,11 @@ function saveAutomation() {
   document.querySelectorAll('#autoActionFields .auto-param-input').forEach(el => {
     actionParams[el.dataset.key] = el.value;
   });
+
+  // Validação específica por tipo de ação
+  if (_autoBuilder.action === 'copy_to_module' && !actionParams.modulo) {
+    showToast('Selecione o fluxo de destino para a cópia', 'warn'); return;
+  }
 
   const newAuto = {
     id     : 'auto_' + Date.now().toString(36),
