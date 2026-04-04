@@ -67,6 +67,21 @@ function saveUsers() {
   localStorage.setItem('ped_users', JSON.stringify(USERS));
 }
 
+/* ─── Reset de emergência via URL (?reset=1) ───────────────────────────────
+   Acesse a URL com ?reset=1 para limpar os dados de usuários e restaurar
+   o acesso padrão: emerson@grupoped.com.br / admin123
+─────────────────────────────────────────────────────────────────────────── */
+(function () {
+  if (new URLSearchParams(window.location.search).get('reset') === '1') {
+    localStorage.removeItem('ped_users');
+    localStorage.removeItem('ped_auth_user');
+    localStorage.removeItem('ped_usuarios');
+    // Redireciona sem o parâmetro para evitar reset em F5
+    const clean = window.location.pathname + (window.location.hash || '');
+    window.location.replace(clean);
+  }
+})();
+
 /* Usuário logado no momento */
 let currentUser = null;
 
@@ -187,6 +202,92 @@ function handleLogout() {
   document.getElementById('loginPassword').value = '';
 }
 
+function showForgotModal() {
+  // Remove modal anterior se existir
+  const existing = document.getElementById('forgotModal');
+  if (existing) existing.remove();
+
+  const resetUrl = window.location.pathname + '?reset=1';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'forgotModal';
+  overlay.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;
+    display:flex;align-items:center;justify-content:center;padding:1rem;
+  `;
+  overlay.innerHTML = `
+    <div style="
+      background:#fff;border-radius:16px;padding:2rem;max-width:420px;width:100%;
+      box-shadow:0 20px 60px rgba(0,0,0,.25);font-family:inherit;
+    ">
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;">
+        <div style="
+          width:40px;height:40px;border-radius:50%;background:#FEF3C7;
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;
+        ">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <div>
+          <h3 style="margin:0;font-size:1.1rem;font-weight:700;color:#1E293B;">Recuperar Acesso</h3>
+          <p style="margin:0;font-size:.8rem;color:#64748B;">Central Operacional — Grupo PED</p>
+        </div>
+      </div>
+
+      <div style="background:#F8FAFC;border-radius:10px;padding:1rem;margin-bottom:1rem;border:1px solid #E2E8F0;">
+        <p style="margin:0 0 .5rem;font-size:.85rem;font-weight:600;color:#475569;">Credenciais padrão do Administrador:</p>
+        <div style="display:flex;flex-direction:column;gap:.25rem;">
+          <div style="display:flex;justify-content:space-between;font-size:.85rem;">
+            <span style="color:#64748B;">E-mail</span>
+            <span style="font-weight:600;color:#1E293B;font-family:monospace;">emerson@grupoped.com.br</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:.85rem;">
+            <span style="color:#64748B;">Senha</span>
+            <span style="font-weight:600;color:#1E293B;font-family:monospace;">admin123</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#FEF2F2;border-radius:10px;padding:1rem;margin-bottom:1.25rem;border:1px solid #FECACA;">
+        <p style="margin:0 0 .5rem;font-size:.82rem;font-weight:600;color:#DC2626;">Reset de Emergência</p>
+        <p style="margin:0 0 .75rem;font-size:.8rem;color:#7F1D1D;line-height:1.5;">
+          Se a senha padrão não funcionar, clique abaixo para restaurar todos os usuários
+          ao estado original. <strong>Esta ação não pode ser desfeita.</strong>
+        </p>
+        <button id="forgotResetBtn" style="
+          width:100%;padding:.6rem 1rem;background:#DC2626;color:#fff;
+          border:none;border-radius:8px;font-size:.85rem;font-weight:600;
+          cursor:pointer;transition:background .15s;
+        " onmouseover="this.style.background='#B91C1C'" onmouseout="this.style.background='#DC2626'">
+          🔄 Restaurar Usuários Padrão
+        </button>
+      </div>
+
+      <button id="forgotCloseBtn" style="
+        width:100%;padding:.65rem;background:#F1F5F9;color:#475569;
+        border:none;border-radius:8px;font-size:.9rem;font-weight:500;cursor:pointer;
+      ">Fechar</button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('forgotCloseBtn').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  document.getElementById('forgotResetBtn').addEventListener('click', () => {
+    if (!confirm('Confirma o reset? Todos os usuários serão restaurados para o padrão e você será desconectado.')) return;
+    localStorage.removeItem('ped_users');
+    localStorage.removeItem('ped_auth_user');
+    localStorage.removeItem('ped_usuarios');
+    overlay.remove();
+    // Recarrega a página para recarregar o array USERS padrão
+    window.location.reload();
+  });
+}
+
 function initLogin() {
   // Tenta restaurar sessão
   currentUser = loadSession();
@@ -212,9 +313,7 @@ function initLogin() {
   document.getElementById('logoutBtn').addEventListener('click', handleLogout);
 
   // Esqueceu a senha
-  document.getElementById('loginForgotBtn').addEventListener('click', () => {
-    showToast('Fale com o administrador para redefinir sua senha.', 'warn');
-  });
+  document.getElementById('loginForgotBtn').addEventListener('click', showForgotModal);
 }
 
 /* ══════════════════════════════════════════════════════════
