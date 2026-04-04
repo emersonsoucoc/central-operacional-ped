@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "build": "mkdir -p dist && cp index.html app.css app.js dist/",
-    "start": "serve dist --listen $PORT"
+    "start": "node server.js"
   },
   "dependencies": {
-    "serve": "^14.2.3"
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0"
   }
 }
