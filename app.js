@@ -3899,20 +3899,28 @@ function _evaluateAutomacoesInner(card, eventTipo, prevFase) {
     if (!triggered) return;
 
     const a = rule.acao;
+    let _cardChanged = false;
     if (a.tipo === 'mover_fase' && a.valor && MODULES[card.modulo]?.fases[a.valor]) {
       card.fase = a.valor;
-      addHistory(card, `Automação "${rule.nome}" moveu card para "${MODULES[card.modulo].fases[a.valor].label}"`);
+      card.historico = card.historico || [];
+      card.historico.push({ texto:`⚡ Automação "${rule.nome}" moveu card para "${MODULES[card.modulo].fases[a.valor].label}"`, data:now(), usuario:'Sistema (Automação)' });
+      _cardChanged = true;
     } else if (a.tipo === 'alterar_prioridade' && a.valor) {
       card.prioridade = a.valor;
-      addHistory(card, `Automação "${rule.nome}" alterou prioridade para "${a.valor}"`);
+      card.historico = card.historico || [];
+      card.historico.push({ texto:`⚡ Automação "${rule.nome}" alterou prioridade para "${a.valor}"`, data:now(), usuario:'Sistema (Automação)' });
+      _cardChanged = true;
     } else if (a.tipo === 'notificar' && a.valor) {
       showToast(`🤖 ${rule.nome}: ${a.valor}`, 'success');
     } else if (a.tipo === 'definir_responsavel' && a.valor) {
       if (!card.responsavel) {
         card.responsavel = a.valor;
-        addHistory(card, `Automação "${rule.nome}" definiu responsável como "${a.valor}"`);
+        card.historico = card.historico || [];
+        card.historico.push({ texto:`⚡ Automação "${rule.nome}" definiu responsável como "${a.valor}"`, data:now(), usuario:'Sistema (Automação)' });
+        _cardChanged = true;
       }
     }
+    if (_cardChanged) { persistCards(); apiUpdateCard(card); }
   });
 }
 
@@ -4537,6 +4545,7 @@ const AutomationEngine = {
             data   : now(),
             usuario: 'Sistema (Automação)',
           });
+          persistCards(); apiUpdateCard(card);
           setTimeout(() => renderAll(), 50);
         }
         break;
@@ -4550,6 +4559,7 @@ const AutomationEngine = {
             data   : now(),
             usuario: 'Sistema (Automação)',
           });
+          persistCards(); apiUpdateCard(card);
         }
         break;
       }
@@ -4565,6 +4575,7 @@ const AutomationEngine = {
             data   : now(),
             usuario: 'Sistema (Automação)',
           });
+          persistCards(); apiUpdateCard(card);
         }
         break;
       }
@@ -4588,6 +4599,7 @@ const AutomationEngine = {
             data   : now(),
             usuario: 'Sistema (Automação)',
           });
+          persistCards(); apiUpdateCard(card);
         }
         break;
       }
@@ -4630,6 +4642,7 @@ const AutomationEngine = {
         });
 
         allCards.unshift(newCard);
+        persistCards(); apiCreateCard(newCard);
 
         // Registra no card de origem
         card.historico.push({
@@ -4639,6 +4652,7 @@ const AutomationEngine = {
           usuario: 'Sistema (Automação)',
         });
 
+        apiUpdateCard(card);      // salva histórico no card de origem
         setTimeout(() => { renderAll(); renderNavBadges(); }, 60);
         showToast(`⚡ Card copiado para "${destMod.label}" — ${destFaseLabel}`, 'success');
         break;
