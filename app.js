@@ -644,9 +644,13 @@ async function loadSettingsFromAPI() {
       }
       // Carrega USERS (lista de login com permissões)
       if (data.users && Array.isArray(data.users) && data.users.length > 0) {
-        USERS.length = 0;
-        data.users.forEach(u => USERS.push(u));
-        try { localStorage.setItem('ped_users', JSON.stringify(USERS)); } catch(_) {}
+        // Valida que os users têm formato correto (email + password obrigatórios)
+        const validUsers = data.users.filter(u => u && u.email && u.password);
+        if (validUsers.length > 0) {
+          USERS.length = 0;
+          validUsers.forEach(u => USERS.push(u));
+          try { localStorage.setItem('ped_users', JSON.stringify(USERS)); } catch(_) {}
+        }
       }
       // Carrega tema (dark/light)
       if (data.theme && typeof data.theme === 'string') {
@@ -661,30 +665,12 @@ async function loadSettingsFromAPI() {
           document.documentElement.style.setProperty('--accent-hover', shadeColor(corPrimaria, -15));
           document.documentElement.style.setProperty('--accent-light', shadeColor(corPrimaria, 85));
         }
-        // Sincroniza USERS com usuarios do banco
-        syncUsersFromSettings();
         console.log('[Settings] Carregado do PostgreSQL.');
       }
     }
   } catch (err) {
     console.warn('[Settings API] Falha ao carregar — usando backup local:', err.message);
   }
-}
-
-/* Sincroniza array USERS com settingsData.usuarios */
-function syncUsersFromSettings() {
-  if (!settingsData.usuarios || !Array.isArray(settingsData.usuarios)) return;
-  USERS.length = 0;
-  settingsData.usuarios.forEach(u => {
-    if (u.ativo !== false) {
-      USERS.push({
-        nome:  u.nome,
-        email: u.email,
-        perfil: u.perfil,
-        escolas: u.escolas || [],
-      });
-    }
-  });
 }
 
 /* Restaura cor principal e nome salvo ao carregar a página */
