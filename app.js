@@ -3052,7 +3052,7 @@ function buildPanelUsuarios() {
     </div>
 
     <div class="user-filter-row">
-      <input type="text" id="userSearchInput" class="user-search-input" placeholder="Buscar por nome ou e-mail…" autocomplete="off">
+      <input type="text" id="userSearchInput" class="user-search-input" placeholder="Buscar por nome ou e-mail…" autocomplete="new-password" name="ped-user-search">
       <select id="userPerfilFilter" class="user-perfil-filter">
         <option value="">Todos os perfis</option>
         ${Object.entries(PERFIS).map(([k,p]) => `<option value="${k}">${p.label}</option>`).join('')}
@@ -3072,11 +3072,11 @@ function buildPanelUsuarios() {
         <div class="escola-modal-body" style="display:flex;flex-direction:column;gap:16px">
           <div class="form-group">
             <label class="form-label">Nome completo *</label>
-            <input type="text" id="userNomeInput" class="form-input" placeholder="Ex: Maria Silva">
+            <input type="text" id="userNomeInput" class="form-input" placeholder="Ex: Maria Silva" autocomplete="off">
           </div>
           <div class="form-group">
             <label class="form-label">E-mail *</label>
-            <input type="email" id="userEmailInput" class="form-input" placeholder="Ex: maria@grupoped.com.br">
+            <input type="text" id="userEmailInput" class="form-input" placeholder="Ex: maria@grupoped.com.br" autocomplete="off">
           </div>
           <div class="form-group">
             <label class="form-label">Perfil de acesso *</label>
@@ -3090,7 +3090,7 @@ function buildPanelUsuarios() {
           <div class="form-group" id="userSenhaGroup">
             <label class="form-label" id="userSenhaLabel">Senha de acesso *</label>
             <div style="display:flex;gap:8px;align-items:center">
-              <input type="password" id="userSenhaInput" class="form-input" placeholder="Mínimo 6 caracteres" style="flex:1">
+              <input type="password" id="userSenhaInput" class="form-input" placeholder="Mínimo 6 caracteres" style="flex:1" autocomplete="new-password">
               <button type="button" id="userSenhaToggle" class="btn-icon-sm" title="Mostrar/ocultar senha" style="flex-shrink:0;width:32px;height:32px">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <ellipse cx="7" cy="7" rx="5" ry="3.5" stroke="currentColor" stroke-width="1.3"/>
@@ -3110,6 +3110,12 @@ function buildPanelUsuarios() {
 }
 
 function bindUsuariosEvents() {
+  /* Garante campo vazio — Chrome às vezes ignora autocomplete e preenche o campo */
+  const _srch = document.getElementById('userSearchInput');
+  if (_srch) { _srch.value = ''; }
+  /* Atraso extra: limpa novamente 300 ms após render (cobre o autofill tardio do Chrome) */
+  setTimeout(() => { const s = document.getElementById('userSearchInput'); if (s) { s.value = ''; filterUserList(); } }, 300);
+
   document.getElementById('addUsuarioBtn').addEventListener('click', () => openUserModal(null));
   document.getElementById('userSearchInput').addEventListener('input', filterUserList);
   document.getElementById('userPerfilFilter').addEventListener('change', filterUserList);
