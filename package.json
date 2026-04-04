@@ -1,14 +1,18 @@
 {
-  "name": "central-operacional-ped",
-  "version": "1.0.0",
+  "name": "rede-payment-link-api",
+  "version": "2.0.0",
   "private": true,
+  "description": "Backend Railway — e-Rede + API de Cards (PostgreSQL)",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "build": "mkdir -p dist && cp index.html app.css app.js dist/",
     "start": "node server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "pg": "^8.12.0"
   }
 }
