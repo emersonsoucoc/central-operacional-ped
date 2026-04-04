@@ -416,6 +416,24 @@ let MODULES = {
     lastPhase: 'concluido',
   },
 
+  comercial: {
+    label     : 'Comercial — CRM de Leads',
+    shortLabel: 'Comercial',
+    btnLabel  : 'Novo Lead',
+    hasFinancial: false,
+    hasLead   : true,
+    categorias: ['Indicação','Site / SEO','Redes Sociais','Instagram','Facebook','Evento','Captação Ativa','Parceria','WhatsApp','Outros'],
+    fases: {
+      novo_lead        : { label:'Novo Lead',         color:'#6366F1', bg:'#EEF2FF' },
+      contato_realizado: { label:'Contato Realizado',  color:'#F59E0B', bg:'#FFFBEB', slaDias:2 },
+      visita_agendada  : { label:'Visita Agendada',    color:'#3B82F6', bg:'#EFF6FF', slaDias:3 },
+      proposta_enviada : { label:'Proposta Enviada',   color:'#8B5CF6', bg:'#F5F3FF', slaDias:5 },
+      matricula_fechada: { label:'Matrícula Fechada',  color:'#10B981', bg:'#ECFDF5' },
+      perdido          : { label:'Perdido',            color:'#EF4444', bg:'#FEF2F2' },
+    },
+    lastPhase: 'matricula_fechada',
+  },
+
   central_pagamentos: {
     label: 'Central de Pagamentos',
     shortLabel: 'Central Pgto.',
@@ -844,7 +862,11 @@ function getFilteredCards() {
       c.titulo.toLowerCase().includes(term) ||
       c.categoria.toLowerCase().includes(term) ||
       (c.responsavel||'').toLowerCase().includes(term) ||
-      (c.fornecedor||'').toLowerCase().includes(term);
+      (c.fornecedor||'').toLowerCase().includes(term) ||
+      (c.telefone||'').toLowerCase().includes(term) ||
+      (c.emailLead||'').toLowerCase().includes(term) ||
+      (c.origem||'').toLowerCase().includes(term) ||
+      (c.interesse||'').toLowerCase().includes(term);
     return schoolOk && searchOk;
   });
 }
@@ -927,7 +949,10 @@ function renderKanban() {
   const filtered = getFilteredCards();
 
   // Adjust grid columns class
-  board.className = 'kanban-board' + (keys.length === 5 ? ' cols-5' : keys.length === 3 ? ' cols-3' : '');
+  board.className = 'kanban-board'
+    + (keys.length === 6 ? ' cols-6'
+    : keys.length === 5 ? ' cols-5'
+    : keys.length === 3 ? ' cols-3' : '');
 
   board.innerHTML = keys.map(phaseKey => {
     const phase = phases[phaseKey];
@@ -1056,6 +1081,23 @@ function buildCardHTML(card) {
        </div>`
     : '';
 
+  // Bloco de informações de lead (Comercial)
+  let leadInfoHtml = '';
+  if (MODULES[card.modulo]?.hasLead) {
+    const telHtml = card.telefone
+      ? `<a class="lead-contact-link" href="https://wa.me/55${card.telefone.replace(/\D/g,'')}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="WhatsApp">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 1a4.5 4.5 0 100 9 4.5 4.5 0 000-9zm0 1.5a3 3 0 110 6 3 3 0 010-6z" fill="currentColor" opacity=".3"/><path d="M3 5.5s.5-2 2.5-2c1.5 0 2.5 1 2.5 2s-1 2.5-2.5 2.5c-.7 0-1.3-.2-1.7-.5L2.5 8" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>
+          ${escHtml(card.telefone)}
+        </a>` : '';
+    const oriHtml = card.origem
+      ? `<span class="lead-origem-tag">${escHtml(card.origem)}</span>` : '';
+    const intHtml = card.interesse
+      ? `<span class="lead-interesse-tag" title="Interesse">${escHtml(card.interesse)}</span>` : '';
+    if (telHtml || oriHtml || intHtml) {
+      leadInfoHtml = `<div class="lead-card-info">${telHtml}${oriHtml}${intHtml}</div>`;
+    }
+  }
+
   // Bloco de link de pagamento — para qualquer módulo com hasPaymentLink
   let paymentBlockHtml = '';
   if (MODULES[card.modulo]?.hasPaymentLink) {
@@ -1093,6 +1135,7 @@ function buildCardHTML(card) {
       </div>
       ${valorHtml}
       <p class="card-title">${escHtml(card.titulo)}</p>
+      ${leadInfoHtml}
       <div class="card-footer">
         <div class="card-meta">${metaItems}</div>
         ${assigneeHtml}
@@ -1254,6 +1297,20 @@ function openModal(cardId) {
     document.getElementById('numDocLabel').textContent     = mod.numDocLabel     || 'Nº Documento';
   }
 
+  // Show/hide lead fields (módulo Comercial)
+  const showLead = !!mod.hasLead;
+  const leadContactEl = document.getElementById('leadContactFields');
+  const leadOriginEl  = document.getElementById('leadOriginFields');
+  if (leadContactEl) leadContactEl.style.display = showLead ? '' : 'none';
+  if (leadOriginEl)  leadOriginEl.style.display  = showLead ? '' : 'none';
+  // Adapta label do título para lead
+  const labelTitulo = document.getElementById('label-titulo');
+  if (labelTitulo) {
+    labelTitulo.innerHTML = showLead
+      ? 'Nome do Lead <span class="required">*</span>'
+      : 'Título <span class="required">*</span>';
+  }
+
   // Show/hide payment link section
   document.getElementById('paymentLinkSection').style.display = mod.hasPaymentLink ? '' : 'none';
 
@@ -1278,6 +1335,18 @@ function openModal(cardId) {
       document.getElementById('formFornecedor').value = card.fornecedor || '';
       document.getElementById('formNumeroDoc').value  = card.numDoc || '';
       document.getElementById('formVencimento').value = card.vencimento || '';
+    }
+
+    // Preenche campos de lead
+    if (showLead) {
+      const telEl  = document.getElementById('formTelefone');
+      const emlEl  = document.getElementById('formEmailLead');
+      const oriEl  = document.getElementById('formOrigem');
+      const intEl  = document.getElementById('formInteresse');
+      if (telEl) telEl.value  = card.telefone   || '';
+      if (emlEl) emlEl.value  = card.emailLead  || '';
+      if (oriEl) oriEl.value  = card.origem     || '';
+      if (intEl) intEl.value  = card.interesse  || '';
     }
 
     document.getElementById('deleteCardArea').style.display = '';
@@ -1363,6 +1432,11 @@ function saveCard(e) {
   const numDoc        = mod.hasFinancial ? document.getElementById('formNumeroDoc').value.trim() : '';
   const vencimento    = mod.hasFinancial ? document.getElementById('formVencimento').value : '';
   const tipoPagamento = mod.hasPaymentLink ? (document.getElementById('formTipoPagamento')?.value || 'pix') : '';
+  // Campos específicos de lead (Comercial)
+  const telefone  = mod.hasLead ? (document.getElementById('formTelefone')?.value.trim()  || '') : '';
+  const emailLead = mod.hasLead ? (document.getElementById('formEmailLead')?.value.trim() || '') : '';
+  const origem    = mod.hasLead ? (document.getElementById('formOrigem')?.value            || '') : '';
+  const interesse = mod.hasLead ? (document.getElementById('formInteresse')?.value.trim() || '') : '';
 
   if (!titulo || !escola || !categoria) {
     showToast('Preencha os campos obrigatórios', 'error'); return;
@@ -1375,7 +1449,8 @@ function saveCard(e) {
     if (!card) return;
     const oldFase = card.fase;
     Object.assign(card, { titulo, descricao, escola, categoria, prioridade, responsavel, prazo, valor, fornecedor, numDoc, vencimento,
-      ...(mod.hasPaymentLink ? { tipoPagamento } : {}) });
+      ...(mod.hasPaymentLink ? { tipoPagamento } : {}),
+      ...(mod.hasLead ? { telefone, emailLead, origem, interesse } : {}) });
     if (fase !== oldFase) {
       card.fase = fase;
       card.historico.push({ texto:`Movido de <strong>${getPhaseStyle(state.currentModule, oldFase).label}</strong> para <strong>${getPhaseStyle(state.currentModule, fase).label}</strong>`, data:now(), usuario:'Emerson Santos' });
@@ -1392,6 +1467,7 @@ function saveCard(e) {
       titulo, descricao, escola, categoria, prioridade, fase, responsavel, prazo,
       valor, fornecedor, numDoc, vencimento,
       ...(mod.hasPaymentLink ? { tipoPagamento, linkPagamento:'', codigoTransacao:'', linkStatus:'pendente' } : {}),
+      ...(mod.hasLead ? { telefone, emailLead, origem, interesse } : {}),
       criadoEm: new Date().toISOString().split('T')[0],
       comentarios:[], historico:[{ texto:'Card criado', data:now(), usuario:'Emerson Santos' }],
       anexos:[],
@@ -3183,10 +3259,10 @@ function closeUserModal() {
 function getPermissoesByPerfil(perfil) {
   const all = ['ver','criar','editar','aprovar'];
   const maps = {
-    admin:        { solicitacoes:all, contas_pagar:all, contas_receber:all, compras:all, processos:all, ti:all, central_pagamentos:all },
-    gestor:       { solicitacoes:all, contas_pagar:['ver','aprovar'], contas_receber:['ver','aprovar'], compras:['ver','criar','aprovar'], processos:all, ti:['ver','criar'], central_pagamentos:['ver'] },
-    operador:     { solicitacoes:['ver','criar','editar'], contas_pagar:['ver','criar'], contas_receber:['ver','criar'], compras:['ver','criar','editar'], processos:['ver','criar','editar'], ti:['ver','criar'], central_pagamentos:[] },
-    visualizador: { solicitacoes:['ver'], contas_pagar:['ver'], contas_receber:['ver'], compras:['ver'], processos:['ver'], ti:['ver'], central_pagamentos:[] },
+    admin:        { solicitacoes:all, contas_pagar:all, contas_receber:all, compras:all, processos:all, ti:all, central_pagamentos:all, comercial:all },
+    gestor:       { solicitacoes:all, contas_pagar:['ver','aprovar'], contas_receber:['ver','aprovar'], compras:['ver','criar','aprovar'], processos:all, ti:['ver','criar'], central_pagamentos:['ver'], comercial:all },
+    operador:     { solicitacoes:['ver','criar','editar'], contas_pagar:['ver','criar'], contas_receber:['ver','criar'], compras:['ver','criar','editar'], processos:['ver','criar','editar'], ti:['ver','criar'], central_pagamentos:[], comercial:['ver','criar','editar'] },
+    visualizador: { solicitacoes:['ver'], contas_pagar:['ver'], contas_receber:['ver'], compras:['ver'], processos:['ver'], ti:['ver'], central_pagamentos:[], comercial:['ver'] },
   };
   return maps[perfil] || maps.visualizador;
 }
