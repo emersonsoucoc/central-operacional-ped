@@ -11,6 +11,121 @@
 </head>
 <body>
 
+<!-- ══ TELA DE LOGIN ══════════════════════════════════════════ -->
+<div class="login-overlay" id="loginOverlay">
+
+  <!-- Painel esquerdo: visual dark -->
+  <div class="login-left">
+    <div class="login-brand">
+      <div class="login-logo">
+        <svg width="36" height="36" viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="8" fill="#3B82F6"/>
+          <path d="M7 14h6M15 10h6M7 18h10" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="login-brand-name">Central Ops</div>
+        <div class="login-brand-sub">Grupo PED</div>
+      </div>
+    </div>
+
+    <div class="login-hero">
+      <h2 class="login-hero-title">Gestão operacional<br/>para todas as escolas</h2>
+      <p class="login-hero-desc">Fluxos padronizados, controle total e visibilidade em tempo real para toda a rede.</p>
+    </div>
+
+    <!-- Pipeline visual -->
+    <div class="login-pipeline">
+      <div class="lp-stage lp-stage--amber">
+        <span class="lp-dot"></span>
+        <span class="lp-label">Solicitado</span>
+      </div>
+      <div class="lp-arrow">→</div>
+      <div class="lp-stage lp-stage--blue">
+        <span class="lp-dot"></span>
+        <span class="lp-label">Em andamento</span>
+      </div>
+      <div class="lp-arrow">→</div>
+      <div class="lp-stage lp-stage--purple">
+        <span class="lp-dot"></span>
+        <span class="lp-label">Aprovação</span>
+      </div>
+      <div class="lp-arrow">→</div>
+      <div class="lp-stage lp-stage--green">
+        <span class="lp-dot"></span>
+        <span class="lp-label">Concluído</span>
+      </div>
+    </div>
+
+    <div class="login-footer-info">
+      <span>Contas a Receber</span>
+      <span>·</span>
+      <span>Contas a Pagar</span>
+      <span>·</span>
+      <span>Compras</span>
+      <span>·</span>
+      <span>Processos</span>
+    </div>
+  </div>
+
+  <!-- Painel direito: formulário -->
+  <div class="login-right">
+    <div class="login-card" id="loginCard">
+      <div class="login-card-header">
+        <h1 class="login-title">Entrar na plataforma</h1>
+        <p class="login-subtitle">Use suas credenciais de acesso</p>
+      </div>
+
+      <form class="login-form" id="loginForm" autocomplete="off">
+        <div class="login-field">
+          <label class="login-label" for="loginEmail">E-mail</label>
+          <div class="login-input-wrap">
+            <svg class="login-input-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M1 6l7 4 7-4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            <input type="email" id="loginEmail" class="login-input" placeholder="seu@email.com.br" required autocomplete="username"/>
+          </div>
+        </div>
+
+        <div class="login-field">
+          <label class="login-label" for="loginPassword">
+            Senha
+            <button type="button" class="login-forgot" id="loginForgotBtn">Esqueceu?</button>
+          </label>
+          <div class="login-input-wrap">
+            <svg class="login-input-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="7" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <input type="password" id="loginPassword" class="login-input" placeholder="••••••••" required autocomplete="current-password"/>
+            <button type="button" class="login-eye" id="loginEyeBtn" title="Mostrar/ocultar senha">
+              <svg id="loginEyeIcon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="login-error" id="loginError"></div>
+
+        <button type="submit" class="login-submit" id="loginSubmitBtn">
+          <span class="login-submit-text">Entrar</span>
+          <svg class="login-submit-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </form>
+
+      <div class="login-divider"><span>Acesso restrito</span></div>
+      <p class="login-contact">Problemas para entrar? Fale com o <strong>administrador do sistema</strong>.</p>
+    </div>
+  </div>
+
+</div>
+<!-- /login-overlay -->
+
 <div class="app-wrapper" id="appWrapper">
 
   <!-- ══ SIDEBAR ══════════════════════════════════════════ -->
@@ -172,16 +287,14 @@
     </nav>
 
     <div class="sidebar-user">
-      <div class="user-avatar">ES</div>
+      <div class="user-avatar" id="sidebarUserAvatar">ES</div>
       <div class="user-info">
-        <span class="user-name">Emerson Santos</span>
-        <span class="user-role">Administrador</span>
+        <span class="user-name" id="sidebarUserName">Emerson Santos</span>
+        <span class="user-role" id="sidebarUserRole">Administrador</span>
       </div>
-      <button class="user-menu-btn" title="Configurações">
+      <button class="user-menu-btn" id="logoutBtn" title="Sair do sistema">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <circle cx="7" cy="3" r="1" fill="currentColor"/>
-          <circle cx="7" cy="7" r="1" fill="currentColor"/>
-          <circle cx="7" cy="11" r="1" fill="currentColor"/>
+          <path d="M5 2H2.5A1.5 1.5 0 001 3.5v7A1.5 1.5 0 002.5 12H5M9 10l3-3-3-3M6 7h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
     </div>

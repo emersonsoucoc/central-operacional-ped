@@ -12,6 +12,212 @@
 const PAYMENT_BACKEND_URL = 'https://central-operacional-ped-production.up.railway.app';
 
 /* ══════════════════════════════════════════════════════════
+   SISTEMA DE AUTENTICAÇÃO E USUÁRIOS
+══════════════════════════════════════════════════════════ */
+
+const AUTH_KEY = 'ped_auth_user';
+
+/* Lista de usuários — em produção, viria de uma API */
+let USERS = JSON.parse(localStorage.getItem('ped_users') || 'null') || [
+  {
+    id: 'u1', name: 'Emerson Santos', email: 'emerson@grupoped.com.br',
+    password: 'admin123', role: 'Super Admin', initials: 'ES',
+    school: 'all', active: true,
+    permissions: {
+      solicitacoes:      ['ver','criar','editar','aprovar'],
+      contas_pagar:      ['ver','criar','editar','aprovar'],
+      contas_receber:    ['ver','criar','editar','aprovar'],
+      compras:           ['ver','criar','editar','aprovar'],
+      processos:         ['ver','criar','editar','aprovar'],
+      ti:                ['ver','criar','editar','aprovar'],
+      central_pagamentos:['ver','criar','editar','aprovar'],
+    },
+  },
+  {
+    id: 'u2', name: 'Gestor Alpha', email: 'gestor@escola-alpha.com.br',
+    password: 'gestor123', role: 'Gestor de Escola', initials: 'GA',
+    school: 'ped1', active: true,
+    permissions: {
+      solicitacoes:      ['ver','criar','editar','aprovar'],
+      contas_pagar:      ['ver','aprovar'],
+      contas_receber:    ['ver','aprovar'],
+      compras:           ['ver','criar','aprovar'],
+      processos:         ['ver','criar','editar','aprovar'],
+      ti:                ['ver','criar'],
+      central_pagamentos:['ver'],
+    },
+  },
+  {
+    id: 'u3', name: 'Operacional PED', email: 'op@grupoped.com.br',
+    password: 'op123', role: 'Operacional', initials: 'OP',
+    school: 'all', active: true,
+    permissions: {
+      solicitacoes:      ['ver','criar','editar'],
+      contas_pagar:      ['ver','criar'],
+      contas_receber:    ['ver','criar'],
+      compras:           ['ver','criar','editar'],
+      processos:         ['ver','criar','editar'],
+      ti:                ['ver','criar'],
+      central_pagamentos:[],
+    },
+  },
+];
+
+function saveUsers() {
+  localStorage.setItem('ped_users', JSON.stringify(USERS));
+}
+
+/* Usuário logado no momento */
+let currentUser = null;
+
+function loadSession() {
+  const saved = localStorage.getItem(AUTH_KEY);
+  if (!saved) return null;
+  try {
+    const data = JSON.parse(saved);
+    // Revalida se o usuário ainda existe e está ativo
+    const found = USERS.find(u => u.id === data.id && u.active);
+    return found || null;
+  } catch { return null; }
+}
+
+function saveSession(user) {
+  localStorage.setItem(AUTH_KEY, JSON.stringify({ id: user.id }));
+}
+
+function clearSession() {
+  localStorage.removeItem(AUTH_KEY);
+}
+
+function canAccess(moduleKey) {
+  if (!currentUser) return false;
+  const perms = currentUser.permissions[moduleKey] || [];
+  return perms.includes('ver');
+}
+
+function canCreate(moduleKey) {
+  if (!currentUser) return false;
+  const perms = currentUser.permissions[moduleKey] || [];
+  return perms.includes('criar');
+}
+
+/* Atualiza sidebar com dados do usuário logado */
+function updateSidebarUser() {
+  if (!currentUser) return;
+  const avatarEl = document.getElementById('sidebarUserAvatar');
+  const nameEl   = document.getElementById('sidebarUserName');
+  const roleEl   = document.getElementById('sidebarUserRole');
+  if (avatarEl) avatarEl.textContent = currentUser.initials;
+  if (nameEl)   nameEl.textContent   = currentUser.name;
+  if (roleEl)   roleEl.textContent   = currentUser.role;
+}
+
+/* Filtra itens de nav conforme permissões */
+function applyNavPermissions() {
+  document.querySelectorAll('.nav-item[data-module]').forEach(el => {
+    const mod = el.dataset.module;
+    if (!MODULES[mod]) return; // itens como dashboard/configuracoes sempre visíveis
+    const visible = canAccess(mod);
+    el.style.display = visible ? '' : 'none';
+  });
+
+  // Botão "Nova Solicitação/Card" conforme permissão de criar no módulo atual
+  const newBtn = document.getElementById('newCardBtn');
+  if (newBtn) newBtn.style.display = canCreate(state.currentModule) ? '' : 'none';
+}
+
+/* ──── FUNÇÕES DE LOGIN/LOGOUT ──── */
+function showLoginScreen() {
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('appWrapper').style.display   = 'none';
+  setTimeout(() => document.getElementById('loginEmail')?.focus(), 100);
+}
+
+function hideLoginScreen() {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('appWrapper').style.display   = '';
+}
+
+function handleLogin(e) {
+  e.preventDefault();
+  const email    = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const password = document.getElementById('loginPassword').value;
+  const errorEl  = document.getElementById('loginError');
+  const submitBtn = document.getElementById('loginSubmitBtn');
+
+  errorEl.textContent = '';
+  submitBtn.classList.add('loading');
+  submitBtn.disabled = true;
+
+  // Simula latência mínima para UX
+  setTimeout(() => {
+    const user = USERS.find(u =>
+      u.email.toLowerCase() === email &&
+      u.password === password &&
+      u.active
+    );
+
+    submitBtn.classList.remove('loading');
+    submitBtn.disabled = false;
+
+    if (!user) {
+      errorEl.textContent = 'E-mail ou senha incorretos. Tente novamente.';
+      document.getElementById('loginPassword').value = '';
+      document.getElementById('loginPassword').focus();
+      document.getElementById('loginCard')?.classList.add('shake');
+      setTimeout(() => document.getElementById('loginCard')?.classList.remove('shake'), 500);
+      return;
+    }
+
+    currentUser = user;
+    saveSession(user);
+    hideLoginScreen();
+    updateSidebarUser();
+    applyNavPermissions();
+    showToast(`Bem-vindo, ${user.name.split(' ')[0]}!`, 'success');
+  }, 400);
+}
+
+function handleLogout() {
+  if (!confirm('Deseja sair do sistema?')) return;
+  currentUser = null;
+  clearSession();
+  showLoginScreen();
+  document.getElementById('loginEmail').value    = '';
+  document.getElementById('loginPassword').value = '';
+}
+
+function initLogin() {
+  // Tenta restaurar sessão
+  currentUser = loadSession();
+
+  if (currentUser) {
+    hideLoginScreen();
+    updateSidebarUser();
+    applyNavPermissions();
+  } else {
+    showLoginScreen();
+  }
+
+  // Eventos do formulário
+  document.getElementById('loginForm').addEventListener('submit', handleLogin);
+
+  // Toggle senha
+  document.getElementById('loginEyeBtn').addEventListener('click', () => {
+    const inp = document.getElementById('loginPassword');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+
+  // Logout
+  document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+
+  // Esqueceu a senha
+  document.getElementById('loginForgotBtn').addEventListener('click', () => {
+    showToast('Fale com o administrador para redefinir sua senha.', 'warn');
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
    CONFIG: MÓDULOS E FASES
 ══════════════════════════════════════════════════════════ */
 const MODULES = {
@@ -681,6 +887,7 @@ function switchModule(modulo) {
   document.getElementById('newCardBtnLabel').textContent  = mod.btnLabel;
 
   renderAll();
+  if (currentUser) applyNavPermissions();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -3320,6 +3527,7 @@ function init() {
   state.automations = loadAutomations();
   initAutomationPanel();
   initPhaseEditor();
+  initLogin();
 
   const initialHash = location.hash.slice(1);
   if (initialHash === 'configuracoes') openSettings();
