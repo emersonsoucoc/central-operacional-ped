@@ -9,7 +9,7 @@
    INTEGRAÇÃO E-REDE — Link de Pagamento
    Altere a URL abaixo após o deploy no Railway.
 ══════════════════════════════════════════════════════════ */
-const PAYMENT_BACKEND_URL = 'https://SEU-APP.railway.app';
+const PAYMENT_BACKEND_URL = 'https://central-operacional-ped-production.up.railway.app';
 
 /* ══════════════════════════════════════════════════════════
    CONFIG: MÓDULOS E FASES
@@ -52,6 +52,8 @@ const MODULES = {
     btnLabel: 'Nova Cobrança',
     hasFinancial: true,
     hasPaymentLink: true,          // habilita fluxo de link de pagamento
+    paymentGenPhase: 'aguardando_pagamento',
+    paymentConfirmPhase: 'pagamento_efetuado',
     fornecedorLabel: 'Cliente / Aluno',
     numDocLabel: 'Nº Fatura / Referência',
     categorias: ['Mensalidades','Matrículas','Material Didático','Eventos','Cursos','Taxa de Serviços','Outros'],
@@ -109,6 +111,26 @@ const MODULES = {
       resolvido:            { label:'Resolvido',         color:'#10B981', bg:'#ECFDF5' },
     },
     lastPhase: 'resolvido',
+  },
+  central_pagamentos: {
+    label: 'Central de Pagamentos',
+    shortLabel: 'Central Pgto.',
+    btnLabel: 'Nova Cobrança',
+    hasFinancial: true,
+    hasPaymentLink: true,
+    paymentGenPhase: 'aguardando_pagamento',
+    paymentConfirmPhase: 'pago',
+    fornecedorLabel: 'Cliente / Responsável',
+    numDocLabel: 'CPF / CNPJ',
+    categorias: ['Mensalidade','Matrícula','Material Didático','Uniforme','Evento','Taxa Administrativa','Outros'],
+    fases: {
+      nova_cobranca:        { label:'Nova Cobrança',     color:'#6366F1', bg:'#EEF2FF' },
+      aguardando_pagamento: { label:'Aguard. Pagamento', color:'#F59E0B', bg:'#FFFBEB' },
+      pago:                 { label:'Pago ✓',            color:'#10B981', bg:'#ECFDF5' },
+      vencido:              { label:'Vencido',           color:'#EF4444', bg:'#FEF2F2' },
+      cancelado:            { label:'Cancelado',         color:'#64748B', bg:'#F1F5F9' },
+    },
+    lastPhase: 'pago',
   },
 };
 
@@ -383,6 +405,55 @@ let allCards = [
     comentarios:[], historico:[
       {texto:'Card criado',data:'2026-02-15 09:00',usuario:'Roberto Lima'},
       {texto:'Entregue e instalado',data:'2026-03-25 16:00',usuario:'Roberto Lima'}
+    ], anexos:[] },
+
+  /* ── CENTRAL DE PAGAMENTOS ── */
+  { id:'cp1', modulo:'central_pagamentos', titulo:'Mensalidade Abril/2026 — João Pereira (Turma 2A)',
+    descricao:'Responsável: Maria Pereira · CPF: 123.456.789-00 · Turma 2º Ano A',
+    fase:'nova_cobranca', prioridade:'alta', escola:'ped1', categoria:'Mensalidade',
+    responsavel:'Emerson Santos', criadoEm:'2026-04-01', prazo:'2026-04-10',
+    valor:'1250.00', fornecedor:'Maria Pereira', numDoc:'123.456.789-00', vencimento:'2026-04-10',
+    tipoPagamento:'pix', linkPagamento:'', codigoTransacao:'', linkStatus:'pendente',
+    comentarios:[], historico:[{texto:'Cobrança criada',data:'2026-04-01 08:00',usuario:'Emerson Santos'}], anexos:[] },
+
+  { id:'cp2', modulo:'central_pagamentos', titulo:'Matrícula 2026 — Lucas Almeida',
+    descricao:'Matrícula antecipada para o ano letivo 2026. Turma 1º Ano.',
+    fase:'aguardando_pagamento', prioridade:'media', escola:'ped2', categoria:'Matrícula',
+    responsavel:'Emerson Santos', criadoEm:'2026-03-28', prazo:'2026-04-15',
+    valor:'800.00', fornecedor:'Ana Almeida', numDoc:'987.654.321-00', vencimento:'2026-04-15',
+    tipoPagamento:'pix', linkPagamento:'https://payments.useredecloud.com.br/pagamentos/pt/TRX8A2F1B', codigoTransacao:'TRX8A2F1B', linkStatus:'ativo',
+    comentarios:[{id:'cpcm1',autor:'Emerson Santos',texto:'Link enviado por e-mail para a responsável.',data:'2026-03-28 10:00'}],
+    historico:[
+      {texto:'Cobrança criada',data:'2026-03-28 09:00',usuario:'Emerson Santos'},
+      {texto:'Link de pagamento gerado via e-Rede: <strong>TRX8A2F1B</strong> (PIX)',data:'2026-03-28 09:15',usuario:'Emerson Santos'},
+      {texto:'Movido de <strong>Nova Cobrança</strong> para <strong>Aguard. Pagamento</strong>',data:'2026-03-28 09:15',usuario:'Emerson Santos'},
+    ], anexos:[] },
+
+  { id:'cp3', modulo:'central_pagamentos', titulo:'Material Didático 1º Sem — Beatriz Souza',
+    descricao:'Kit de materiais didáticos primeiro semestre. Turma 3A.',
+    fase:'pago', prioridade:'baixa', escola:'ped3', categoria:'Material Didático',
+    responsavel:'Emerson Santos', criadoEm:'2026-03-10', prazo:'2026-03-31',
+    valor:'350.00', fornecedor:'Carlos Souza', numDoc:'456.789.123-00', vencimento:'2026-03-31',
+    tipoPagamento:'pix', linkPagamento:'https://payments.useredecloud.com.br/pagamentos/pt/TRX5C3D9E', codigoTransacao:'TRX5C3D9E', linkStatus:'pago',
+    comentarios:[], historico:[
+      {texto:'Cobrança criada',data:'2026-03-10 09:00',usuario:'Emerson Santos'},
+      {texto:'Link gerado: <strong>TRX5C3D9E</strong> (PIX)',data:'2026-03-10 09:20',usuario:'Emerson Santos'},
+      {texto:'<strong>Pagamento confirmado</strong> — R$ 350,00 via PIX',data:'2026-03-28 14:30',usuario:'Emerson Santos'},
+      {texto:'Movido de <strong>Aguard. Pagamento</strong> para <strong>Pago ✓</strong>',data:'2026-03-28 14:30',usuario:'Emerson Santos'},
+    ], anexos:[] },
+
+  { id:'cp4', modulo:'central_pagamentos', titulo:'Mensalidade Março/2026 — Rafael Lima (inadimplente)',
+    descricao:'Boleto vencido. Link expirado. Aguardando reemissão.',
+    fase:'vencido', prioridade:'urgente', escola:'ped4', categoria:'Mensalidade',
+    responsavel:'Emerson Santos', criadoEm:'2026-03-01', prazo:'2026-03-15',
+    valor:'1250.00', fornecedor:'Sandra Lima', numDoc:'321.654.987-00', vencimento:'2026-03-15',
+    tipoPagamento:'pix', linkPagamento:'https://payments.useredecloud.com.br/pagamentos/pt/TRX1D7F4A', codigoTransacao:'TRX1D7F4A', linkStatus:'expirado',
+    comentarios:[{id:'cpcm2',autor:'Emerson Santos',texto:'Responsável informada do vencimento. Aguarda novo link.',data:'2026-04-01 10:00'}],
+    historico:[
+      {texto:'Cobrança criada',data:'2026-03-01 09:00',usuario:'Emerson Santos'},
+      {texto:'Link gerado: <strong>TRX1D7F4A</strong> (PIX)',data:'2026-03-01 09:10',usuario:'Emerson Santos'},
+      {texto:'Pagamento não realizado — link expirado em 15/03/2026',data:'2026-03-16 00:01',usuario:'Sistema'},
+      {texto:'Movido para <strong>Vencido</strong>',data:'2026-03-16 00:01',usuario:'Sistema'},
     ], anexos:[] },
 
   /* ── T.I ── */
@@ -762,15 +833,15 @@ function buildCardHTML(card) {
        </div>`
     : '';
 
-  // Bloco de link de pagamento — só para contas_receber
+  // Bloco de link de pagamento — para qualquer módulo com hasPaymentLink
   let paymentBlockHtml = '';
-  if (card.modulo === 'contas_receber') {
-    if (card.fase === 'criar_link') {
+  if (MODULES[card.modulo]?.hasPaymentLink) {
+    if (!card.linkPagamento) {
       paymentBlockHtml = `
         <div class="card-payment-action">
           <button class="btn-card-gen-link" data-id="${card.id}">⚡ Gerar Link</button>
         </div>`;
-    } else if (card.fase === 'aguardando_pagamento' && card.linkPagamento) {
+    } else if (card.linkPagamento && card.linkStatus !== 'pago') {
       const tipTag = card.tipoPagamento
         ? `<span class="pay-type-tag">${card.tipoPagamento.toUpperCase()}</span>` : '';
       paymentBlockHtml = `
@@ -779,7 +850,7 @@ function buildCardHTML(card) {
           <span class="pay-code">${escHtml(card.codigoTransacao)}</span>
           <button class="btn-card-confirm-pay" data-id="${card.id}">✓ Pago</button>
         </div>`;
-    } else if (['pagamento_efetuado','processando','concluido'].includes(card.fase) && card.codigoTransacao) {
+    } else if (card.linkStatus === 'pago' && card.codigoTransacao) {
       paymentBlockHtml = `
         <div class="card-paid-row">
           <span class="pay-paid-badge">✅ ${escHtml(card.codigoTransacao)}</span>
@@ -906,6 +977,8 @@ function setupDropZones() {
           texto:`Movido de <strong>${oldLabel}</strong> para <strong>${newLabel}</strong>`,
           data: now(), usuario:'Emerson Santos',
         });
+        AutomationEngine.execute('card_enter_phase', card, { fase: targetPhase });
+        AutomationEngine.execute('card_moved',       card, {});
         showToast(`Card movido para "${newLabel}"`, 'success');
         renderAll();
       }
@@ -1079,8 +1152,10 @@ function saveCard(e) {
     if (fase !== oldFase) {
       card.fase = fase;
       card.historico.push({ texto:`Movido de <strong>${getPhaseStyle(state.currentModule, oldFase).label}</strong> para <strong>${getPhaseStyle(state.currentModule, fase).label}</strong>`, data:now(), usuario:'Emerson Santos' });
+      AutomationEngine.execute('card_enter_phase', card, { fase });
     }
     card.historico.push({ texto:'Card atualizado', data:now(), usuario:'Emerson Santos' });
+    AutomationEngine.execute('field_updated', card, { campo: 'responsavel' });
     showToast('Card atualizado!', 'success');
   } else {
     const newCard = {
@@ -1093,6 +1168,8 @@ function saveCard(e) {
       anexos:[],
     };
     allCards.unshift(newCard);
+    AutomationEngine.execute('card_created',     newCard, {});
+    AutomationEngine.execute('card_enter_phase', newCard, { fase });
     showToast('Card criado!', 'success');
   }
 
@@ -1326,9 +1403,12 @@ async function generatePaymentLink(cardId) {
     card.codigoTransacao = txCode;
     card.linkStatus      = 'ativo';
 
+    const modCfg   = MODULES[card.modulo] || {};
     const oldFase  = card.fase;
-    const oldLabel = getPhaseStyle('contas_receber', oldFase).label;
-    card.fase = 'aguardando_pagamento';
+    const oldLabel = getPhaseStyle(card.modulo, oldFase).label;
+    const genPhase = modCfg.paymentGenPhase || 'aguardando_pagamento';
+    card.fase = genPhase;
+    const newGenLabel = getPhaseStyle(card.modulo, genPhase).label;
 
     card.historico.push({
       texto:   `Link de pagamento gerado via e-Rede: <strong>${txCode}</strong> (${tipo.toUpperCase()})`,
@@ -1336,7 +1416,7 @@ async function generatePaymentLink(cardId) {
       usuario: 'Emerson Santos',
     });
     card.historico.push({
-      texto:   `Movido de <strong>${oldLabel}</strong> para <strong>Aguard. Pagamento</strong>`,
+      texto:   `Movido de <strong>${oldLabel}</strong> para <strong>${newGenLabel}</strong>`,
       data:    now(),
       usuario: 'Emerson Santos',
     });
@@ -1360,17 +1440,20 @@ function confirmPayment(cardId) {
   const card = allCards.find(c => c.id === cardId);
   if (!card) return;
 
-  card.linkStatus = 'pago';
-  const oldFase  = card.fase;
-  const oldLabel = getPhaseStyle('contas_receber', oldFase).label;
-  card.fase = 'pagamento_efetuado';
+  const modCfgC     = MODULES[card.modulo] || {};
+  card.linkStatus   = 'pago';
+  const oldFaseC    = card.fase;
+  const oldLabelC   = getPhaseStyle(card.modulo, oldFaseC).label;
+  const confirmPhase = modCfgC.paymentConfirmPhase || 'pagamento_efetuado';
+  card.fase          = confirmPhase;
+  const newConfLabel = getPhaseStyle(card.modulo, confirmPhase).label;
   card.historico.push({
     texto:   `<strong>Pagamento confirmado</strong> — ${formatCurrency(card.valor) || 'valor não informado'} via ${(card.tipoPagamento || 'link').toUpperCase()}`,
     data:    now(),
     usuario: 'Emerson Santos',
   });
   card.historico.push({
-    texto:   `Movido de <strong>${oldLabel}</strong> para <strong>Pag. Efetuado</strong>`,
+    texto:   `Movido de <strong>${oldLabelC}</strong> para <strong>${newConfLabel}</strong>`,
     data:    now(),
     usuario: 'Emerson Santos',
   });
@@ -2290,6 +2373,824 @@ function shadeColor(hex, percent) {
 }
 
 /* ══════════════════════════════════════════════════════════
+   CAMPO CONFIG — Configuração de campos por fluxo
+══════════════════════════════════════════════════════════ */
+const CAMPOS_CONFIG = {};
+
+function getDefaultCampos(modKey) {
+  if (CAMPOS_CONFIG[modKey]) return CAMPOS_CONFIG[modKey];
+  const mod = MODULES[modKey];
+  if (!mod) return { sistema: [], custom: [] };
+
+  const base = [
+    { id:'titulo',      label:'Título',          tipo:'text',     obrigatorio:true,  visivel:true },
+    { id:'descricao',   label:'Descrição',        tipo:'textarea', obrigatorio:false, visivel:true },
+    { id:'escola',      label:'Escola / Unidade', tipo:'select',   obrigatorio:true,  visivel:true },
+    { id:'categoria',   label:'Categoria',        tipo:'select',   obrigatorio:false, visivel:true },
+    { id:'prioridade',  label:'Prioridade',       tipo:'select',   obrigatorio:false, visivel:true },
+    { id:'fase',        label:'Fase',             tipo:'select',   obrigatorio:false, visivel:true },
+    { id:'responsavel', label:'Responsável',      tipo:'text',     obrigatorio:false, visivel:true },
+    { id:'prazo',       label:'Prazo',            tipo:'date',     obrigatorio:false, visivel:true },
+  ];
+
+  if (mod.hasFinancial) {
+    base.push(
+      { id:'valor',      label:'Valor (R$)',                        tipo:'currency', obrigatorio:false, visivel:true },
+      { id:'fornecedor', label: mod.fornecedorLabel || 'Fornecedor', tipo:'text',   obrigatorio:false, visivel:true },
+      { id:'num_doc',    label: mod.numDocLabel    || 'Nº Documento',tipo:'text',   obrigatorio:false, visivel:true },
+      { id:'vencimento', label:'Vencimento',                         tipo:'date',   obrigatorio:false, visivel:true }
+    );
+  }
+
+  CAMPOS_CONFIG[modKey] = { sistema: base, custom: [] };
+  return CAMPOS_CONFIG[modKey];
+}
+
+/* ── Campo editor sub-page ── */
+function openCamposEditor(modKey) {
+  state.settingsTab = '_campos_' + modKey;
+  const config = getDefaultCampos(modKey);
+  const mod    = MODULES[modKey];
+  document.getElementById('settingsContent').innerHTML = buildCamposEditorHTML(modKey, mod, config);
+  bindCamposEditorEvents(modKey);
+}
+
+const TIPO_LABELS = {
+  text:'Texto curto', textarea:'Texto longo', select:'Seleção',
+  date:'Data', currency:'Moeda (R$)', number:'Número', checkbox:'Checkbox'
+};
+
+function buildCamposEditorHTML(modKey, mod, config) {
+  const sistemaCampos = config.sistema.map(campo => `
+    <div class="campo-editor-row ${!campo.visivel ? 'campo-oculto' : ''}" data-id="${campo.id}">
+      <label class="toggle-switch" title="${campo.visivel ? 'Ocultar campo' : 'Mostrar campo'}">
+        <input type="checkbox" class="campo-visivel-chk" data-campo-id="${campo.id}"
+          ${campo.visivel ? 'checked' : ''} ${campo.obrigatorio ? 'disabled' : ''} />
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="campo-nome">${campo.label}</span>
+      <span class="campo-tipo-badge">${TIPO_LABELS[campo.tipo] || campo.tipo}</span>
+      ${campo.obrigatorio ? '<span class="campo-req-badge">Obrigatório</span>' : ''}
+      <div class="campo-actions">
+        <button class="btn-icon-sm campo-rename-btn" data-campo-id="${campo.id}" title="Renomear">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M8 1.5l2.5 2.5-6 6H2v-2.5l6-6z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>`).join('');
+
+  const customCampos = config.custom.length
+    ? config.custom.map(campo => `
+      <div class="campo-editor-row" data-id="${campo.id}">
+        <label class="toggle-switch">
+          <input type="checkbox" class="campo-visivel-chk" data-campo-id="${campo.id}" ${campo.visivel ? 'checked' : ''} />
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="campo-nome">${campo.label}</span>
+        <span class="campo-tipo-badge">${TIPO_LABELS[campo.tipo] || campo.tipo}</span>
+        <div class="campo-actions">
+          <button class="btn-icon-sm campo-edit-btn" data-campo-id="${campo.id}" title="Editar">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M8 1.5l2.5 2.5-6 6H2v-2.5l6-6z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="btn-icon-sm btn-icon-danger campo-del-btn" data-campo-id="${campo.id}" title="Excluir">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>`).join('')
+    : '<p style="color:var(--gray-400);font-size:13px;padding:12px 0;margin:0">Nenhum campo personalizado criado ainda.</p>';
+
+  return `
+    <div class="campos-breadcrumb">
+      <button class="btn-ghost campos-back-btn">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Fluxos
+      </button>
+      <span class="campos-breadcrumb-sep">›</span>
+      <span class="campos-breadcrumb-item">${mod.label}</span>
+      <span class="campos-breadcrumb-sep">›</span>
+      <span class="campos-breadcrumb-item campos-breadcrumb-curr">Campos</span>
+    </div>
+
+    <div class="settings-panel-header" style="margin-bottom:20px">
+      <div>
+        <h2>Campos — ${mod.shortLabel}</h2>
+        <p>Configure visibilidade, nomes e adicione campos personalizados para este fluxo</p>
+      </div>
+    </div>
+
+    <div class="settings-card" style="margin-bottom:20px">
+      <div class="campos-section-header">
+        <strong>Campos do sistema</strong>
+        <span style="color:var(--gray-400);font-size:12px">Apenas visibilidade e nome são editáveis</span>
+      </div>
+      <div class="campo-editor-list" id="sistemaCamposList">${sistemaCampos}</div>
+    </div>
+
+    <div class="settings-card">
+      <div class="campos-section-header" style="margin-bottom:12px">
+        <strong>Campos personalizados</strong>
+        <button class="btn-primary" id="addCustomCampoBtn" style="font-size:12px;padding:6px 12px">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <path d="M5.5 1.5v8M1.5 5.5h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          Novo Campo
+        </button>
+      </div>
+      <div class="campo-editor-list" id="customCamposList">${customCampos}</div>
+    </div>
+
+    <!-- Modal: criar/editar campo personalizado -->
+    <div class="escola-modal-overlay" id="campoModalOverlay">
+      <div class="escola-modal" style="width:440px;max-width:calc(100vw - 32px)">
+        <div class="escola-modal-header">
+          <h3 id="campoModalTitle">Novo Campo</h3>
+          <button class="btn-icon-sm" id="campoModalClose">&#x2715;</button>
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label class="form-label">Nome do campo *</label>
+          <input type="text" class="form-input" id="campoInputLabel" placeholder="Ex: Centro de Custo"/>
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label class="form-label">Tipo *</label>
+          <select class="form-input" id="campoInputTipo">
+            <option value="text">Texto curto</option>
+            <option value="textarea">Texto longo</option>
+            <option value="number">Número</option>
+            <option value="currency">Moeda (R$)</option>
+            <option value="date">Data</option>
+            <option value="select">Seleção (lista)</option>
+            <option value="checkbox">Checkbox (sim/não)</option>
+          </select>
+        </div>
+        <div class="form-group" id="campoOpcoesGroup" style="display:none;margin-bottom:14px">
+          <label class="form-label">Opções — uma por linha *</label>
+          <textarea class="form-input" id="campoInputOpcoes" rows="4"
+            placeholder="Opção 1&#10;Opção 2&#10;Opção 3"></textarea>
+        </div>
+        <div class="escola-modal-footer">
+          <button class="btn-secondary" id="campoModalCancel">Cancelar</button>
+          <button class="btn-primary" id="campoModalSave">Salvar Campo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: renomear campo sistema -->
+    <div class="escola-modal-overlay" id="renameModalOverlay">
+      <div class="escola-modal" style="width:380px;max-width:calc(100vw - 32px)">
+        <div class="escola-modal-header">
+          <h3>Renomear Campo</h3>
+          <button class="btn-icon-sm" id="renameModalClose">&#x2715;</button>
+        </div>
+        <div class="form-group" style="margin-bottom:20px">
+          <label class="form-label">Novo nome</label>
+          <input type="text" class="form-input" id="renameInputLabel" />
+          <input type="hidden" id="renameInputId" />
+        </div>
+        <div class="escola-modal-footer">
+          <button class="btn-secondary" id="renameModalCancel">Cancelar</button>
+          <button class="btn-primary" id="renameModalSave">Renomear</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindCamposEditorEvents(modKey) {
+  const content = document.getElementById('settingsContent');
+  const config  = getDefaultCampos(modKey);
+
+  // Voltar para Fluxos
+  content.querySelector('.campos-back-btn').addEventListener('click', () => switchSettingsTab('fluxos'));
+
+  // Toggle visibilidade
+  content.addEventListener('change', e => {
+    const chk = e.target.closest('.campo-visivel-chk');
+    if (!chk || chk.disabled) return;
+    const id    = chk.dataset.campoId;
+    const campo = [...config.sistema, ...config.custom].find(c => c.id === id);
+    if (campo) campo.visivel = chk.checked;
+    const row = chk.closest('.campo-editor-row');
+    if (row) row.classList.toggle('campo-oculto', !chk.checked);
+    showToast(chk.checked ? 'Campo visível no card' : 'Campo ocultado', 'success');
+  });
+
+  // Renomear campo sistema
+  content.addEventListener('click', e => {
+    const renBtn = e.target.closest('.campo-rename-btn');
+    if (renBtn) {
+      const id    = renBtn.dataset.campoId;
+      const campo = config.sistema.find(c => c.id === id);
+      if (!campo) return;
+      document.getElementById('renameInputId').value    = id;
+      document.getElementById('renameInputLabel').value = campo.label;
+      document.getElementById('renameModalOverlay').classList.add('open');
+      setTimeout(() => document.getElementById('renameInputLabel').focus(), 50);
+    }
+
+    // Editar campo custom
+    const editBtn = e.target.closest('.campo-edit-btn');
+    if (editBtn) { openCampoModal(modKey, editBtn.dataset.campoId); return; }
+
+    // Excluir campo custom
+    const delBtn = e.target.closest('.campo-del-btn');
+    if (delBtn) {
+      const id    = delBtn.dataset.campoId;
+      const campo = config.custom.find(c => c.id === id);
+      if (!campo) return;
+      if (!confirm(`Excluir o campo "${campo.label}"?\nDados existentes neste campo serão perdidos.`)) return;
+      config.custom = config.custom.filter(c => c.id !== id);
+      const row = content.querySelector(`#customCamposList .campo-editor-row[data-id="${id}"]`);
+      if (row) row.remove();
+      showToast('Campo excluído', 'success');
+      // Se lista ficou vazia
+      const list = document.getElementById('customCamposList');
+      if (list && !list.querySelector('.campo-editor-row')) {
+        list.innerHTML = '<p style="color:var(--gray-400);font-size:13px;padding:12px 0;margin:0">Nenhum campo personalizado criado ainda.</p>';
+      }
+    }
+  });
+
+  // Rename modal — fechar / salvar
+  document.getElementById('renameModalClose').addEventListener('click',
+    () => document.getElementById('renameModalOverlay').classList.remove('open'));
+  document.getElementById('renameModalCancel').addEventListener('click',
+    () => document.getElementById('renameModalOverlay').classList.remove('open'));
+  document.getElementById('renameModalSave').addEventListener('click', () => {
+    const id    = document.getElementById('renameInputId').value;
+    const label = document.getElementById('renameInputLabel').value.trim();
+    if (!label) { showToast('Informe o novo nome', 'warn'); return; }
+    const campo = config.sistema.find(c => c.id === id);
+    if (campo) {
+      campo.label = label;
+      const nameEl = content.querySelector(`.campo-editor-row[data-id="${id}"] .campo-nome`);
+      if (nameEl) nameEl.textContent = label;
+    }
+    document.getElementById('renameModalOverlay').classList.remove('open');
+    showToast('Campo renomeado com sucesso', 'success');
+  });
+
+  // Novo campo personalizado
+  document.getElementById('addCustomCampoBtn').addEventListener('click', () => openCampoModal(modKey, null));
+
+  // Campo modal: tipo → mostrar/ocultar opções
+  document.getElementById('campoInputTipo').addEventListener('change', function() {
+    document.getElementById('campoOpcoesGroup').style.display = this.value === 'select' ? '' : 'none';
+  });
+
+  // Campo modal: fechar
+  const closeFn = () => closeCampoModal();
+  document.getElementById('campoModalClose').addEventListener('click', closeFn);
+  document.getElementById('campoModalCancel').addEventListener('click', closeFn);
+  document.getElementById('campoModalOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('campoModalOverlay')) closeFn();
+  });
+
+  // Campo modal: salvar
+  document.getElementById('campoModalSave').addEventListener('click', () => saveCampo(modKey));
+}
+
+let _editingCampoId   = null;
+let _editingCampoMod  = null;
+
+function openCampoModal(modKey, campoId) {
+  _editingCampoId  = campoId || null;
+  _editingCampoMod = modKey;
+  const overlay = document.getElementById('campoModalOverlay');
+  document.getElementById('campoModalTitle').textContent  = campoId ? 'Editar Campo' : 'Novo Campo';
+  document.getElementById('campoInputLabel').value = '';
+  document.getElementById('campoInputTipo').value  = 'text';
+  document.getElementById('campoInputOpcoes').value = '';
+  document.getElementById('campoOpcoesGroup').style.display = 'none';
+
+  if (campoId) {
+    const campo = getDefaultCampos(modKey).custom.find(c => c.id === campoId);
+    if (campo) {
+      document.getElementById('campoInputLabel').value = campo.label;
+      document.getElementById('campoInputTipo').value  = campo.tipo;
+      if (campo.tipo === 'select') {
+        document.getElementById('campoOpcoesGroup').style.display = '';
+        document.getElementById('campoInputOpcoes').value = (campo.opcoes || []).join('\n');
+      }
+    }
+  }
+  overlay.classList.add('open');
+  setTimeout(() => document.getElementById('campoInputLabel').focus(), 50);
+}
+
+function closeCampoModal() {
+  const overlay = document.getElementById('campoModalOverlay');
+  if (overlay) overlay.classList.remove('open');
+  _editingCampoId = null;
+}
+
+function saveCampo(modKey) {
+  const label = document.getElementById('campoInputLabel').value.trim();
+  const tipo  = document.getElementById('campoInputTipo').value;
+  if (!label) { showToast('Informe o nome do campo', 'warn'); return; }
+
+  const config = getDefaultCampos(modKey);
+  let opcoes = [];
+  if (tipo === 'select') {
+    opcoes = document.getElementById('campoInputOpcoes').value.split('\n').map(o => o.trim()).filter(Boolean);
+    if (!opcoes.length) { showToast('Adicione ao menos uma opção para o campo de seleção', 'warn'); return; }
+  }
+
+  if (_editingCampoId) {
+    const campo = config.custom.find(c => c.id === _editingCampoId);
+    if (campo) { campo.label = label; campo.tipo = tipo; campo.opcoes = opcoes; }
+    showToast('Campo atualizado!', 'success');
+  } else {
+    const id = 'custom_' + label.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').substring(0,20)
+                         + '_' + Date.now().toString(36);
+    config.custom.push({ id, label, tipo, opcoes, obrigatorio:false, visivel:true });
+    showToast('Campo personalizado criado!', 'success');
+  }
+
+  closeCampoModal();
+  openCamposEditor(modKey); // re-render editor
+}
+
+/* ── Aplica configuração de campos no modal do card ── */
+function applyFieldConfig(modKey) {
+  const config = getDefaultCampos(modKey);
+
+  config.sistema.forEach(campo => {
+    // Visibilidade do grupo
+    const group = document.querySelector(`[data-campo="${campo.id}"]`);
+    if (group) {
+      // Não ocultar se o módulo hasFinancial e o campo faz parte dos financials
+      // (financialFields/documentFields já controlam o bloco inteiro)
+      const inFinancial = ['valor','fornecedor','num_doc','vencimento'].includes(campo.id);
+      if (!inFinancial) group.style.display = campo.visivel ? '' : 'none';
+    }
+
+    // Atualizar label (manter o span.required se existir)
+    const labelEl = document.getElementById('label-' + campo.id);
+    if (labelEl) {
+      const reqSpan = labelEl.querySelector('.required');
+      labelEl.textContent = campo.label;
+      if (reqSpan) labelEl.appendChild(reqSpan);
+    }
+    // Casos com ID de label legado
+    if (campo.id === 'fornecedor') {
+      const el = document.getElementById('fornecedorLabel');
+      if (el) el.textContent = campo.label;
+    }
+    if (campo.id === 'num_doc') {
+      const el = document.getElementById('numDocLabel');
+      if (el) el.textContent = campo.label;
+    }
+  });
+}
+
+/* ── Renderiza campos custom no #customFieldsArea do modal ── */
+function renderCustomFields(modKey, card) {
+  const area = document.getElementById('customFieldsArea');
+  if (!area) return;
+  const config       = getDefaultCampos(modKey);
+  const visibleCustom = config.custom.filter(c => c.visivel);
+
+  if (!visibleCustom.length) { area.innerHTML = ''; return; }
+
+  const vals = (card && card.camposCustom) || {};
+  area.innerHTML = `
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--gray-100)">
+    <p class="form-label" style="margin-bottom:12px;font-weight:600;color:var(--gray-600)">Campos personalizados</p>
+    <div class="form-row" style="flex-wrap:wrap">
+      ${visibleCustom.map(campo => {
+        const val = vals[campo.id] !== undefined ? vals[campo.id] : '';
+        let input;
+        if (campo.tipo === 'textarea') {
+          input = `<textarea class="form-input custom-campo-input" data-custom-campo="${campo.id}" rows="2"
+            placeholder="${campo.label}...">${val}</textarea>`;
+        } else if (campo.tipo === 'select') {
+          const opts = (campo.opcoes || []).map(o =>
+            `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('');
+          input = `<select class="form-input custom-campo-input" data-custom-campo="${campo.id}">
+            <option value="">Selecionar...</option>${opts}</select>`;
+        } else if (campo.tipo === 'checkbox') {
+          input = `<input type="checkbox" class="custom-campo-input" data-custom-campo="${campo.id}"
+            ${val?'checked':''} style="width:20px;height:20px;cursor:pointer;margin-top:6px">`;
+        } else {
+          const typeAttr = campo.tipo === 'currency' ? 'number' : campo.tipo;
+          const extra    = campo.tipo === 'currency' ? 'step="0.01" min="0"' : '';
+          input = `<input type="${typeAttr}" class="form-input custom-campo-input"
+            data-custom-campo="${campo.id}" placeholder="${campo.label}..." value="${val}" ${extra} />`;
+        }
+        const isFullWidth = campo.tipo === 'textarea' || campo.tipo === 'checkbox';
+        return `<div class="form-group ${isFullWidth ? 'form-group--full' : ''}">
+          <label class="form-label">${campo.label}</label>
+          ${input}
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+/* ══════════════════════════════════════════════════════════
+   AUTOMAÇÕES — Motor de regras trigger → ação
+══════════════════════════════════════════════════════════ */
+const AUTOMACOES = [];
+
+const AUTO_TRIGGERS = [
+  { id:'fase_mudou',       label:'Quando o card muda para uma fase' },
+  { id:'card_criado',      label:'Quando um card é criado' },
+  { id:'campo_preenchido', label:'Quando o campo Responsável é preenchido' },
+  { id:'prazo_vencendo',   label:'Quando o prazo está vencendo (1 dia)' },
+];
+
+const AUTO_ACOES = [
+  { id:'mover_fase',          label:'Mover card para a fase',    temValor:true },
+  { id:'alterar_prioridade',  label:'Alterar prioridade para',   temValor:true },
+  { id:'notificar',           label:'Exibir notificação',        temValor:true },
+  { id:'definir_responsavel', label:'Definir responsável como',  temValor:true },
+];
+
+function buildPanelAutomacoes() {
+  const total      = AUTOMACOES.length;
+  const modOptions = Object.entries(MODULES)
+    .map(([k,m]) => `<option value="${k}">${m.label}</option>`).join('');
+
+  const rules = total ? AUTOMACOES.map((rule, i) => {
+    const triggerDef = AUTO_TRIGGERS.find(t => t.id === rule.trigger.tipo);
+    const acaoDef    = AUTO_ACOES.find(a => a.id === rule.acao.tipo);
+    const trigLabel  = triggerDef ? triggerDef.label : rule.trigger.tipo;
+    const acaoLabel  = acaoDef   ? acaoDef.label    : rule.acao.tipo;
+    const modLabel   = MODULES[rule.modulo]?.shortLabel || rule.modulo;
+    const faseLabel  = rule.trigger.faseId ? (MODULES[rule.modulo]?.fases[rule.trigger.faseId]?.label || rule.trigger.faseId) : '';
+
+    return `
+      <div class="automacao-rule-card ${!rule.ativo ? 'automacao-inativa' : ''}" data-rule-idx="${i}">
+        <div class="automacao-rule-header">
+          <div class="automacao-rule-info">
+            <span class="automacao-rule-name">${rule.nome}</span>
+            <span class="automacao-module-badge">${modLabel}</span>
+          </div>
+          <div class="automacao-rule-actions">
+            <label class="toggle-switch" title="${rule.ativo ? 'Desativar' : 'Ativar'}">
+              <input type="checkbox" class="automacao-ativo-chk" data-idx="${i}" ${rule.ativo ? 'checked' : ''} />
+              <span class="toggle-slider"></span>
+            </label>
+            <button class="btn-fluxo-action automacao-edit-btn" data-idx="${i}">Editar</button>
+            <button class="btn-fluxo-action btn-fluxo-danger automacao-del-btn" data-idx="${i}">Excluir</button>
+          </div>
+        </div>
+        <div class="automacao-rule-body">
+          <div class="automacao-step">
+            <span class="automacao-step-icon automacao-trigger-icon">▶</span>
+            <span><strong>Gatilho:</strong> ${trigLabel}${faseLabel ? ' → <em>' + faseLabel + '</em>' : ''}</span>
+          </div>
+          <div class="automacao-arrow">→</div>
+          <div class="automacao-step">
+            <span class="automacao-step-icon automacao-acao-icon">⚡</span>
+            <span><strong>Ação:</strong> ${acaoLabel}${rule.acao.valor ? ' <em>"' + rule.acao.valor + '"</em>' : ''}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('') : `
+    <div class="automacao-empty">
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style="color:var(--gray-300)">
+        <circle cx="22" cy="22" r="20" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M15 22h14M22 15v14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <p style="margin:12px 0 4px;color:var(--gray-500);font-weight:500">Nenhuma automação criada</p>
+      <p style="margin:0;color:var(--gray-400);font-size:13px">
+        Crie regras para automatizar tarefas repetitivas nos fluxos.
+      </p>
+    </div>`;
+
+  return `
+    <div class="settings-panel-header">
+      <div>
+        <h2>Automações</h2>
+        <p>Regras automáticas trigger → ação nos seus pipelines — ${total} automação${total !== 1 ? 'ões' : ''}</p>
+      </div>
+      <button class="btn-primary" id="addAutomacaoBtn">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M6.5 1.5v10M1.5 6.5h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Nova Automação
+      </button>
+    </div>
+
+    <div id="automacoesList">${rules}</div>
+
+    <!-- Modal: Nova / Editar Automação -->
+    <div class="escola-modal-overlay" id="autoModalOverlay">
+      <div class="escola-modal" style="width:520px;max-width:calc(100vw - 32px)">
+        <div class="escola-modal-header">
+          <h3 id="autoModalTitle">Nova Automação</h3>
+          <button class="btn-icon-sm" id="autoModalClose">&#x2715;</button>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px">
+          <label class="form-label">Nome da automação *</label>
+          <input type="text" class="form-input" id="autoInputNome"
+            placeholder="Ex: Mover para Pago quando aprovado"/>
+        </div>
+        <div class="form-group" style="margin-bottom:20px">
+          <label class="form-label">Fluxo *</label>
+          <select class="form-input" id="autoInputModulo">${modOptions}</select>
+        </div>
+
+        <!-- Trigger -->
+        <div class="automacao-builder-section">
+          <div class="automacao-builder-label">
+            <span class="automacao-step-icon automacao-trigger-icon" style="width:24px;height:24px;font-size:13px">▶</span>
+            <strong>Gatilho — quando isso acontecer</strong>
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <select class="form-input" id="autoTriggerTipo">
+              ${AUTO_TRIGGERS.map(t => `<option value="${t.id}">${t.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group" id="autoTriggerFaseGroup">
+            <label class="form-label">Fase específica (opcional)</label>
+            <select class="form-input" id="autoTriggerFase">
+              <option value="">Qualquer fase</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Ação -->
+        <div class="automacao-builder-section" style="margin-top:16px">
+          <div class="automacao-builder-label">
+            <span class="automacao-step-icon automacao-acao-icon" style="width:24px;height:24px;font-size:13px">⚡</span>
+            <strong>Ação — executar automaticamente</strong>
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <select class="form-input" id="autoAcaoTipo">
+              ${AUTO_ACOES.map(a => `<option value="${a.id}">${a.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group" id="autoAcaoValorGroup">
+            <label class="form-label" id="autoAcaoValorLabel">Valor da ação</label>
+            <input type="text" class="form-input" id="autoAcaoValor" placeholder="Ex: nome da fase ou prioridade"/>
+          </div>
+        </div>
+
+        <div class="escola-modal-footer">
+          <button class="btn-secondary" id="autoModalCancel">Cancelar</button>
+          <button class="btn-primary" id="autoModalSave">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M2 6.5l3.5 3.5 5.5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Salvar Automação
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindAutomacoesEvents() {
+  const content = document.getElementById('settingsContent');
+
+  // Toggle ativo/inativo
+  content.addEventListener('change', e => {
+    const chk = e.target.closest('.automacao-ativo-chk');
+    if (!chk) return;
+    const idx = parseInt(chk.dataset.idx);
+    if (AUTOMACOES[idx]) {
+      AUTOMACOES[idx].ativo = chk.checked;
+      chk.closest('.automacao-rule-card').classList.toggle('automacao-inativa', !chk.checked);
+      showToast(chk.checked ? 'Automação ativada' : 'Automação pausada', 'success');
+    }
+  });
+
+  // Editar / excluir
+  content.addEventListener('click', e => {
+    const editBtn = e.target.closest('.automacao-edit-btn');
+    if (editBtn) { openAutoModal(parseInt(editBtn.dataset.idx)); return; }
+
+    const delBtn = e.target.closest('.automacao-del-btn');
+    if (delBtn) {
+      const idx = parseInt(delBtn.dataset.idx);
+      const rule = AUTOMACOES[idx];
+      if (!rule) return;
+      if (!confirm(`Excluir a automação "${rule.nome}"?`)) return;
+      AUTOMACOES.splice(idx, 1);
+      renderSettingsPanel('automacoes');
+      showToast('Automação excluída', 'success');
+    }
+  });
+
+  // Botão "Nova Automação"
+  document.getElementById('addAutomacaoBtn').addEventListener('click', () => openAutoModal(null));
+
+  // Modal: fechar
+  document.getElementById('autoModalClose').addEventListener('click',  closeAutoModal);
+  document.getElementById('autoModalCancel').addEventListener('click', closeAutoModal);
+  document.getElementById('autoModalOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('autoModalOverlay')) closeAutoModal();
+  });
+
+  // Modal: mudança de fluxo → atualizar fases disponíveis
+  document.getElementById('autoInputModulo').addEventListener('change', function() {
+    refreshAutoTriggerFases(this.value);
+    refreshAutoAcaoValor();
+  });
+
+  // Modal: mudança de trigger tipo → mostrar/ocultar fase
+  document.getElementById('autoTriggerTipo').addEventListener('change', function() {
+    const showFase = this.value === 'fase_mudou';
+    document.getElementById('autoTriggerFaseGroup').style.display = showFase ? '' : 'none';
+    refreshAutoAcaoValor();
+  });
+
+  // Modal: mudança de ação → atualizar label/valor
+  document.getElementById('autoAcaoTipo').addEventListener('change', refreshAutoAcaoValor);
+
+  // Modal: salvar
+  document.getElementById('autoModalSave').addEventListener('click', saveAutomacao);
+
+  // Keyboard
+  document.addEventListener('keydown', function escAuto(e) {
+    if (e.key === 'Escape') {
+      const overlay = document.getElementById('autoModalOverlay');
+      if (overlay && overlay.classList.contains('open')) { closeAutoModal(); e.stopPropagation(); }
+    }
+  });
+}
+
+let _editingAutoIdx = null;
+
+function openAutoModal(idx) {
+  _editingAutoIdx = idx !== null ? idx : null;
+  const overlay = document.getElementById('autoModalOverlay');
+  document.getElementById('autoModalTitle').textContent = idx !== null ? 'Editar Automação' : 'Nova Automação';
+  document.getElementById('autoInputNome').value   = '';
+  document.getElementById('autoTriggerTipo').value = 'fase_mudou';
+  document.getElementById('autoAcaoTipo').value    = 'mover_fase';
+  document.getElementById('autoAcaoValor').value   = '';
+
+  const firstMod = Object.keys(MODULES)[0] || '';
+  document.getElementById('autoInputModulo').value = firstMod;
+
+  if (idx !== null && AUTOMACOES[idx]) {
+    const rule = AUTOMACOES[idx];
+    document.getElementById('autoInputNome').value   = rule.nome;
+    document.getElementById('autoInputModulo').value = rule.modulo;
+    document.getElementById('autoTriggerTipo').value = rule.trigger.tipo;
+    document.getElementById('autoAcaoTipo').value    = rule.acao.tipo;
+    document.getElementById('autoAcaoValor').value   = rule.acao.valor || '';
+    refreshAutoTriggerFases(rule.modulo, rule.trigger.faseId);
+  } else {
+    refreshAutoTriggerFases(firstMod);
+  }
+
+  document.getElementById('autoTriggerFaseGroup').style.display =
+    document.getElementById('autoTriggerTipo').value === 'fase_mudou' ? '' : 'none';
+
+  refreshAutoAcaoValor();
+  overlay.classList.add('open');
+  setTimeout(() => document.getElementById('autoInputNome').focus(), 60);
+}
+
+function closeAutoModal() {
+  const overlay = document.getElementById('autoModalOverlay');
+  if (overlay) overlay.classList.remove('open');
+  _editingAutoIdx = null;
+}
+
+function refreshAutoTriggerFases(modKey, selectedFaseId) {
+  const faseSelect = document.getElementById('autoTriggerFase');
+  if (!faseSelect) return;
+  const mod = MODULES[modKey];
+  faseSelect.innerHTML = '<option value="">Qualquer fase</option>';
+  if (mod) {
+    Object.entries(mod.fases).forEach(([k,v]) => {
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = v.label;
+      if (k === selectedFaseId) opt.selected = true;
+      faseSelect.appendChild(opt);
+    });
+  }
+}
+
+function refreshAutoAcaoValor() {
+  const acaoTipo   = document.getElementById('autoAcaoTipo')?.value;
+  const modKey     = document.getElementById('autoInputModulo')?.value;
+  const valorGroup = document.getElementById('autoAcaoValorGroup');
+  const valorLabel = document.getElementById('autoAcaoValorLabel');
+  const valorInput = document.getElementById('autoAcaoValor');
+  if (!acaoTipo || !valorGroup) return;
+
+  const acaoDef = AUTO_ACOES.find(a => a.id === acaoTipo);
+  valorGroup.style.display = '';
+
+  if (acaoTipo === 'mover_fase') {
+    valorLabel.textContent = 'Mover para fase';
+    // Substituir input por select de fases
+    if (valorInput.tagName === 'INPUT') {
+      const sel = document.createElement('select');
+      sel.className   = 'form-input';
+      sel.id          = 'autoAcaoValor';
+      const mod = MODULES[modKey];
+      sel.innerHTML   = '<option value="">Selecionar fase...</option>';
+      if (mod) Object.entries(mod.fases).forEach(([k,v]) => {
+        sel.innerHTML += `<option value="${k}">${v.label}</option>`;
+      });
+      valorInput.replaceWith(sel);
+    }
+  } else if (acaoTipo === 'alterar_prioridade') {
+    valorLabel.textContent = 'Nova prioridade';
+    if (valorInput.tagName !== 'SELECT' || valorInput.options.length < 3) {
+      const sel = document.createElement('select');
+      sel.className = 'form-input'; sel.id = 'autoAcaoValor';
+      sel.innerHTML = PRIORITIES.map(p => `<option value="${p.id}">${p.label}</option>`).join('');
+      document.getElementById('autoAcaoValor')?.replaceWith(sel);
+    }
+  } else if (acaoTipo === 'notificar') {
+    valorLabel.textContent = 'Mensagem da notificação';
+    if (document.getElementById('autoAcaoValor')?.tagName !== 'INPUT') {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.className = 'form-input'; inp.id = 'autoAcaoValor';
+      inp.placeholder = 'Ex: Card aguardando aprovação!';
+      document.getElementById('autoAcaoValor')?.replaceWith(inp);
+    }
+  } else {
+    valorLabel.textContent = 'Valor';
+    if (document.getElementById('autoAcaoValor')?.tagName !== 'INPUT') {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.className = 'form-input'; inp.id = 'autoAcaoValor';
+      document.getElementById('autoAcaoValor')?.replaceWith(inp);
+    }
+  }
+}
+
+function saveAutomacao() {
+  const nome    = document.getElementById('autoInputNome').value.trim();
+  const modulo  = document.getElementById('autoInputModulo').value;
+  const trigTipo = document.getElementById('autoTriggerTipo').value;
+  const faseId  = document.getElementById('autoTriggerFase')?.value || '';
+  const acaoTipo = document.getElementById('autoAcaoTipo').value;
+  const valor   = document.getElementById('autoAcaoValor').value;
+
+  if (!nome)   { showToast('Informe o nome da automação', 'warn'); return; }
+  if (!modulo) { showToast('Selecione o fluxo', 'warn'); return; }
+  if (!valor && AUTO_ACOES.find(a => a.id === acaoTipo)?.temValor) {
+    showToast('Preencha o valor da ação', 'warn'); return;
+  }
+
+  const rule = {
+    nome, modulo, ativo: true,
+    trigger: { tipo: trigTipo, faseId: faseId || undefined },
+    acao:    { tipo: acaoTipo, valor: valor || undefined },
+  };
+
+  if (_editingAutoIdx !== null && AUTOMACOES[_editingAutoIdx]) {
+    AUTOMACOES[_editingAutoIdx] = rule;
+    showToast('Automação atualizada!', 'success');
+  } else {
+    AUTOMACOES.push(rule);
+    showToast('Automação criada!', 'success');
+  }
+
+  closeAutoModal();
+  renderSettingsPanel('automacoes');
+}
+
+/* ── Motor de execução de automações ── */
+function evaluateAutomacoes(card, eventTipo, prevFase) {
+  const activeRules = AUTOMACOES.filter(r => r.ativo && r.modulo === card.modulo);
+  activeRules.forEach(rule => {
+    const t = rule.trigger;
+    let triggered = false;
+
+    if (t.tipo === 'fase_mudou' && eventTipo === 'fase_mudou') {
+      triggered = !t.faseId || card.fase === t.faseId;
+    } else if (t.tipo === 'card_criado' && eventTipo === 'card_criado') {
+      triggered = true;
+    } else if (t.tipo === 'campo_preenchido' && eventTipo === 'campo_preenchido') {
+      triggered = !!card.responsavel;
+    }
+
+    if (!triggered) return;
+
+    const a = rule.acao;
+    if (a.tipo === 'mover_fase' && a.valor && MODULES[card.modulo]?.fases[a.valor]) {
+      card.fase = a.valor;
+      addHistory(card, `Automação "${rule.nome}" moveu card para "${MODULES[card.modulo].fases[a.valor].label}"`);
+    } else if (a.tipo === 'alterar_prioridade' && a.valor) {
+      card.prioridade = a.valor;
+      addHistory(card, `Automação "${rule.nome}" alterou prioridade para "${a.valor}"`);
+    } else if (a.tipo === 'notificar' && a.valor) {
+      showToast(`🤖 ${rule.nome}: ${a.valor}`, 'success');
+    } else if (a.tipo === 'definir_responsavel' && a.valor) {
+      if (!card.responsavel) {
+        card.responsavel = a.valor;
+        addHistory(card, `Automação "${rule.nome}" definiu responsável como "${a.valor}"`);
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════ */
 function init() {
@@ -2396,12 +3297,491 @@ function init() {
   });
 
   // Lê o hash da URL na carga inicial e ativa o módulo correto
+  // Carrega automações salvas
+  state.automations = loadAutomations();
+  initAutomationPanel();
+
   const initialHash = location.hash.slice(1);
   if (initialHash === 'configuracoes') openSettings();
   else switchModule(MODULES[initialHash] ? initialHash : 'solicitacoes');
 
   console.log('%c🏫 Central Operacional — Grupo PED', 'color:#3B82F6;font-weight:bold;font-size:14px');
-  console.log(`%c5 módulos · ${allCards.length} cards de exemplo`, 'color:#64748B;font-size:12px');
+  console.log(`%c${Object.keys(MODULES).length} módulos · ${allCards.length} cards de exemplo`, 'color:#64748B;font-size:12px');
+}
+
+/* ══════════════════════════════════════════════════════════
+   AUTOMAÇÕES — Engine + UI (estilo Pipefy)
+══════════════════════════════════════════════════════════ */
+
+/* ── Definições de gatilhos disponíveis ── */
+const TRIGGER_DEFS = [
+  {
+    type   : 'card_enter_phase',
+    label  : 'Um card entrar em uma fase',
+    icon   : '<path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+    params : [{ key:'fase', label:'Fase de entrada', type:'phase-select' }],
+  },
+  {
+    type   : 'card_leave_phase',
+    label  : 'Um card sair de uma fase',
+    icon   : '<path d="M13 8H3M7 4L3 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+    params : [{ key:'fase', label:'Fase de saída', type:'phase-select' }],
+  },
+  {
+    type   : 'card_created',
+    label  : 'Um card for criado',
+    icon   : '<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+    params : [],
+  },
+  {
+    type   : 'field_updated',
+    label  : 'Um campo for atualizado',
+    icon   : '<path d="M11 2.5l2.5 2.5-7 7H4V9.5l7-7z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    params : [{ key:'campo', label:'Campo monitorado', type:'field-select' }],
+  },
+  {
+    type   : 'sla_at_risk',
+    label  : 'Um alerta de SLA for acionado',
+    icon   : '<circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3.5l2 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+    params : [],
+  },
+  {
+    type   : 'card_moved',
+    label  : 'Um card for movido (arrastar)',
+    icon   : '<rect x="1" y="4" width="14" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 8h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+    params : [],
+  },
+];
+
+/* ── Definições de ações disponíveis ── */
+const ACTION_DEFS = [
+  {
+    type   : 'move_card',
+    label  : 'Mova um card',
+    icon   : '<path d="M2 8h12M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+    params : [{ key:'targetFase', label:'Mover para a fase', type:'phase-select' }],
+  },
+  {
+    type   : 'update_field',
+    label  : 'Atualize um campo no card',
+    icon   : '<path d="M11 2.5l2.5 2.5-7 7H4V9.5l7-7z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    params : [
+      { key:'campo',  label:'Campo a atualizar', type:'field-select' },
+      { key:'valor',  label:'Novo valor',         type:'text' },
+    ],
+  },
+  {
+    type   : 'send_notification',
+    label  : 'Envie uma notificação',
+    icon   : '<path d="M8 2a4 4 0 014 4v3l1.5 2h-11L4 9V6a4 4 0 014-4zM6.5 13a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    params : [{ key:'mensagem', label:'Texto da notificação', type:'text' }],
+  },
+  {
+    type   : 'assign_user',
+    label  : 'Distribua responsáveis',
+    icon   : '<circle cx="8" cy="6" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 14c0-3 2.5-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    params : [{ key:'responsavel', label:'Responsável', type:'text' }],
+  },
+  {
+    type   : 'http_request',
+    label  : 'Faça uma requisição HTTP',
+    badge  : 'Beta',
+    icon   : '<circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 2.5C6 5 5 6.5 5 8s1 3 3 5.5M8 2.5C10 5 11 6.5 11 8s-1 3-3 5.5M2.5 8h11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
+    params : [
+      { key:'url',    label:'URL do endpoint', type:'text' },
+      { key:'method', label:'Método',          type:'method-select' },
+    ],
+  },
+  {
+    type   : 'apply_sla',
+    label  : 'Aplique regras de SLA',
+    badge  : 'Beta',
+    icon   : '<circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5l2 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    params : [{ key:'dias', label:'Prazo em dias', type:'number' }],
+  },
+];
+
+const FIELD_OPTIONS = [
+  { value:'prioridade',  label:'Prioridade' },
+  { value:'responsavel', label:'Responsável' },
+  { value:'prazo',       label:'Prazo' },
+  { value:'categoria',   label:'Categoria' },
+  { value:'descricao',   label:'Descrição' },
+  { value:'escola',      label:'Escola / Unidade' },
+];
+
+/* ── Estado do builder ── */
+let _autoBuilder = { trigger: null, action: null };
+
+/* ── Persistência (localStorage) ── */
+function loadAutomations() {
+  try {
+    return JSON.parse(localStorage.getItem('ped_automations') || '[]');
+  } catch (_) { return []; }
+}
+function saveAutomations() {
+  localStorage.setItem('ped_automations', JSON.stringify(state.automations));
+}
+
+/* ── Engine de execução ── */
+const AutomationEngine = {
+  execute(eventType, card, extra = {}) {
+    const matching = state.automations.filter(a =>
+      a.enabled &&
+      a.modulo === card.modulo &&
+      a.trigger.type === eventType
+    );
+
+    matching.forEach(auto => {
+      if (!this._matchesTrigger(auto.trigger, card, extra)) return;
+      this._runAction(auto.action, card, auto);
+    });
+  },
+
+  _matchesTrigger(trigger, card, extra) {
+    switch (trigger.type) {
+      case 'card_enter_phase':
+      case 'card_leave_phase':
+        return !trigger.params.fase || trigger.params.fase === extra.fase;
+      case 'field_updated':
+        return !trigger.params.campo || trigger.params.campo === extra.campo;
+      case 'card_created':
+      case 'sla_at_risk':
+      case 'card_moved':
+        return true;
+      default:
+        return false;
+    }
+  },
+
+  _runAction(action, card, auto) {
+    switch (action.type) {
+      case 'move_card': {
+        const targetFase = action.params.targetFase;
+        if (targetFase && MODULES[card.modulo]?.fases[targetFase] && card.fase !== targetFase) {
+          const oldLabel = getPhaseStyle(card.modulo, card.fase).label;
+          const newLabel = getPhaseStyle(card.modulo, targetFase).label;
+          card.fase = targetFase;
+          card.historico.push({
+            texto  : `⚡ <strong>Automação "${auto.nome}"</strong>: movido de <strong>${oldLabel}</strong> para <strong>${newLabel}</strong>`,
+            data   : now(),
+            usuario: 'Sistema (Automação)',
+          });
+          setTimeout(() => renderAll(), 50);
+        }
+        break;
+      }
+      case 'update_field': {
+        const { campo, valor } = action.params;
+        if (campo && card.hasOwnProperty(campo)) {
+          card[campo] = valor || '';
+          card.historico.push({
+            texto  : `⚡ <strong>Automação "${auto.nome}"</strong>: campo <strong>${campo}</strong> atualizado para "<em>${valor}</em>"`,
+            data   : now(),
+            usuario: 'Sistema (Automação)',
+          });
+        }
+        break;
+      }
+      case 'send_notification':
+        showToast(`⚡ ${action.params.mensagem || auto.nome}`, 'success');
+        break;
+      case 'assign_user': {
+        const resp = action.params.responsavel;
+        if (resp) {
+          card.responsavel = resp;
+          card.historico.push({
+            texto  : `⚡ <strong>Automação "${auto.nome}"</strong>: responsável atribuído: <strong>${resp}</strong>`,
+            data   : now(),
+            usuario: 'Sistema (Automação)',
+          });
+        }
+        break;
+      }
+      case 'http_request': {
+        const { url, method } = action.params;
+        if (url) {
+          fetch(url, { method: method || 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ card }) })
+            .then(() => showToast(`⚡ Requisição HTTP enviada (${auto.nome})`, 'success'))
+            .catch(() => showToast(`⚡ Erro na requisição HTTP (${auto.nome})`, 'warn'));
+        }
+        break;
+      }
+      case 'apply_sla': {
+        const dias = parseInt(action.params.dias) || 3;
+        if (!card.prazo) {
+          const d = new Date();
+          d.setDate(d.getDate() + dias);
+          card.prazo = d.toISOString().split('T')[0];
+          card.historico.push({
+            texto  : `⚡ <strong>Automação "${auto.nome}"</strong>: SLA aplicado — prazo definido para ${dias} dias`,
+            data   : now(),
+            usuario: 'Sistema (Automação)',
+          });
+        }
+        break;
+      }
+    }
+  },
+};
+
+/* ══ UI DO PAINEL ══════════════════════════════════════════ */
+
+function openAutomationsPanel() {
+  const mod = getCurrentModule();
+  document.getElementById('autoPanelModule').textContent = mod.label;
+  document.getElementById('autoOverlay').classList.add('active');
+  showAutoView('list');
+  renderAutoList();
+}
+
+function closeAutomationsPanel() {
+  document.getElementById('autoOverlay').classList.remove('active');
+  _autoBuilder = { trigger: null, action: null };
+}
+
+function showAutoView(view) {
+  document.getElementById('autoListView').classList.toggle('hidden', view !== 'list');
+  document.getElementById('autoBuilderView').classList.toggle('hidden', view !== 'builder');
+  document.getElementById('autoTabList').classList.toggle('active', view === 'list');
+  document.getElementById('autoTabNew').classList.toggle('active', view === 'builder');
+
+  if (view === 'builder') {
+    _autoBuilder = { trigger: null, action: null };
+    renderTriggerPicker();
+    renderActionPicker();
+    document.getElementById('autoConfigForm').classList.add('hidden');
+  }
+}
+
+/* ── Lista de automações ── */
+function renderAutoList() {
+  const modKey = state.currentModule;
+  const list   = state.automations.filter(a => a.modulo === modKey);
+  const el     = document.getElementById('autoListItems');
+  const empty  = document.getElementById('autoEmpty');
+
+  if (!list.length) {
+    el.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  el.innerHTML = list.map(auto => {
+    const tDef = TRIGGER_DEFS.find(t => t.type === auto.trigger.type);
+    const aDef = ACTION_DEFS.find(a  => a.type === auto.action.type);
+    const tLabel = tDef ? tDef.label : auto.trigger.type;
+    const aLabel = aDef ? aDef.label : auto.action.type;
+
+    return `
+    <div class="auto-list-item" data-id="${auto.id}">
+      <div class="auto-list-item-content">
+        <div class="auto-list-item-name">${escHtml(auto.nome)}</div>
+        <div class="auto-list-item-desc">
+          <span class="auto-tag auto-tag--trigger">${escHtml(tLabel)}</span>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink:0">
+            <path d="M2 5h6M6 3l2 2-2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <span class="auto-tag auto-tag--action">${escHtml(aLabel)}</span>
+        </div>
+      </div>
+      <div class="auto-list-item-controls">
+        <label class="auto-toggle" title="${auto.enabled ? 'Desativar' : 'Ativar'}">
+          <input type="checkbox" class="auto-toggle-input" data-id="${auto.id}" ${auto.enabled ? 'checked' : ''}/>
+          <span class="auto-toggle-slider"></span>
+        </label>
+        <button class="auto-del-btn" data-id="${auto.id}" title="Excluir automação">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2 3.5h9M5 3.5V2h3v1.5M3 3.5l.8 7h5.4l.8-7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+
+  /* bind eventos da lista */
+  el.querySelectorAll('.auto-toggle-input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const auto = state.automations.find(a => a.id === cb.dataset.id);
+      if (auto) { auto.enabled = cb.checked; saveAutomations(); }
+    });
+  });
+  el.querySelectorAll('.auto-del-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm('Excluir esta automação?')) return;
+      state.automations = state.automations.filter(a => a.id !== btn.dataset.id);
+      saveAutomations();
+      renderAutoList();
+      showToast('Automação removida', 'success');
+    });
+  });
+}
+
+/* ── Pickers ── */
+function renderTriggerPicker() {
+  const el = document.getElementById('triggerPicker');
+  el.innerHTML = TRIGGER_DEFS.map(t => `
+    <button class="auto-picker-item ${_autoBuilder.trigger === t.type ? 'selected' : ''}" data-type="${t.type}">
+      <svg class="auto-picker-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">${t.icon}</svg>
+      <span>${t.label}</span>
+    </button>`).join('');
+
+  el.querySelectorAll('.auto-picker-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _autoBuilder.trigger = btn.dataset.type;
+      renderTriggerPicker();
+      checkShowConfigForm();
+    });
+  });
+}
+
+function renderActionPicker() {
+  const el = document.getElementById('actionPicker');
+  el.innerHTML = ACTION_DEFS.map(a => `
+    <button class="auto-picker-item ${_autoBuilder.action === a.type ? 'selected' : ''}" data-type="${a.type}">
+      <svg class="auto-picker-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">${a.icon}</svg>
+      <span>${a.label}</span>
+      ${a.badge ? `<span class="auto-beta-badge">${a.badge}</span>` : ''}
+    </button>`).join('');
+
+  el.querySelectorAll('.auto-picker-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _autoBuilder.action = btn.dataset.type;
+      renderActionPicker();
+      checkShowConfigForm();
+    });
+  });
+}
+
+/* ── Formulário de configuração ── */
+function checkShowConfigForm() {
+  const form = document.getElementById('autoConfigForm');
+  if (!_autoBuilder.trigger || !_autoBuilder.action) {
+    form.classList.add('hidden');
+    return;
+  }
+  form.classList.remove('hidden');
+
+  const tDef = TRIGGER_DEFS.find(t => t.type === _autoBuilder.trigger);
+  const aDef = ACTION_DEFS.find(a  => a.type === _autoBuilder.action);
+
+  /* summary */
+  document.getElementById('autoConfigSummary').innerHTML = `
+    <div class="auto-summary-row">
+      <span class="auto-tag auto-tag--trigger">${tDef.label}</span>
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+      <span class="auto-tag auto-tag--action">${aDef.label}</span>
+    </div>`;
+
+  /* trigger fields */
+  document.getElementById('autoTriggerFields').innerHTML = buildParamFields(tDef.params, 'trigger');
+  /* action fields */
+  document.getElementById('autoActionFields').innerHTML = buildParamFields(aDef.params, 'action');
+
+  /* sugestão de nome */
+  const nomeInput = document.getElementById('autoNomeInput');
+  if (!nomeInput.value) nomeInput.value = `${tDef.label} → ${aDef.label}`;
+
+  form.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function buildParamFields(params, prefix) {
+  if (!params.length) return '';
+  const mod = getCurrentModule();
+  const phases = Object.entries(mod.fases || {});
+
+  return params.map(p => {
+    const id = `auto_${prefix}_${p.key}`;
+    let input = '';
+
+    switch (p.type) {
+      case 'phase-select':
+        input = `<select class="form-input auto-param-input" id="${id}" data-key="${p.key}">
+          <option value="">— Qualquer fase —</option>
+          ${phases.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}
+        </select>`;
+        break;
+      case 'field-select':
+        input = `<select class="form-input auto-param-input" id="${id}" data-key="${p.key}">
+          <option value="">— Qualquer campo —</option>
+          ${FIELD_OPTIONS.map(f => `<option value="${f.value}">${f.label}</option>`).join('')}
+        </select>`;
+        break;
+      case 'method-select':
+        input = `<select class="form-input auto-param-input" id="${id}" data-key="${p.key}">
+          ${['POST','GET','PUT','PATCH'].map(m => `<option value="${m}">${m}</option>`).join('')}
+        </select>`;
+        break;
+      case 'number':
+        input = `<input type="number" class="form-input auto-param-input" id="${id}" data-key="${p.key}" min="1" max="365" placeholder="3"/>`;
+        break;
+      default:
+        input = `<input type="text" class="form-input auto-param-input" id="${id}" data-key="${p.key}" placeholder="${p.label}..."/>`;
+    }
+
+    return `<div class="form-group" style="margin-bottom:10px">
+      <label class="form-label">${p.label}</label>
+      ${input}
+    </div>`;
+  }).join('');
+}
+
+/* ── Salvar automação ── */
+function saveAutomation() {
+  if (!_autoBuilder.trigger || !_autoBuilder.action) {
+    showToast('Selecione um gatilho e uma ação', 'warn'); return;
+  }
+
+  const nome = document.getElementById('autoNomeInput').value.trim();
+  if (!nome) { showToast('Dê um nome para a automação', 'warn'); return; }
+
+  const triggerParams = {};
+  document.querySelectorAll('#autoTriggerFields .auto-param-input').forEach(el => {
+    triggerParams[el.dataset.key] = el.value;
+  });
+  const actionParams = {};
+  document.querySelectorAll('#autoActionFields .auto-param-input').forEach(el => {
+    actionParams[el.dataset.key] = el.value;
+  });
+
+  const newAuto = {
+    id     : 'auto_' + Date.now().toString(36),
+    modulo : state.currentModule,
+    nome,
+    enabled: true,
+    trigger: { type: _autoBuilder.trigger, params: triggerParams },
+    action : { type: _autoBuilder.action,  params: actionParams  },
+  };
+
+  state.automations.push(newAuto);
+  saveAutomations();
+  showAutoView('list');
+  renderAutoList();
+  showToast(`Automação "${nome}" criada!`, 'success');
+  _autoBuilder = { trigger: null, action: null };
+}
+
+/* ── Inicialização dos listeners do painel ── */
+function initAutomationPanel() {
+  document.getElementById('automationBtn').addEventListener('click', openAutomationsPanel);
+  document.getElementById('autoCloseBtn').addEventListener('click', closeAutomationsPanel);
+
+  document.getElementById('autoOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('autoOverlay')) closeAutomationsPanel();
+  });
+
+  document.getElementById('autoTabList').addEventListener('click', () => showAutoView('list'));
+  document.getElementById('autoTabNew').addEventListener('click',  () => showAutoView('builder'));
+
+  document.getElementById('autoEmptyNew').addEventListener('click', () => showAutoView('builder'));
+  document.getElementById('saveAutoBtn').addEventListener('click', saveAutomation);
+  document.getElementById('cancelAutoBtn').addEventListener('click', () => {
+    _autoBuilder = { trigger: null, action: null };
+    document.getElementById('autoConfigForm').classList.add('hidden');
+  });
 }
 
 document.addEventListener('DOMContentLoaded', init);
