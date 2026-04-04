@@ -12,115 +12,73 @@
 const PAYMENT_BACKEND_URL = 'https://central-operacional-ped-production.up.railway.app';
 
 /* ══════════════════════════════════════════════════════════
-   SISTEMA DE AUTENTICAÇÃO E USUÁRIOS
+   SISTEMA DE AUTENTICAÇÃO — JWT (Backend-First)
+   Senhas NUNCA ficam no frontend. Login via POST /api/login.
 ══════════════════════════════════════════════════════════ */
 
-const AUTH_KEY = 'ped_auth_user';
+const AUTH_TOKEN_KEY = 'ped_jwt_token';
+const AUTH_USER_KEY  = 'ped_auth_user';
 
-/* Lista de usuários — em produção, viria de uma API */
-let USERS = JSON.parse(localStorage.getItem('ped_users') || 'null') || [
-  {
-    id: 'u1', name: 'Emerson Santos', email: 'emerson@grupoped.com.br',
-    password: 'admin123', role: 'Super Admin', initials: 'ES',
-    school: 'all', active: true,
-    permissions: {
-      solicitacoes:      ['ver','criar','editar','aprovar'],
-      contas_pagar:      ['ver','criar','editar','aprovar'],
-      contas_receber:    ['ver','criar','editar','aprovar'],
-      compras:           ['ver','criar','editar','aprovar'],
-      processos:         ['ver','criar','editar','aprovar'],
-      ti:                ['ver','criar','editar','aprovar'],
-      central_pagamentos:['ver','criar','editar','aprovar'],
-    },
-  },
-  {
-    id: 'u2', name: 'Gestor Alpha', email: 'gestor@escola-alpha.com.br',
-    password: 'gestor123', role: 'Gestor de Escola', initials: 'GA',
-    school: 'ped1', active: true,
-    permissions: {
-      solicitacoes:      ['ver','criar','editar','aprovar'],
-      contas_pagar:      ['ver','aprovar'],
-      contas_receber:    ['ver','aprovar'],
-      compras:           ['ver','criar','aprovar'],
-      processos:         ['ver','criar','editar','aprovar'],
-      ti:                ['ver','criar'],
-      central_pagamentos:['ver'],
-    },
-  },
-  {
-    id: 'u3', name: 'Operacional PED', email: 'op@grupoped.com.br',
-    password: 'op123', role: 'Operacional', initials: 'OP',
-    school: 'all', active: true,
-    permissions: {
-      solicitacoes:      ['ver','criar','editar'],
-      contas_pagar:      ['ver','criar'],
-      contas_receber:    ['ver','criar'],
-      compras:           ['ver','criar','editar'],
-      processos:         ['ver','criar','editar'],
-      ti:                ['ver','criar'],
-      central_pagamentos:[],
-    },
-  },
-];
-
-function saveUsers() {
-  try { localStorage.setItem('ped_users', JSON.stringify(USERS)); } catch(_) {}
-  // Persiste no PostgreSQL
-  apiRequest('PUT', '/api/settings/users', USERS).catch(err => {
-    console.warn('[Settings API] Falha ao salvar users:', err.message);
-  });
-}
-
-/* ─── Reset de emergência via URL (?reset=1) ───────────────────────────────
-   Acesse a URL com ?reset=1 para limpar os dados de usuários e restaurar
-   o acesso padrão: emerson@grupoped.com.br / admin123
-─────────────────────────────────────────────────────────────────────────── */
+/* ─── Reset de emergência via URL (?reset=1) ──────────── */
 (function () {
   if (new URLSearchParams(window.location.search).get('reset') === '1') {
-    // Limpa localStorage
-    localStorage.removeItem('ped_users');
-    localStorage.removeItem('ped_auth_user');
-    localStorage.removeItem('ped_usuarios');
-    // Limpa do PostgreSQL também (fire-and-forget)
-    fetch(`${PAYMENT_BACKEND_URL}/api/settings/users`, { method: 'DELETE' }).catch(() => {});
-    fetch(`${PAYMENT_BACKEND_URL}/api/settings/usuarios`, { method: 'DELETE' }).catch(() => {});
-    // Redireciona sem o parâmetro para evitar reset em F5
+    sessionStorage.clear();
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
     const clean = window.location.pathname + (window.location.hash || '');
     window.location.replace(clean);
   }
 })();
 
-/* Usuário logado no momento */
+/* Token JWT e dados do usuário */
+let _authToken  = sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY) || null;
 let currentUser = null;
 
+/* Recupera dados do user salvos */
 function loadSession() {
-  const saved = localStorage.getItem(AUTH_KEY);
-  if (!saved) return null;
+  if (!_authToken) return null;
   try {
-    const data = JSON.parse(saved);
-    // Revalida se o usuário ainda existe e está ativo
-    const found = USERS.find(u => u.id === data.id && u.active);
-    return found || null;
-  } catch { return null; }
+    const saved = sessionStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(AUTH_USER_KEY);
+    if (saved) {
+      const user = JSON.parse(saved);
+      if (user && user.id && user.email) return user;
+    }
+  } catch(_) {}
+  return null;
 }
 
-function saveSession(user) {
-  localStorage.setItem(AUTH_KEY, JSON.stringify({ id: user.id }));
+function saveSession(token, user) {
+  _authToken = token;
+  sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+  sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  // Backup no localStorage para persistir entre abas
+  try {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  } catch(_) {}
 }
 
 function clearSession() {
-  localStorage.removeItem(AUTH_KEY);
+  _authToken = null;
+  currentUser = null;
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  sessionStorage.removeItem(AUTH_USER_KEY);
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
 }
+
+/* Retorna o token para usar nos headers */
+function getAuthToken() { return _authToken; }
 
 function canAccess(moduleKey) {
   if (!currentUser) return false;
-  const perms = currentUser.permissions[moduleKey] || [];
+  const perms = currentUser.permissoes?.[moduleKey] || currentUser.permissions?.[moduleKey] || [];
   return perms.includes('ver');
 }
 
 function canCreate(moduleKey) {
   if (!currentUser) return false;
-  const perms = currentUser.permissions[moduleKey] || [];
+  const perms = currentUser.permissoes?.[moduleKey] || currentUser.permissions?.[moduleKey] || [];
   return perms.includes('criar');
 }
 
@@ -130,21 +88,18 @@ function updateSidebarUser() {
   const avatarEl = document.getElementById('sidebarUserAvatar');
   const nameEl   = document.getElementById('sidebarUserName');
   const roleEl   = document.getElementById('sidebarUserRole');
-  if (avatarEl) avatarEl.textContent = currentUser.initials;
-  if (nameEl)   nameEl.textContent   = currentUser.name;
-  if (roleEl)   roleEl.textContent   = currentUser.role;
+  if (avatarEl) avatarEl.textContent = currentUser.initials || currentUser.nome?.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() || '??';
+  if (nameEl)   nameEl.textContent   = currentUser.nome || currentUser.name || '';
+  if (roleEl)   roleEl.textContent   = currentUser.role || '';
 }
 
 /* Filtra itens de nav conforme permissões */
 function applyNavPermissions() {
   document.querySelectorAll('.nav-item[data-module]').forEach(el => {
     const mod = el.dataset.module;
-    if (!MODULES[mod]) return; // itens como dashboard/configuracoes sempre visíveis
-    const visible = canAccess(mod);
-    el.style.display = visible ? '' : 'none';
+    if (!MODULES[mod]) return;
+    el.style.display = canAccess(mod) ? '' : 'none';
   });
-
-  // Botão "Nova Solicitação/Card" conforme permissão de criar no módulo atual
   const newBtn = document.getElementById('newCardBtn');
   if (newBtn) newBtn.style.display = canCreate(state.currentModule) ? '' : 'none';
 }
@@ -161,30 +116,35 @@ function hideLoginScreen() {
   document.getElementById('appWrapper').style.display   = '';
 }
 
-function handleLogin(e) {
+async function handleLogin(e) {
   e.preventDefault();
   const email    = document.getElementById('loginEmail').value.trim().toLowerCase();
   const password = document.getElementById('loginPassword').value;
   const errorEl  = document.getElementById('loginError');
   const submitBtn = document.getElementById('loginSubmitBtn');
 
+  if (!email || !password) {
+    errorEl.textContent = 'Preencha e-mail e senha.';
+    return;
+  }
+
   errorEl.textContent = '';
   submitBtn.classList.add('loading');
   submitBtn.disabled = true;
 
-  // Simula latência mínima para UX
-  setTimeout(() => {
-    const user = USERS.find(u =>
-      u.email.toLowerCase() === email &&
-      u.password === password &&
-      u.active
-    );
+  try {
+    const res = await fetch(`${PAYMENT_BACKEND_URL}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
 
     submitBtn.classList.remove('loading');
     submitBtn.disabled = false;
 
-    if (!user) {
-      errorEl.textContent = 'E-mail ou senha incorretos. Tente novamente.';
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'E-mail ou senha incorretos.';
       document.getElementById('loginPassword').value = '';
       document.getElementById('loginPassword').focus();
       document.getElementById('loginCard')?.classList.add('shake');
@@ -192,18 +152,32 @@ function handleLogin(e) {
       return;
     }
 
-    currentUser = user;
-    saveSession(user);
+    // Login OK — salva token + dados do user
+    saveSession(data.token, data.user);
+    currentUser = data.user;
     hideLoginScreen();
     updateSidebarUser();
     applyNavPermissions();
-    showToast(`Bem-vindo, ${user.name.split(' ')[0]}!`, 'success');
-  }, 400);
+
+    // Carrega dados do sistema
+    await loadSettingsFromAPI();
+    refreshEscolasSelects();
+    await loadCardsFromAPI();
+    renderKanban();
+    renderNavBadges();
+
+    const firstName = (currentUser.nome || '').split(' ')[0];
+    showToast(`Bem-vindo, ${firstName}!`, 'success');
+  } catch (err) {
+    submitBtn.classList.remove('loading');
+    submitBtn.disabled = false;
+    errorEl.textContent = 'Erro de conexao. Verifique sua internet.';
+    console.error('[LOGIN]', err);
+  }
 }
 
 function handleLogout() {
   if (!confirm('Deseja sair do sistema?')) return;
-  currentUser = null;
   clearSession();
   showLoginScreen();
   document.getElementById('loginEmail').value    = '';
@@ -642,16 +616,7 @@ async function loadSettingsFromAPI() {
         try { localStorage.setItem('ped_modules', JSON.stringify(MODULES)); } catch(_) {}
         changed = true;
       }
-      // Carrega USERS (lista de login com permissões)
-      if (data.users && Array.isArray(data.users) && data.users.length > 0) {
-        // Valida que os users têm formato correto (email + password obrigatórios)
-        const validUsers = data.users.filter(u => u && u.email && u.password);
-        if (validUsers.length > 0) {
-          USERS.length = 0;
-          validUsers.forEach(u => USERS.push(u));
-          try { localStorage.setItem('ped_users', JSON.stringify(USERS)); } catch(_) {}
-        }
-      }
+      // (USERS agora está no backend — autenticação via JWT)
       // Carrega tema (dark/light)
       if (data.theme && typeof data.theme === 'string') {
         document.documentElement.dataset.theme = data.theme;
@@ -704,12 +669,22 @@ const API_URL   = PAYMENT_BACKEND_URL;       // mesmo backend e-Rede
 
 // ── Helper de fetch para a API ────────────────────────────
 async function apiRequest(method, path, body) {
-  const opts = {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-  };
+  const headers = { 'Content-Type': 'application/json' };
+  // Adiciona token JWT se disponível
+  const token = getAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const opts = { method, headers };
   if (body !== undefined) opts.body = JSON.stringify(body);
   const res = await fetch(`${API_URL}${path}`, opts);
+
+  // Se token expirou, força logout
+  if (res.status === 401) {
+    clearSession();
+    showLoginScreen();
+    throw new Error('Sessao expirada. Faca login novamente.');
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
     throw new Error(err.error || `Erro ${res.status}`);
@@ -3147,9 +3122,7 @@ function bindUsuariosEvents() {
       const u = settingsData.usuarios.find(u => u.id === id);
       if (u) {
         u.ativo = !u.ativo;
-        const loginUser = USERS.find(lu => lu.id === id);
-        if (loginUser) loginUser.active = u.ativo;
-        saveUsers();
+        syncToLoginUsers(u); // Atualiza no backend
         saveUsuariosData();
         const item = btn.closest('.user-item');
         if (item) {
@@ -3219,24 +3192,32 @@ function getPermissoesByPerfil(perfil) {
 function syncToLoginUsers(u, senha) {
   const initials = u.nome.split(' ').slice(0,2).map(n => n[0]||'').join('').toUpperCase();
   const school   = (u.escolas||[]).length >= settingsData.escolas.length ? 'all' : (u.escolas[0]||'all');
-  const existing = USERS.find(lu => lu.id === u.id);
-  if (existing) {
-    existing.name = u.nome; existing.email = u.email;
-    existing.role = PERFIS[u.perfil]?.label || u.perfil;
-    existing.initials = initials; existing.school = school; existing.active = u.ativo;
-    existing.permissions = getPermissoesByPerfil(u.perfil);
-    if (senha) existing.password = senha;
-  } else {
-    USERS.push({ id:u.id, name:u.nome, email:u.email, password:senha||'mudar123',
-      role:PERFIS[u.perfil]?.label||u.perfil, initials, school, active:u.ativo,
-      permissions:getPermissoesByPerfil(u.perfil) });
-  }
-  saveUsers();
+  const role     = PERFIS[u.perfil]?.label || u.perfil;
+  const perms    = getPermissoesByPerfil(u.perfil);
+
+  // Sincroniza com tabela usuarios no backend via API
+  apiRequest('PUT', `/api/usuarios/${u.id}`, {
+    nome: u.nome, email: u.email, role, initials, school,
+    active: u.ativo !== false,
+    permissoes: perms,
+    ...(senha ? { password: senha } : {}),
+  }).catch(err => {
+    // Se o user nao existe no backend, cria
+    if (err.message.includes('nao encontrado')) {
+      apiRequest('POST', '/api/register', {
+        nome: u.nome, email: u.email, password: senha || 'mudar123',
+        role, initials, school, permissoes: perms,
+      }).catch(e => console.warn('[Usuarios] Falha ao criar no backend:', e.message));
+    } else {
+      console.warn('[Usuarios] Falha ao sync:', err.message);
+    }
+  });
 }
 
 function removeFromLoginUsers(id) {
-  const idx = USERS.findIndex(u => u.id === id);
-  if (idx !== -1) { USERS.splice(idx, 1); saveUsers(); }
+  apiRequest('DELETE', `/api/usuarios/${id}`).catch(err => {
+    console.warn('[Usuarios] Falha ao remover do backend:', err.message);
+  });
 }
 
 function saveUsuariosData() {
@@ -5227,14 +5208,21 @@ function initAutomationPanel() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Aplica configurações de aparência salvas à sidebar
+  // Aplica configurações de aparência salvas à sidebar (do cache local)
   const _ap = settingsData.aparencia;
   const _logoName = document.querySelector('.logo-name');
   if (_logoName && _ap.nomeExibicao) _logoName.textContent = _ap.nomeExibicao;
 
-  // Carrega settings e cards do banco antes de renderizar
-  await loadSettingsFromAPI();
-  refreshEscolasSelects();
-  await loadCardsFromAPI();
+  // Se tem token salvo, tenta carregar dados antes de renderizar
+  if (getAuthToken()) {
+    try {
+      await loadSettingsFromAPI();
+      refreshEscolasSelects();
+      await loadCardsFromAPI();
+    } catch(err) {
+      console.warn('[Init] Falha ao carregar dados:', err.message);
+    }
+  }
+
   init();
 });

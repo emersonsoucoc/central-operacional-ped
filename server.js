@@ -1,24 +1,41 @@
 /**
  * Central Operacional - Grupo PED
- * Backend Railway v2 - e-Rede + PostgreSQL
+ * Backend Railway v3 - Autenticação JWT + bcrypt + Automações Server-Side
  */
 
-const express  = require('express');
-const fetch    = require('node-fetch');
-const cors     = require('cors');
-const path     = require('path');
-const { Pool } = require('pg');
+'use strict';
+
+const express   = require('express');
+const fetch     = require('node-fetch');
+const cors      = require('cors');
+const path      = require('path');
+const { Pool }  = require('pg');
+const bcrypt    = require('bcryptjs');
+const jwt       = require('jsonwebtoken');
+const crypto    = require('crypto');
 
 const app = express();
 
-/* ── CORS: restringe origens em produção ── */
+/* ══════════════════════════════════════════════════════════
+   CONFIGURAÇÃO
+══════════════════════════════════════════════════════════ */
+const PORT      = process.env.PORT || 3000;
+const IS_PROD   = process.env.NODE_ENV === 'production';
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '24h';
+const BCRYPT_ROUNDS = 10;
+
+if (!IS_PROD && !process.env.JWT_SECRET) {
+  console.warn('[WARN] JWT_SECRET nao definido — usando chave aleatoria (sessoes perdem-se ao reiniciar).');
+}
+
+/* ── CORS ── */
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
   : ['http://localhost:3000'];
 
 app.use(cors({
   origin(origin, cb) {
-    // Permite requests sem origin (curl, mobile, mesmo domínio)
     if (!origin) return cb(null, true);
     if (ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
     cb(null, false);
@@ -28,7 +45,7 @@ app.use(cors({
 
 app.use(express.json({ limit: '2mb' }));
 
-/* ── Rate-limiter simples (sem dependência externa) ── */
+/* ── Rate-limiter simples ── */
 const _rateMap = new Map();
 function rateLimit(maxReqs = 60, windowMs = 60000) {
   return (req, res, next) => {
@@ -44,8 +61,7 @@ function rateLimit(maxReqs = 60, windowMs = 60000) {
     next();
   };
 }
-app.use('/api/', rateLimit(120, 60000));   // 120 req/min global para /api
-// Limpar mapa de rate a cada 5 minutos
+app.use('/api/', rateLimit(120, 60000));
 setInterval(() => {
   const now = Date.now();
   for (const [ip, entry] of _rateMap) {
@@ -53,19 +69,17 @@ setInterval(() => {
   }
 }, 300000);
 
-// Serve o frontend (index.html, app.js, app.css estao na mesma pasta)
+/* ── Arquivos estáticos (frontend) ── */
 app.use(express.static(__dirname));
 
-const PORT    = process.env.PORT || 3000;
-const IS_PROD = process.env.NODE_ENV === 'production';
-
-// Verifica credenciais do banco
+/* ══════════════════════════════════════════════════════════
+   POSTGRESQL
+══════════════════════════════════════════════════════════ */
 if (!process.env.PGHOST && !process.env.DATABASE_URL) {
-  console.error('[FATAL] Credenciais do PostgreSQL nao definidas! (PGHOST ou DATABASE_URL)');
+  console.error('[FATAL] Credenciais do PostgreSQL nao definidas!');
   process.exit(1);
 }
 
-// Pool PostgreSQL - usa variaveis PG* individuais (mais confiavel no Railway)
 const pool = new Pool(process.env.PGHOST ? {
   host:     process.env.PGHOST,
   port:     parseInt(process.env.PGPORT || '5432'),
@@ -73,23 +87,19 @@ const pool = new Pool(process.env.PGHOST ? {
   user:     process.env.PGUSER || 'postgres',
   password: process.env.PGPASSWORD,
   ssl:      { rejectUnauthorized: false },
-  max:      10,
-  idleTimeoutMillis: 30000,
+  max: 10, idleTimeoutMillis: 30000,
 } : {
   connectionString: process.env.DATABASE_URL,
-  ssl:  { rejectUnauthorized: false },
-  max:  10,
-  idleTimeoutMillis: 30000,
+  ssl: { rejectUnauthorized: false },
+  max: 10, idleTimeoutMillis: 30000,
 });
 
-console.log('[DB] Conectando a:', process.env.PGHOST || '(via DATABASE_URL)', 'db:', process.env.PGDATABASE || 'railway');
+console.log('[DB] Conectando a:', process.env.PGHOST || '(via DATABASE_URL)');
+pool.on('error', (err) => console.error('[DB] Erro:', err.message));
 
-pool.on('error', (err) => {
-  console.error('[DB] Erro:', err.message);
-});
-
-// Init DB: cria tabela se nao existir
+/* ── initDB: cria todas as tabelas ── */
 async function initDB() {
+  /* Tabela cards */
   await pool.query(`
     CREATE TABLE IF NOT EXISTS cards (
       id               TEXT        PRIMARY KEY,
@@ -118,7 +128,6 @@ async function initDB() {
       created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
     CREATE INDEX IF NOT EXISTS idx_cards_modulo_fase ON cards (modulo, fase, position);
     CREATE INDEX IF NOT EXISTS idx_cards_escola      ON cards (escola);
 
@@ -134,21 +143,279 @@ async function initDB() {
   `);
   console.log('[DB] Tabela cards pronta.');
 
-  /* ── Tabela settings: key-value para configurações ── */
+  /* Tabela settings (key-value) */
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       key         TEXT        PRIMARY KEY,
       value       JSONB       NOT NULL DEFAULT '{}',
       updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
     DROP TRIGGER IF EXISTS trg_settings_updated_at ON settings;
     CREATE TRIGGER trg_settings_updated_at
       BEFORE UPDATE ON settings FOR EACH ROW
       EXECUTE FUNCTION set_updated_at();
   `);
   console.log('[DB] Tabela settings pronta.');
+
+  /* Tabela usuarios (autenticação) */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usuarios (
+      id           TEXT        PRIMARY KEY,
+      nome         TEXT        NOT NULL,
+      email        TEXT        UNIQUE NOT NULL,
+      senha_hash   TEXT        NOT NULL,
+      role         TEXT        NOT NULL DEFAULT 'Operacional',
+      initials     TEXT        DEFAULT '',
+      school       TEXT        DEFAULT 'all',
+      active       BOOLEAN     NOT NULL DEFAULT true,
+      permissoes   JSONB       NOT NULL DEFAULT '{}',
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios (email);
+
+    DROP TRIGGER IF EXISTS trg_usuarios_updated_at ON usuarios;
+    CREATE TRIGGER trg_usuarios_updated_at
+      BEFORE UPDATE ON usuarios FOR EACH ROW
+      EXECUTE FUNCTION set_updated_at();
+  `);
+  console.log('[DB] Tabela usuarios pronta.');
+
+  /* Tabela automacoes (workflow server-side) */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS automacoes (
+      id           TEXT        PRIMARY KEY,
+      nome         TEXT        NOT NULL,
+      ativo        BOOLEAN     NOT NULL DEFAULT true,
+      trigger_tipo TEXT        NOT NULL,
+      trigger_config JSONB     NOT NULL DEFAULT '{}',
+      acao_tipo    TEXT        NOT NULL,
+      acao_config  JSONB       NOT NULL DEFAULT '{}',
+      modulo       TEXT        DEFAULT '',
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    DROP TRIGGER IF EXISTS trg_automacoes_updated_at ON automacoes;
+    CREATE TRIGGER trg_automacoes_updated_at
+      BEFORE UPDATE ON automacoes FOR EACH ROW
+      EXECUTE FUNCTION set_updated_at();
+  `);
+  console.log('[DB] Tabela automacoes pronta.');
+
+  /* Seed: admin default (se nao existir nenhum) */
+  const { rowCount } = await pool.query('SELECT 1 FROM usuarios LIMIT 1');
+  if (rowCount === 0) {
+    const hash = await bcrypt.hash('admin123', BCRYPT_ROUNDS);
+    const perms = {
+      solicitacoes: ['ver','criar','editar','aprovar'],
+      contas_pagar: ['ver','criar','editar','aprovar'],
+      contas_receber: ['ver','criar','editar','aprovar'],
+      compras: ['ver','criar','editar','aprovar'],
+      processos: ['ver','criar','editar','aprovar'],
+      ti: ['ver','criar','editar','aprovar'],
+      central_pagamentos: ['ver','criar','editar','aprovar'],
+    };
+    await pool.query(
+      `INSERT INTO usuarios (id, nome, email, senha_hash, role, initials, school, active, permissoes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      ['u1', 'Emerson Santos', 'emerson@grupoped.com.br', hash, 'Super Admin', 'ES', 'all', true, JSON.stringify(perms)]
+    );
+    console.log('[DB] Usuario admin criado: emerson@grupoped.com.br / admin123');
+  }
 }
+
+/* ══════════════════════════════════════════════════════════
+   AUTENTICAÇÃO — JWT + bcrypt
+══════════════════════════════════════════════════════════ */
+
+function gerarToken(user) {
+  return jwt.sign(
+    { id: user.id, email: user.email, role: user.role, nome: user.nome },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRY }
+  );
+}
+
+/* Middleware: verifica token JWT */
+function verificarToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token nao fornecido.' });
+  }
+  try {
+    const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expirado. Faca login novamente.' });
+    }
+    return res.status(401).json({ error: 'Token invalido.' });
+  }
+}
+
+/* Middleware: exige role específico */
+function exigirRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Acesso negado. Permissao insuficiente.' });
+    }
+    next();
+  };
+}
+
+/* ── POST /api/login ── */
+app.post('/api/login', rateLimit(10, 60000), async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email e senha sao obrigatorios.' });
+    }
+
+    const { rows } = await pool.query(
+      'SELECT * FROM usuarios WHERE LOWER(email) = LOWER($1) AND active = true',
+      [email.trim()]
+    );
+    if (!rows.length) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    }
+
+    const user = rows[0];
+    const senhaOk = await bcrypt.compare(password, user.senha_hash);
+    if (!senhaOk) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    }
+
+    const token = gerarToken(user);
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        nome: user.nome,
+        email: user.email,
+        role: user.role,
+        initials: user.initials,
+        school: user.school,
+        permissoes: user.permissoes,
+      },
+    });
+  } catch (err) {
+    console.error('[LOGIN] Erro:', err.message);
+    res.status(500).json({ error: 'Erro interno no login.' });
+  }
+});
+
+/* ── POST /api/register (protegido, só Super Admin) ── */
+app.post('/api/register', verificarToken, exigirRole('Super Admin'), async (req, res) => {
+  try {
+    const { nome, email, password, role, initials, school, permissoes } = req.body;
+    if (!nome || !email || !password) {
+      return res.status(400).json({ error: 'nome, email e password obrigatorios.' });
+    }
+
+    const { rowCount } = await pool.query('SELECT 1 FROM usuarios WHERE LOWER(email) = LOWER($1)', [email.trim()]);
+    if (rowCount > 0) return res.status(409).json({ error: 'Email ja cadastrado.' });
+
+    const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const id = 'u' + Date.now().toString(36);
+    const { rows } = await pool.query(
+      `INSERT INTO usuarios (id, nome, email, senha_hash, role, initials, school, permissoes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, nome, email, role, initials, school, active, permissoes`,
+      [id, nome, email.trim().toLowerCase(), hash, role || 'Operacional', initials || nome.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase(), school || 'all', JSON.stringify(permissoes || {})]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+/* ── GET /api/usuarios (protegido) ── */
+app.get('/api/usuarios', verificarToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, nome, email, role, initials, school, active, permissoes, created_at FROM usuarios ORDER BY nome'
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+/* ── PUT /api/usuarios/:id (protegido, Super Admin) ── */
+app.put('/api/usuarios/:id', verificarToken, exigirRole('Super Admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nome, email, password, role, initials, school, active, permissoes } = req.body;
+
+    let setClauses = [];
+    let values = [];
+    let idx = 1;
+
+    if (nome !== undefined) { setClauses.push(`nome = $${idx++}`); values.push(nome); }
+    if (email !== undefined) { setClauses.push(`email = $${idx++}`); values.push(email.trim().toLowerCase()); }
+    if (password) {
+      const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+      setClauses.push(`senha_hash = $${idx++}`); values.push(hash);
+    }
+    if (role !== undefined) { setClauses.push(`role = $${idx++}`); values.push(role); }
+    if (initials !== undefined) { setClauses.push(`initials = $${idx++}`); values.push(initials); }
+    if (school !== undefined) { setClauses.push(`school = $${idx++}`); values.push(school); }
+    if (active !== undefined) { setClauses.push(`active = $${idx++}`); values.push(active); }
+    if (permissoes !== undefined) { setClauses.push(`permissoes = $${idx++}`); values.push(JSON.stringify(permissoes)); }
+
+    if (!setClauses.length) return res.status(400).json({ error: 'Nenhum campo para atualizar.' });
+
+    values.push(id);
+    const { rows } = await pool.query(
+      `UPDATE usuarios SET ${setClauses.join(', ')} WHERE id = $${idx} RETURNING id, nome, email, role, initials, school, active, permissoes`,
+      values
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Usuario nao encontrado.' });
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+/* ── DELETE /api/usuarios/:id (protegido, Super Admin) ── */
+app.delete('/api/usuarios/:id', verificarToken, exigirRole('Super Admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (id === req.user.id) return res.status(400).json({ error: 'Nao pode excluir a si mesmo.' });
+    const result = await pool.query('DELETE FROM usuarios WHERE id = $1', [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Usuario nao encontrado.' });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+/* ── POST /api/change-password (usuário autenticado) ── */
+app.post('/api/change-password', verificarToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Senhas obrigatorias.' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'Nova senha deve ter no minimo 6 caracteres.' });
+
+    const { rows } = await pool.query('SELECT senha_hash FROM usuarios WHERE id = $1', [req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Usuario nao encontrado.' });
+
+    const ok = await bcrypt.compare(currentPassword, rows[0].senha_hash);
+    if (!ok) return res.status(401).json({ error: 'Senha atual incorreta.' });
+
+    const hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    await pool.query('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    res.json({ ok: true, message: 'Senha alterada com sucesso.' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+/* ── GET /api/me (dados do usuario logado) ── */
+app.get('/api/me', verificarToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, nome, email, role, initials, school, active, permissoes FROM usuarios WHERE id = $1',
+      [req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Usuario nao encontrado.' });
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+/* ══════════════════════════════════════════════════════════
+   ROTAS CRUD DE CARDS (protegidas por JWT)
+══════════════════════════════════════════════════════════ */
 
 function rowToCard(r) {
   return {
@@ -164,7 +431,6 @@ function rowToCard(r) {
   };
 }
 
-/* ── Validação de card ── */
 const VALID_PRIORIDADES = ['baixa', 'media', 'alta', 'urgente'];
 const VALID_LINK_STATUS = ['pendente', 'ativo', 'pago', 'expirado'];
 
@@ -178,9 +444,7 @@ function validateCardBody(c) {
   return null;
 }
 
-/* ── Rotas CRUD de cards ── */
-
-app.get('/api/cards', async (req, res) => {
+app.get('/api/cards', verificarToken, async (req, res) => {
   try {
     const { modulo, escola } = req.query;
     let q = 'SELECT * FROM cards'; const v = []; const c = [];
@@ -193,7 +457,7 @@ app.get('/api/cards', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/cards', async (req, res) => {
+app.post('/api/cards', verificarToken, async (req, res) => {
   try {
     const c = req.body;
     const err = validateCardBody(c);
@@ -209,14 +473,24 @@ app.post('/api/cards', async (req, res) => {
        c.responsavel||'', c.prazo||'', c.criadoEm||'', c.valor||'0', c.fornecedor||'', c.numDoc||'',
        c.vencimento||'', c.tipoPagamento||'pix', c.linkPagamento||'', c.codigoTransacao||'', c.linkStatus||'pendente',
        JSON.stringify(c.comentarios||[]), JSON.stringify(c.historico||[]), JSON.stringify(c.anexos||[])]);
-    res.status(201).json(rowToCard(rows[0]));
+
+    const newCard = rowToCard(rows[0]);
+
+    // Motor de automações server-side: verifica triggers após criar card
+    executeAutomacoes('card_created', newCard).catch(e => console.error('[AUTO]', e.message));
+
+    res.status(201).json(newCard);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/cards/:id', async (req, res) => {
+app.put('/api/cards/:id', verificarToken, async (req, res) => {
   try {
     const { id } = req.params; const c = req.body;
     if (!id || typeof id !== 'string') return res.status(400).json({ error: 'id invalido.' });
+
+    // Busca fase anterior para detectar mudança
+    const { rows: prev } = await pool.query('SELECT fase FROM cards WHERE id = $1', [id]);
+    const faseAnterior = prev.length ? prev[0].fase : null;
 
     const { rows } = await pool.query(
       'UPDATE cards SET modulo=$1,fase=$2,titulo=$3,descricao=$4,escola=$5,categoria=$6,prioridade=$7,responsavel=$8,prazo=$9,criado_em=$10,valor=$11,fornecedor=$12,num_doc=$13,vencimento=$14,tipo_pagamento=$15,link_pagamento=$16,codigo_transacao=$17,link_status=$18,comentarios=$19,historico=$20,anexos=$21 WHERE id=$22 RETURNING *',
@@ -225,11 +499,19 @@ app.put('/api/cards/:id', async (req, res) => {
        c.vencimento||'', c.tipoPagamento||'pix', c.linkPagamento||'', c.codigoTransacao||'', c.linkStatus||'pendente',
        JSON.stringify(c.comentarios||[]), JSON.stringify(c.historico||[]), JSON.stringify(c.anexos||[]), id]);
     if (!rows.length) return res.status(404).json({ error: 'Card nao encontrado.' });
-    res.json(rowToCard(rows[0]));
+
+    const updatedCard = rowToCard(rows[0]);
+
+    // Motor de automações: verifica se houve mudança de fase
+    if (faseAnterior && faseAnterior !== updatedCard.fase) {
+      executeAutomacoes('card_enter_phase', updatedCard, { faseAnterior }).catch(e => console.error('[AUTO]', e.message));
+    }
+
+    res.json(updatedCard);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.delete('/api/cards/:id', async (req, res) => {
+app.delete('/api/cards/:id', verificarToken, async (req, res) => {
   try {
     const { id } = req.params;
     if (!id || typeof id !== 'string') return res.status(400).json({ error: 'id invalido.' });
@@ -239,18 +521,20 @@ app.delete('/api/cards/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.patch('/api/cards/move', async (req, res) => {
+app.patch('/api/cards/move', verificarToken, async (req, res) => {
   const client = await pool.connect();
   try {
     const { cardId, newFase, newPosition = 0 } = req.body;
-    if (!cardId || typeof cardId !== 'string') return res.status(400).json({ error: 'cardId obrigatorio (string).' });
-    if (!newFase || typeof newFase !== 'string') return res.status(400).json({ error: 'newFase obrigatorio (string).' });
+    if (!cardId || typeof cardId !== 'string') return res.status(400).json({ error: 'cardId obrigatorio.' });
+    if (!newFase || typeof newFase !== 'string') return res.status(400).json({ error: 'newFase obrigatorio.' });
     if (typeof newPosition !== 'number' || newPosition < 0) return res.status(400).json({ error: 'newPosition invalido.' });
 
     await client.query('BEGIN');
     const { rows: cr } = await client.query('SELECT * FROM cards WHERE id = $1', [cardId]);
     if (!cr.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Card nao encontrado.' }); }
     const card = cr[0];
+    const faseAnterior = card.fase;
+
     await client.query('UPDATE cards SET position = position + 1 WHERE modulo = $1 AND fase = $2 AND position >= $3 AND id != $4',
       [card.modulo, newFase, newPosition, cardId]);
     await client.query('UPDATE cards SET fase = $1, position = $2 WHERE id = $3', [newFase, newPosition, cardId]);
@@ -259,15 +543,25 @@ app.patch('/api/cards/move', async (req, res) => {
         [card.modulo, card.fase]);
     }
     await client.query('COMMIT');
+
+    // Motor de automações: mudança de fase via drag
+    if (faseAnterior !== newFase) {
+      const { rows: updated } = await pool.query('SELECT * FROM cards WHERE id = $1', [cardId]);
+      if (updated.length) {
+        executeAutomacoes('card_enter_phase', rowToCard(updated[0]), { faseAnterior }).catch(e => console.error('[AUTO]', e.message));
+      }
+    }
+
     res.json({ ok: true });
   } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: err.message }); }
   finally { client.release(); }
 });
 
-/* ── Rotas CRUD de settings ── */
+/* ══════════════════════════════════════════════════════════
+   ROTAS CRUD DE SETTINGS (protegidas por JWT)
+══════════════════════════════════════════════════════════ */
 
-// GET /api/settings — retorna todas as configurações
-app.get('/api/settings', async (req, res) => {
+app.get('/api/settings', verificarToken, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT key, value FROM settings');
     const result = {};
@@ -276,8 +570,7 @@ app.get('/api/settings', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GET /api/settings/:key — retorna uma seção específica
-app.get('/api/settings/:key', async (req, res) => {
+app.get('/api/settings/:key', verificarToken, async (req, res) => {
   try {
     const { key } = req.params;
     if (!key || typeof key !== 'string') return res.status(400).json({ error: 'key invalida.' });
@@ -287,38 +580,31 @@ app.get('/api/settings/:key', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// PUT /api/settings/:key — cria ou atualiza uma seção
-app.put('/api/settings/:key', async (req, res) => {
+app.put('/api/settings/:key', verificarToken, async (req, res) => {
   try {
     const { key } = req.params;
     const value = req.body;
     if (!key || typeof key !== 'string') return res.status(400).json({ error: 'key invalida.' });
-    if (key.length > 100) return res.status(400).json({ error: 'key muito longa (max 100).' });
-    if (value === undefined || value === null) return res.status(400).json({ error: 'Body (value) obrigatorio.' });
-
+    if (key.length > 100) return res.status(400).json({ error: 'key muito longa.' });
+    if (value === undefined || value === null) return res.status(400).json({ error: 'Body obrigatorio.' });
     const { rows } = await pool.query(
-      `INSERT INTO settings (key, value) VALUES ($1, $2)
-       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-       RETURNING *`,
+      `INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value RETURNING *`,
       [key, JSON.stringify(value)]
     );
     res.json(rows[0].value);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// PUT /api/settings — salva múltiplas seções de uma vez
-app.put('/api/settings', async (req, res) => {
+app.put('/api/settings', verificarToken, async (req, res) => {
   const client = await pool.connect();
   try {
     const data = req.body;
     if (!data || typeof data !== 'object' || Array.isArray(data))
-      return res.status(400).json({ error: 'Body deve ser um objeto { key: value, ... }.' });
-
+      return res.status(400).json({ error: 'Body deve ser um objeto.' });
     await client.query('BEGIN');
     for (const [key, value] of Object.entries(data)) {
       await client.query(
-        `INSERT INTO settings (key, value) VALUES ($1, $2)
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+        `INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
         [key, JSON.stringify(value)]
       );
     }
@@ -328,8 +614,7 @@ app.put('/api/settings', async (req, res) => {
   finally { client.release(); }
 });
 
-// DELETE /api/settings/:key — remove uma chave de settings
-app.delete('/api/settings/:key', async (req, res) => {
+app.delete('/api/settings/:key', verificarToken, async (req, res) => {
   try {
     const { key } = req.params;
     if (!key || typeof key !== 'string') return res.status(400).json({ error: 'key invalida.' });
@@ -339,7 +624,96 @@ app.delete('/api/settings/:key', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-/* ── Integração e-Rede — Link de Pagamento ── */
+/* ══════════════════════════════════════════════════════════
+   MOTOR DE AUTOMAÇÕES SERVER-SIDE
+══════════════════════════════════════════════════════════ */
+
+async function executeAutomacoes(eventType, card, extra = {}) {
+  try {
+    const { rows: rules } = await pool.query(
+      'SELECT * FROM automacoes WHERE ativo = true AND trigger_tipo = $1',
+      [eventType]
+    );
+
+    for (const rule of rules) {
+      const tc = rule.trigger_config || {};
+      const ac = rule.acao_config || {};
+
+      // Verifica se o módulo da automação bate com o card
+      if (rule.modulo && rule.modulo !== card.modulo) continue;
+
+      // Verifica condições do trigger
+      if (eventType === 'card_enter_phase') {
+        if (tc.fase && tc.fase !== card.fase) continue;
+        if (tc.faseOrigem && tc.faseOrigem !== extra.faseAnterior) continue;
+      }
+
+      // Executa a ação
+      console.log(`[AUTO] Executando "${rule.nome}" para card ${card.id}`);
+
+      switch (rule.acao_tipo) {
+        case 'gerar_link_pagamento': {
+          // Gera link de pagamento automaticamente via e-Rede
+          if (!card.valor || parseFloat(card.valor) <= 0) break;
+          try {
+            const token = await getAccessToken();
+            const desc = (card.titulo || 'Pagamento').substring(0, 50);
+            const apiRes = await fetch(BASE_URL + '/v1/create', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'Company-number': String(PV) },
+              body: JSON.stringify({
+                amount: parseFloat(card.valor),
+                description: desc,
+                installments: ac.installments || 1,
+                paymentOptions: ac.paymentOptions || ['credit'],
+                expirationDate: defaultExpirationDate(ac.diasExpiracao || 7),
+              }),
+            });
+            if (apiRes.ok) {
+              const data = await apiRes.json();
+              await pool.query(
+                'UPDATE cards SET link_pagamento = $1, link_status = $2 WHERE id = $3',
+                [data.url || '', 'ativo', card.id]
+              );
+              console.log(`[AUTO] Link gerado para card ${card.id}: ${data.url}`);
+            }
+          } catch (e) { console.error('[AUTO] Erro ao gerar link:', e.message); }
+          break;
+        }
+        case 'mover_fase': {
+          if (ac.faseDestino) {
+            await pool.query('UPDATE cards SET fase = $1 WHERE id = $2', [ac.faseDestino, card.id]);
+            console.log(`[AUTO] Card ${card.id} movido para fase ${ac.faseDestino}`);
+          }
+          break;
+        }
+        case 'copiar_modulo': {
+          if (ac.moduloDestino && ac.faseDestino) {
+            const novoId = 'auto_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+            await pool.query(
+              'INSERT INTO cards (id,modulo,fase,position,titulo,descricao,escola,categoria,prioridade,responsavel,prazo,criado_em,valor,fornecedor,num_doc,vencimento,comentarios,historico,anexos) VALUES ($1,$2,$3,0,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)',
+              [novoId, ac.moduloDestino, ac.faseDestino, card.titulo, card.descricao, card.escola, card.categoria, card.prioridade,
+               card.responsavel, card.prazo, card.criadoEm, card.valor, card.fornecedor, card.numDoc, card.vencimento,
+               JSON.stringify(card.comentarios || []),
+               JSON.stringify([...(card.historico || []), { texto: `Copiado automaticamente de ${card.modulo}`, data: new Date().toLocaleString('pt-BR'), usuario: 'Sistema' }]),
+               JSON.stringify(card.anexos || [])]
+            );
+            console.log(`[AUTO] Card ${card.id} copiado para ${ac.moduloDestino}/${ac.faseDestino} como ${novoId}`);
+          }
+          break;
+        }
+        default:
+          console.log(`[AUTO] Acao desconhecida: ${rule.acao_tipo}`);
+      }
+    }
+  } catch (err) {
+    console.error('[AUTO] Erro no motor:', err.message);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   INTEGRAÇÃO E-REDE (protegida)
+══════════════════════════════════════════════════════════ */
 
 const CLIENT_ID     = process.env.REDE_CLIENT_ID;
 const CLIENT_SECRET = process.env.REDE_CLIENT_SECRET;
@@ -373,23 +747,15 @@ function defaultExpirationDate(d = 7) {
   return String(dt.getMonth() + 1).padStart(2, '0') + '/' + String(dt.getDate()).padStart(2, '0') + '/' + dt.getFullYear();
 }
 
-app.post('/api/gerar-link', rateLimit(10, 60000), async (req, res) => {
+app.post('/api/gerar-link', verificarToken, rateLimit(10, 60000), async (req, res) => {
   try {
     const { amount, description, installments = 1, paymentOptions = ['credit'], expirationDate } = req.body;
-
-    // Validação de entrada
-    if (amount == null || typeof amount !== 'number' || amount <= 0)
-      return res.status(400).json({ error: '"amount" deve ser um numero positivo.' });
-    if (!description?.trim())
-      return res.status(400).json({ error: '"description" obrigatorio.' });
-    if (description.length > 50)
-      return res.status(400).json({ error: '"description" max 50 chars.' });
-    if (!Number.isInteger(installments) || installments < 1 || installments > 12)
-      return res.status(400).json({ error: '"installments" deve ser entre 1 e 12.' });
-    if (!Array.isArray(paymentOptions) || !paymentOptions.length)
-      return res.status(400).json({ error: '"paymentOptions" deve ser um array nao vazio.' });
-    if (!PV)
-      return res.status(500).json({ error: 'REDE_PV nao configurado.' });
+    if (amount == null || typeof amount !== 'number' || amount <= 0) return res.status(400).json({ error: '"amount" deve ser positivo.' });
+    if (!description?.trim()) return res.status(400).json({ error: '"description" obrigatorio.' });
+    if (description.length > 50) return res.status(400).json({ error: '"description" max 50 chars.' });
+    if (!Number.isInteger(installments) || installments < 1 || installments > 12) return res.status(400).json({ error: '"installments" 1-12.' });
+    if (!Array.isArray(paymentOptions) || !paymentOptions.length) return res.status(400).json({ error: '"paymentOptions" array obrigatorio.' });
+    if (!PV) return res.status(500).json({ error: 'REDE_PV nao configurado.' });
 
     const token = await getAccessToken();
     const apiRes = await fetch(BASE_URL + '/v1/create', {
@@ -403,7 +769,7 @@ app.post('/api/gerar-link', rateLimit(10, 60000), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/status-link/:paymentLinkId', async (req, res) => {
+app.get('/api/status-link/:paymentLinkId', verificarToken, async (req, res) => {
   try {
     if (!PV) return res.status(500).json({ error: 'REDE_PV nao configurado.' });
     const linkId = encodeURIComponent(req.params.paymentLinkId);
@@ -417,7 +783,9 @@ app.get('/api/status-link/:paymentLinkId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-/* ── Health / Diagnóstico ── */
+/* ══════════════════════════════════════════════════════════
+   HEALTH / DIAGNÓSTICO
+══════════════════════════════════════════════════════════ */
 
 app.get('/health', async (_, res) => {
   let dbOk = false;
@@ -425,7 +793,8 @@ app.get('/health', async (_, res) => {
   res.json({ ok: true, env: IS_PROD ? 'production' : 'sandbox', db: dbOk });
 });
 
-app.get('/api/diagnostico', async (_, res) => {
+// Diagnóstico: APENAS Super Admin
+app.get('/api/diagnostico', verificarToken, exigirRole('Super Admin'), async (_, res) => {
   const info = {
     env: IS_PROD ? 'production' : 'sandbox',
     tokenUrl: TOKEN_URL, baseUrl: BASE_URL,
@@ -446,21 +815,15 @@ app.get('/api/diagnostico', async (_, res) => {
   res.json(info);
 });
 
-/* ── Tratamento global de erros não capturados ── */
-process.on('unhandledRejection', (err) => {
-  console.error('[ERROR] Unhandled rejection:', err);
-});
-process.on('uncaughtException', (err) => {
-  console.error('[ERROR] Uncaught exception:', err);
-  process.exit(1);
-});
+/* ══════════════════════════════════════════════════════════
+   TRATAMENTO DE ERROS + INICIALIZAÇÃO
+══════════════════════════════════════════════════════════ */
 
-/* ── Inicialização ── */
+process.on('unhandledRejection', (err) => console.error('[ERROR] Unhandled rejection:', err));
+process.on('uncaughtException', (err) => { console.error('[ERROR] Uncaught exception:', err); process.exit(1); });
+
 initDB()
   .then(() => {
-    app.listen(PORT, () => { console.log('[Central PED] Servidor na porta ' + PORT); });
+    app.listen(PORT, () => console.log(`[Central PED] Servidor v3 na porta ${PORT} (${IS_PROD ? 'PROD' : 'DEV'})`));
   })
-  .catch(err => {
-    console.error('[FATAL] Falha ao iniciar DB:', err.message);
-    process.exit(1);
-  });
+  .catch(err => { console.error('[FATAL]', err.message); process.exit(1); });
