@@ -1024,7 +1024,7 @@ function setupDropZones() {
       }
     });
     col.addEventListener('dragleave', e => {
-      if (!col.contains(e.relatedTarget)) col.closest('.kankan-column')?.classList.remove('drag-over');
+      if (!col.contains(e.relatedTarget)) col.closest('.kanban-column')?.classList.remove('drag-over');
     });
     col.addEventListener('drop', e => {
       e.preventDefault();
@@ -3072,7 +3072,7 @@ function saveUsuario() {
     settingsData.usuarios.push(novoUsuario);
     syncToLoginUsers(novoUsuario, senha);
     saveUsuariosData();
-    showToast(`Usuário criado! Login: ${email} / Senha: ${senha}`, 'success');
+    showToast(`Usuário criado! Login: ${email}`, 'success');
   }
   closeUserModal();
   renderSettingsPanel('usuarios');
@@ -3512,7 +3512,7 @@ function renderCustomFields(modKey, card) {
 /* ══════════════════════════════════════════════════════════
    AUTOMAÇÕES — Motor de regras trigger → ação
 ══════════════════════════════════════════════════════════ */
-const AUTOMACOES = [];
+const AUTOMACOES = JSON.parse(localStorage.getItem('ped_automacoes_settings') || '[]');
 
 const AUTO_TRIGGERS = [
   { id:'fase_mudou',       label:'Quando o card muda para uma fase' },
@@ -3560,12 +3560,12 @@ function buildPanelAutomacoes() {
         <div class="automacao-rule-body">
           <div class="automacao-step">
             <span class="automacao-step-icon automacao-trigger-icon">▶</span>
-            <span><strong>Gatilho:</strong> ${trigLabel}${faseLabel ? ' → <em>' + faseLabel + '</em>' : ''}</span>
+            <span><strong>Gatilho:</strong> ${escHtml(trigLabel)}${faseLabel ? ' → <em>' + escHtml(faseLabel) + '</em>' : ''}</span>
           </div>
           <div class="automacao-arrow">→</div>
           <div class="automacao-step">
             <span class="automacao-step-icon automacao-acao-icon">⚡</span>
-            <span><strong>Ação:</strong> ${acaoLabel}${rule.acao.valor ? ' <em>"' + rule.acao.valor + '"</em>' : ''}</span>
+            <span><strong>Ação:</strong> ${escHtml(acaoLabel)}${rule.acao.valor ? ' <em>"' + escHtml(rule.acao.valor) + '"</em>' : ''}</span>
           </div>
         </div>
       </div>`;
@@ -3674,6 +3674,7 @@ function bindAutomacoesEvents() {
     const idx = parseInt(chk.dataset.idx);
     if (AUTOMACOES[idx]) {
       AUTOMACOES[idx].ativo = chk.checked;
+      localStorage.setItem('ped_automacoes_settings', JSON.stringify(AUTOMACOES));
       chk.closest('.automacao-rule-card').classList.toggle('automacao-inativa', !chk.checked);
       showToast(chk.checked ? 'Automação ativada' : 'Automação pausada', 'success');
     }
@@ -3691,6 +3692,7 @@ function bindAutomacoesEvents() {
       if (!rule) return;
       if (!confirm(`Excluir a automação "${rule.nome}"?`)) return;
       AUTOMACOES.splice(idx, 1);
+      localStorage.setItem('ped_automacoes_settings', JSON.stringify(AUTOMACOES));
       renderSettingsPanel('automacoes');
       showToast('Automação excluída', 'success');
     }
@@ -3819,7 +3821,7 @@ function refreshAutoAcaoValor() {
     if (valorInput.tagName !== 'SELECT' || valorInput.options.length < 3) {
       const sel = document.createElement('select');
       sel.className = 'form-input'; sel.id = 'autoAcaoValor';
-      sel.innerHTML = PRIORITIES.map(p => `<option value="${p.id}">${p.label}</option>`).join('');
+      sel.innerHTML = Object.entries(PRIORITIES).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join('');
       document.getElementById('autoAcaoValor')?.replaceWith(sel);
     }
   } else if (acaoTipo === 'notificar') {
@@ -3868,12 +3870,19 @@ function saveAutomacao() {
     showToast('Automação criada!', 'success');
   }
 
+  localStorage.setItem('ped_automacoes_settings', JSON.stringify(AUTOMACOES));
   closeAutoModal();
   renderSettingsPanel('automacoes');
 }
 
-/* ── Motor de execução de automações ── */
+/* ── Motor de execução de automações (Settings) ── */
+let _evalAutoDepth = 0;
 function evaluateAutomacoes(card, eventTipo, prevFase) {
+  if (_evalAutoDepth >= 3) return;   // proteção anti-loop
+  _evalAutoDepth++;
+  try { _evaluateAutomacoesInner(card, eventTipo, prevFase); } finally { _evalAutoDepth--; }
+}
+function _evaluateAutomacoesInner(card, eventTipo, prevFase) {
   const activeRules = AUTOMACOES.filter(r => r.ativo && r.modulo === card.modulo);
   activeRules.forEach(rule => {
     const t = rule.trigger;
@@ -4201,7 +4210,7 @@ function init() {
 
   // Lê o hash da URL na carga inicial e ativa o módulo correto
   // Carrega automações salvas
-  state.automations = loadAutomations();
+  state.automations = loadAutomations() || [];
   initAutomationPanel();
   initPhaseEditor();
   initLogin();
@@ -4261,7 +4270,7 @@ function openPhaseEditor(phaseKey) {
 
   /* Eventos inline de cor */
   document.getElementById('phaseColorCustom').oninput = updatePhasePreview;
-  document.getElementById('phaseBgCustom').oninput    = () => {};
+  document.getElementById('phaseBgCustom').oninput    = updatePhasePreview;
 
   document.getElementById('phaseEditorOverlay').classList.add('active');
   document.getElementById('phaseInputLabel').focus();
@@ -4312,7 +4321,10 @@ function savePhaseEditor() {
 
   /* Atualiza fase final */
   if (isFinal) mod.lastPhase = _editingPhaseKey;
-  else if (mod.lastPhase === _editingPhaseKey) mod.lastPhase = Object.keys(mod.fases).at(-1);
+  else if (mod.lastPhase === _editingPhaseKey) {
+    const remaining = Object.keys(mod.fases);
+    mod.lastPhase = remaining.length ? remaining[remaining.length - 1] : '';
+  }
 
   closePhaseEditor();
   showToast(`Fase "${label}" atualizada!`, 'success');
@@ -4465,21 +4477,32 @@ function saveAutomations() {
 
 /* ── Engine de execução ── */
 const AutomationEngine = {
-  execute(eventType, card, extra = {}) {
-    const matching = state.automations.filter(a => {
-      if (!a.enabled) return false;
-      if (a.trigger.type !== eventType) return false;
-      // Para triggers com seletor de fluxo, filtra pelo fluxo configurado;
-      // se não especificou fluxo, usa o módulo da automação como escopo.
-      const triggerModulo = a.trigger.params?.modulo;
-      const escopoModulo  = triggerModulo || a.modulo;
-      return escopoModulo === card.modulo;
-    });
+  _depth: 0,         // proteção anti-loop infinito
+  _maxDepth: 3,      // profundidade máxima de recursão
 
-    matching.forEach(auto => {
-      if (!this._matchesTrigger(auto.trigger, card, extra)) return;
-      this._runAction(auto.action, card, auto);
-    });
+  execute(eventType, card, extra = {}) {
+    if (this._depth >= this._maxDepth) {
+      console.warn('[AutomationEngine] Profundidade máxima atingida — ignorando para evitar loop infinito');
+      return;
+    }
+    this._depth++;
+
+    try {
+      const matching = state.automations.filter(a => {
+        if (!a.enabled) return false;
+        if (a.trigger.type !== eventType) return false;
+        const triggerModulo = a.trigger.params?.modulo;
+        const escopoModulo  = triggerModulo || a.modulo;
+        return escopoModulo === card.modulo;
+      });
+
+      matching.forEach(auto => {
+        if (!this._matchesTrigger(auto.trigger, card, extra)) return;
+        this._runAction(auto.action, card, auto);
+      });
+    } finally {
+      this._depth--;
+    }
   },
 
   _matchesTrigger(trigger, card, extra) {
@@ -4585,6 +4608,7 @@ const AutomationEngine = {
           : destFases[0];
 
         const origemLabel = MODULES[card.modulo]?.label || card.modulo;
+        if (!destMod.fases[targetFase]) break;
         const destFaseLabel = destMod.fases[targetFase].label;
 
         // Clona o card, preservando todos os campos, e adapta para o destino

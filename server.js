@@ -10,8 +10,48 @@ const path     = require('path');
 const { Pool } = require('pg');
 
 const app = express();
-app.use(cors());
+
+/* ── CORS: restringe origens em produção ── */
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+  : ['http://localhost:3000'];
+
+app.use(cors({
+  origin(origin, cb) {
+    // Permite requests sem origin (curl, mobile, mesmo domínio)
+    if (!origin) return cb(null, true);
+    if (ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(null, false);
+  },
+  credentials: true,
+}));
+
 app.use(express.json({ limit: '2mb' }));
+
+/* ── Rate-limiter simples (sem dependência externa) ── */
+const _rateMap = new Map();
+function rateLimit(maxReqs = 60, windowMs = 60000) {
+  return (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const now = Date.now();
+    const entry = _rateMap.get(ip) || { count: 0, start: now };
+    if (now - entry.start > windowMs) { entry.count = 0; entry.start = now; }
+    entry.count++;
+    _rateMap.set(ip, entry);
+    if (entry.count > maxReqs) {
+      return res.status(429).json({ error: 'Muitas requisicoes. Tente novamente em breve.' });
+    }
+    next();
+  };
+}
+app.use('/api/', rateLimit(120, 60000));   // 120 req/min global para /api
+// Limpar mapa de rate a cada 5 minutos
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of _rateMap) {
+    if (now - entry.start > 120000) _rateMap.delete(ip);
+  }
+}, 300000);
 
 // Serve o frontend (index.html, app.js, app.css estao na mesma pasta)
 app.use(express.static(__dirname));
@@ -109,12 +149,28 @@ function rowToCard(r) {
   };
 }
 
+/* ── Validação de card ── */
+const VALID_PRIORIDADES = ['baixa', 'media', 'alta', 'urgente'];
+const VALID_LINK_STATUS = ['pendente', 'ativo', 'pago', 'expirado'];
+
+function validateCardBody(c) {
+  if (!c || typeof c !== 'object') return 'Body invalido.';
+  if (!c.id || typeof c.id !== 'string') return 'Campo "id" obrigatorio (string).';
+  if (!c.modulo || typeof c.modulo !== 'string') return 'Campo "modulo" obrigatorio (string).';
+  if (!c.fase || typeof c.fase !== 'string') return 'Campo "fase" obrigatorio (string).';
+  if (c.prioridade && !VALID_PRIORIDADES.includes(c.prioridade)) return 'Prioridade invalida.';
+  if (c.linkStatus && !VALID_LINK_STATUS.includes(c.linkStatus)) return 'linkStatus invalido.';
+  return null;
+}
+
+/* ── Rotas CRUD de cards ── */
+
 app.get('/api/cards', async (req, res) => {
   try {
     const { modulo, escola } = req.query;
     let q = 'SELECT * FROM cards'; const v = []; const c = [];
-    if (modulo) { c.push('modulo = $' + (v.length + 1)); v.push(modulo); }
-    if (escola)  { c.push('escola = $'  + (v.length + 1)); v.push(escola);  }
+    if (modulo && typeof modulo === 'string') { c.push('modulo = $' + (v.length + 1)); v.push(modulo); }
+    if (escola && typeof escola === 'string') { c.push('escola = $'  + (v.length + 1)); v.push(escola);  }
     if (c.length) q += ' WHERE ' + c.join(' AND ');
     q += ' ORDER BY modulo, fase, position, created_at DESC';
     const { rows } = await pool.query(q, v);
@@ -125,6 +181,9 @@ app.get('/api/cards', async (req, res) => {
 app.post('/api/cards', async (req, res) => {
   try {
     const c = req.body;
+    const err = validateCardBody(c);
+    if (err) return res.status(400).json({ error: err });
+
     const { rows: pr } = await pool.query(
       'SELECT COALESCE(MAX(position), -1) + 1 AS next_pos FROM cards WHERE modulo = $1 AND fase = $2',
       [c.modulo, c.fase]);
@@ -142,6 +201,8 @@ app.post('/api/cards', async (req, res) => {
 app.put('/api/cards/:id', async (req, res) => {
   try {
     const { id } = req.params; const c = req.body;
+    if (!id || typeof id !== 'string') return res.status(400).json({ error: 'id invalido.' });
+
     const { rows } = await pool.query(
       'UPDATE cards SET modulo=$1,fase=$2,titulo=$3,descricao=$4,escola=$5,categoria=$6,prioridade=$7,responsavel=$8,prazo=$9,criado_em=$10,valor=$11,fornecedor=$12,num_doc=$13,vencimento=$14,tipo_pagamento=$15,link_pagamento=$16,codigo_transacao=$17,link_status=$18,comentarios=$19,historico=$20,anexos=$21 WHERE id=$22 RETURNING *',
       [c.modulo||'', c.fase||'', c.titulo||'', c.descricao||'', c.escola||'', c.categoria||'', c.prioridade||'media',
@@ -155,7 +216,10 @@ app.put('/api/cards/:id', async (req, res) => {
 
 app.delete('/api/cards/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM cards WHERE id = $1', [req.params.id]);
+    const { id } = req.params;
+    if (!id || typeof id !== 'string') return res.status(400).json({ error: 'id invalido.' });
+    const result = await pool.query('DELETE FROM cards WHERE id = $1', [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Card nao encontrado.' });
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -164,7 +228,10 @@ app.patch('/api/cards/move', async (req, res) => {
   const client = await pool.connect();
   try {
     const { cardId, newFase, newPosition = 0 } = req.body;
-    if (!cardId || !newFase) return res.status(400).json({ error: 'cardId e newFase obrigatorios.' });
+    if (!cardId || typeof cardId !== 'string') return res.status(400).json({ error: 'cardId obrigatorio (string).' });
+    if (!newFase || typeof newFase !== 'string') return res.status(400).json({ error: 'newFase obrigatorio (string).' });
+    if (typeof newPosition !== 'number' || newPosition < 0) return res.status(400).json({ error: 'newPosition invalido.' });
+
     await client.query('BEGIN');
     const { rows: cr } = await client.query('SELECT * FROM cards WHERE id = $1', [cardId]);
     if (!cr.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Card nao encontrado.' }); }
@@ -181,6 +248,8 @@ app.patch('/api/cards/move', async (req, res) => {
   } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: err.message }); }
   finally { client.release(); }
 });
+
+/* ── Integração e-Rede — Link de Pagamento ── */
 
 const CLIENT_ID     = process.env.REDE_CLIENT_ID;
 const CLIENT_SECRET = process.env.REDE_CLIENT_SECRET;
@@ -214,13 +283,24 @@ function defaultExpirationDate(d = 7) {
   return String(dt.getMonth() + 1).padStart(2, '0') + '/' + String(dt.getDate()).padStart(2, '0') + '/' + dt.getFullYear();
 }
 
-app.post('/api/gerar-link', async (req, res) => {
+app.post('/api/gerar-link', rateLimit(10, 60000), async (req, res) => {
   try {
     const { amount, description, installments = 1, paymentOptions = ['credit'], expirationDate } = req.body;
-    if (amount == null) return res.status(400).json({ error: '"amount" obrigatorio.' });
-    if (!description?.trim()) return res.status(400).json({ error: '"description" obrigatorio.' });
-    if (description.length > 50) return res.status(400).json({ error: '"description" max 50 chars.' });
-    if (!PV) return res.status(500).json({ error: 'REDE_PV nao configurado.' });
+
+    // Validação de entrada
+    if (amount == null || typeof amount !== 'number' || amount <= 0)
+      return res.status(400).json({ error: '"amount" deve ser um numero positivo.' });
+    if (!description?.trim())
+      return res.status(400).json({ error: '"description" obrigatorio.' });
+    if (description.length > 50)
+      return res.status(400).json({ error: '"description" max 50 chars.' });
+    if (!Number.isInteger(installments) || installments < 1 || installments > 12)
+      return res.status(400).json({ error: '"installments" deve ser entre 1 e 12.' });
+    if (!Array.isArray(paymentOptions) || !paymentOptions.length)
+      return res.status(400).json({ error: '"paymentOptions" deve ser um array nao vazio.' });
+    if (!PV)
+      return res.status(500).json({ error: 'REDE_PV nao configurado.' });
+
     const token = await getAccessToken();
     const apiRes = await fetch(BASE_URL + '/v1/create', {
       method: 'POST',
@@ -236,8 +316,9 @@ app.post('/api/gerar-link', async (req, res) => {
 app.get('/api/status-link/:paymentLinkId', async (req, res) => {
   try {
     if (!PV) return res.status(500).json({ error: 'REDE_PV nao configurado.' });
+    const linkId = encodeURIComponent(req.params.paymentLinkId);
     const token = await getAccessToken();
-    const apiRes = await fetch(BASE_URL + '/v1/' + req.params.paymentLinkId, {
+    const apiRes = await fetch(BASE_URL + '/v1/' + linkId, {
       headers: { 'Authorization': 'Bearer ' + token, 'Company-number': String(PV) }
     });
     const data = await apiRes.json();
@@ -245,6 +326,8 @@ app.get('/api/status-link/:paymentLinkId', async (req, res) => {
     res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+/* ── Health / Diagnóstico ── */
 
 app.get('/health', async (_, res) => {
   let dbOk = false;
@@ -273,6 +356,16 @@ app.get('/api/diagnostico', async (_, res) => {
   res.json(info);
 });
 
+/* ── Tratamento global de erros não capturados ── */
+process.on('unhandledRejection', (err) => {
+  console.error('[ERROR] Unhandled rejection:', err);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[ERROR] Uncaught exception:', err);
+  process.exit(1);
+});
+
+/* ── Inicialização ── */
 initDB()
   .then(() => {
     app.listen(PORT, () => { console.log('[Central PED] Servidor na porta ' + PORT); });
