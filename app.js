@@ -1396,7 +1396,16 @@ function saveCard(e) {
     allCards.unshift(newCard);
     AutomationEngine.execute('card_created',     newCard, {});
     AutomationEngine.execute('card_enter_phase', newCard, { fase });
-    showToast('Card criado!', 'success');
+
+    if (mod.hasPaymentLink) {
+      // Lê parcelas antes de fechar o modal
+      const parcelasEl   = document.getElementById('formParcelas');
+      const installments = (tipoPagamento === 'credito' && parcelasEl) ? parseInt(parcelasEl.value, 10) : 1;
+      showToast('Card criado! Gerando link de pagamento...', 'success');
+      autoGeneratePaymentLink(newCard, installments);
+    } else {
+      showToast('Card criado!', 'success');
+    }
   }
 
   closeModal();
@@ -1574,6 +1583,85 @@ function expirationDateInDays(days) {
   const dd   = String(d.getDate()).padStart(2, '0');
   const yyyy = d.getFullYear();
   return `${mm}/${dd}/${yyyy}`;
+}
+
+// Gera link de pagamento automaticamente ao criar o card (sem depender do modal aberto)
+async function autoGeneratePaymentLink(card, installments) {
+  const tipo = card.tipoPagamento || 'pix';
+
+  try {
+    const rawDesc   = (card.titulo || 'Cobrança').trim();
+    const description = rawDesc.length > 50 ? rawDesc.slice(0, 47) + '...' : rawDesc;
+    const amount    = parseFloat(card.valor) || 0;
+
+    if (amount <= 0) {
+      showToast('⚠️ Card criado, mas sem valor — link não gerado.', 'warn');
+      renderAll();
+      return;
+    }
+
+    const body = {
+      amount,
+      description,
+      installments: installments || 1,
+      paymentOptions: redePaymentOptions(tipo),
+      expirationDate: expirationDateInDays(7),
+    };
+
+    const res = await fetch(`${PAYMENT_BACKEND_URL}/api/gerar-link`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const msg = (errData.error && typeof errData.error === 'string')
+        ? errData.error
+        : `Erro ${res.status} ao gerar link.`;
+      throw new Error(msg);
+    }
+
+    const { url, paymentLinkId } = await res.json();
+    const txCode = paymentLinkId || uid().toUpperCase().slice(0, 8);
+
+    card.tipoPagamento   = tipo;
+    card.linkPagamento   = url;
+    card.codigoTransacao = txCode;
+    card.linkStatus      = 'ativo';
+
+    const modCfg   = MODULES[card.modulo] || {};
+    const oldFase  = card.fase;
+    const oldLabel = getPhaseStyle(card.modulo, oldFase).label;
+    const genPhase = modCfg.paymentGenPhase || 'aguardando_pagamento';
+    card.fase      = genPhase;
+    const newLabel = getPhaseStyle(card.modulo, genPhase).label;
+
+    card.historico.push({
+      texto:   `Link gerado automaticamente via e-Rede: <strong>${txCode}</strong> (${tipo.toUpperCase()})`,
+      data:    now(),
+      usuario: 'Sistema',
+    });
+    card.historico.push({
+      texto:   `Movido de <strong>${oldLabel}</strong> para <strong>${newLabel}</strong>`,
+      data:    now(),
+      usuario: 'Sistema',
+    });
+
+    try { await navigator.clipboard.writeText(url); } catch (_) { /* sem permissão */ }
+
+    showToast(`✅ Link gerado e card movido para "${newLabel}"! (${txCode})`, 'success');
+    renderAll();
+
+  } catch (err) {
+    card.historico.push({
+      texto:   `Falha ao gerar link automático: ${err.message}`,
+      data:    now(),
+      usuario: 'Sistema',
+    });
+    showToast(`⚠️ Card criado, mas erro ao gerar link: ${err.message}`, 'warn');
+    renderAll();
+  }
 }
 
 async function generatePaymentLink(cardId) {
