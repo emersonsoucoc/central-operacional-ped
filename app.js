@@ -318,6 +318,23 @@ const MODULES = {
     },
     lastPhase: 'resolvido',
   },
+  recursos_humanos: {
+    label     : 'Recursos Humanos',
+    shortLabel: 'RH',
+    btnLabel  : 'Nova Solicitação RH',
+    hasFinancial: false,
+    categorias: ['Admissão','Desligamento','Férias','Afastamento','Treinamento','Ponto / Jornada','Benefícios','Folha de Pagamento','Outros'],
+    fases: {
+      recebido    : { label:'Recebido',        color:'#94A3B8', bg:'#F1F5F9', slaDias:2  },
+      em_analise  : { label:'Em análise',      color:'#F59E0B', bg:'#FFFBEB', slaDias:3  },
+      aprovado    : { label:'Aprovado',        color:'#3B82F6', bg:'#EFF6FF', slaDias:5  },
+      em_execucao : { label:'Em execução',     color:'#8B5CF6', bg:'#F5F3FF', slaDias:7  },
+      concluido   : { label:'Concluído',       color:'#10B981', bg:'#ECFDF5'             },
+      cancelado   : { label:'Cancelado',       color:'#EF4444', bg:'#FEF2F2'             },
+    },
+    lastPhase: 'concluido',
+  },
+
   central_pagamentos: {
     label: 'Central de Pagamentos',
     shortLabel: 'Central Pgto.',
@@ -724,6 +741,44 @@ let allCards = [
       {texto:'Chamado aberto',data:'2026-03-30 08:00',usuario:'Ana Oliveira'},
       {texto:'Driver reinstalado e impressora reconfigura na rede',data:'2026-03-30 11:00',usuario:'João Costa'},
       {texto:'Movido para <strong>Resolvido</strong>',data:'2026-03-30 11:30',usuario:'João Costa'}
+    ], anexos:[] },
+
+  /* ── RECURSOS HUMANOS ── */
+  { id:'rh1', modulo:'recursos_humanos', titulo:'Admissão — Fernanda Rocha (Auxiliar de Secretaria)',
+    descricao:'Candidata aprovada no processo seletivo. Aguarda documentação completa para contratação.',
+    fase:'em_analise', prioridade:'alta', escola:'ped1', categoria:'Admissão',
+    responsavel:'Emerson Santos', criadoEm:'2026-03-28', prazo:'2026-04-10',
+    comentarios:[{id:'c1',autor:'Emerson Santos',texto:'Documentos enviados por e-mail, aguardando conferência.',data:'2026-03-29 09:00'}],
+    historico:[
+      {texto:'Card criado',data:'2026-03-28 08:30',usuario:'Emerson Santos'},
+      {texto:'Movido para <strong>Em análise</strong>',data:'2026-03-28 09:00',usuario:'Emerson Santos'}
+    ], anexos:[] },
+
+  { id:'rh2', modulo:'recursos_humanos', titulo:'Solicitação de férias — João Oliveira (Jul/Ago 2026)',
+    descricao:'Colaborador solicita 30 dias de férias em julho e agosto.',
+    fase:'aprovado', prioridade:'media', escola:'ped3', categoria:'Férias',
+    responsavel:'Emerson Santos', criadoEm:'2026-03-15', prazo:'2026-06-30',
+    comentarios:[],
+    historico:[
+      {texto:'Card criado',data:'2026-03-15 10:00',usuario:'Emerson Santos'},
+      {texto:'Movido para <strong>Aprovado</strong>',data:'2026-03-20 14:00',usuario:'Emerson Santos'}
+    ], anexos:[] },
+
+  { id:'rh3', modulo:'recursos_humanos', titulo:'Treinamento — Formação em Primeiros Socorros',
+    descricao:'Capacitação obrigatória para funcionários das quatro unidades. 8h presenciais.',
+    fase:'recebido', prioridade:'media', escola:'all', categoria:'Treinamento',
+    responsavel:'', criadoEm:'2026-04-01', prazo:'2026-04-30',
+    comentarios:[],
+    historico:[{texto:'Card criado',data:'2026-04-01 08:00',usuario:'Emerson Santos'}], anexos:[] },
+
+  { id:'rh4', modulo:'recursos_humanos', titulo:'Desligamento — Carlos Mendes (30/04/2026)',
+    descricao:'Rescisão por iniciativa do colaborador. Calcular verbas rescisórias e agendar entrevista de saída.',
+    fase:'em_execucao', prioridade:'alta', escola:'ped2', categoria:'Desligamento',
+    responsavel:'Emerson Santos', criadoEm:'2026-04-02', prazo:'2026-04-30',
+    comentarios:[{id:'c2',autor:'Emerson Santos',texto:'TRCT em elaboração pelo contador.',data:'2026-04-02 11:00'}],
+    historico:[
+      {texto:'Card criado',data:'2026-04-02 08:00',usuario:'Emerson Santos'},
+      {texto:'Movido para <strong>Em execução</strong>',data:'2026-04-02 10:00',usuario:'Emerson Santos'}
     ], anexos:[] },
 
   /* ── PROCESSOS ── */
@@ -2786,6 +2841,25 @@ function buildPanelAparencia() {
         </div>
         <button class="btn-primary" id="saveCorBtn">Aplicar Cor</button>
       </div>
+    </div>
+
+    <div class="aparencia-section">
+      <p class="aparencia-section-title">Tema da Interface</p>
+      <div class="theme-toggle-row" id="themeToggleRow">
+        <button class="theme-btn ${document.documentElement.dataset.theme !== 'dark' ? 'theme-btn--active' : ''}" data-theme="light">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <circle cx="9" cy="9" r="4" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M9 1.5v1.5M9 15v1.5M1.5 9H3M15 9h1.5M3.7 3.7l1.1 1.1M13.2 13.2l1.1 1.1M14.3 3.7l-1.1 1.1M4.8 13.2l-1.1 1.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Modo Claro
+        </button>
+        <button class="theme-btn ${document.documentElement.dataset.theme === 'dark' ? 'theme-btn--active' : ''}" data-theme="dark">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M15.5 10.5A7 7 0 1 1 7.5 2.5a5.5 5.5 0 0 0 8 8z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Modo Escuro
+        </button>
+      </div>
     </div>`;
 }
 
@@ -2859,6 +2933,15 @@ function bindAparenciaEvents() {
     showToast('Cor principal aplicada ao sistema', 'success');
     renderSettingsPanel('aparencia');
   });
+
+  /* ── Tema claro / escuro ── */
+  document.getElementById('themeToggleRow').addEventListener('click', e => {
+    const btn = e.target.closest('.theme-btn');
+    if (!btn) return;
+    applyTheme(btn.dataset.theme);
+    renderSettingsPanel('aparencia');
+    showToast(btn.dataset.theme === 'dark' ? 'Modo escuro ativado' : 'Modo claro ativado', 'success');
+  });
 }
 
 function updateColorPreview(cor) {
@@ -2873,6 +2956,17 @@ function shadeColor(hex, percent) {
   const b = Math.min(255, Math.max(0, (num & 0xff) + Math.round(percent * 2.55)));
   return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 }
+
+/* ── Tema claro / escuro ── */
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem('ped_theme', theme);
+}
+/* Aplica tema salvo ao carregar */
+(function() {
+  const saved = localStorage.getItem('ped_theme');
+  if (saved) document.documentElement.dataset.theme = saved;
+})();
 
 /* ══════════════════════════════════════════════════════════
    PAINEL: USUÁRIOS
@@ -2957,7 +3051,7 @@ function buildPanelUsuarios() {
     </div>
 
     <div class="user-filter-row">
-      <input type="text" id="userSearchInput" class="user-search-input" placeholder="Buscar por nome ou e-mail…">
+      <input type="text" id="userSearchInput" class="user-search-input" placeholder="Buscar por nome ou e-mail…" autocomplete="off">
       <select id="userPerfilFilter" class="user-perfil-filter">
         <option value="">Todos os perfis</option>
         ${Object.entries(PERFIS).map(([k,p]) => `<option value="${k}">${p.label}</option>`).join('')}
