@@ -167,127 +167,133 @@
     <!-- Navigation -->
     <nav class="sidebar-nav">
 
-      <!-- ── Módulo em destaque: Central de Pagamentos ── -->
-      <div class="nav-section nav-section--highlight">
-        <span class="nav-label">FINANCEIRO</span>
-        <a href="#central_pagamentos" class="nav-item nav-item--highlight" data-module="central_pagamentos">
-          <span class="nav-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M1 6.5h14" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M4 10h3M10 10h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
+      <!-- ── FINANCEIRO (colapsável) ── -->
+      <div class="nav-group nav-group--open" data-group="financeiro">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-group-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M1 6h14M5 9h2"/></svg>
           </span>
-          <span class="nav-text">Gerar Pagamento</span>
-          <span class="nav-badge" id="badge-central_pagamentos">0</span>
-        </a>
-        <a href="#chat_financeiro" class="nav-item" data-module="chat_financeiro">
-          <span class="nav-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M13 2H3a1 1 0 00-1 1v7a1 1 0 001 1h2v2.5l3-2.5h5a1 1 0 001-1V3a1 1 0 00-1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-              <path d="M5 6h6M5 8.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <span class="nav-text">Chat Financeiro</span>
-          <span class="nav-badge nav-badge--green" id="badge-chat_financeiro" style="display:none">0</span>
-        </a>
+          <span class="nav-group-label">Financeiro</span>
+          <span class="nav-group-badge" id="group-badge-financeiro" style="display:none">0</span>
+          <svg class="nav-group-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4l4 4 4-4"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <a href="#central_pagamentos" class="nav-item nav-item--sub nav-item--highlight" data-module="central_pagamentos">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1 6h14M5 9h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </span>
+            <span class="nav-text">Gerar Pagamento</span>
+            <span class="nav-badge" id="badge-central_pagamentos">0</span>
+          </a>
+          <a href="#contas_pagar" class="nav-item nav-item--sub" data-module="contas_pagar">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4h12v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4z" stroke="currentColor" stroke-width="1.5"/><path d="M2 4l1-2h10l1 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="nav-text">Contas a Pagar</span>
+            <span class="nav-badge" id="badge-contas_pagar">0</span>
+          </a>
+          <a href="#contas_receber" class="nav-item nav-item--sub" data-module="contas_receber">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M3 7l5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="nav-text">Contas a Receber</span>
+            <span class="nav-badge" id="badge-contas_receber">0</span>
+          </a>
+          <a href="#compras" class="nav-item nav-item--sub" data-module="compras">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h2l2.5 7h5.5l2-5H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="12.5" r="1" fill="currentColor"/><circle cx="11.5" cy="12.5" r="1" fill="currentColor"/></svg>
+            </span>
+            <span class="nav-text">Compras</span>
+            <span class="nav-badge" id="badge-compras">0</span>
+          </a>
+          <a href="#chat_financeiro" class="nav-item nav-item--sub" data-module="chat_financeiro">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13 2H3a1 1 0 00-1 1v7a1 1 0 001 1h2v2.5l3-2.5h5a1 1 0 001-1V3a1 1 0 00-1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="nav-text">Chat Financeiro</span>
+            <span class="nav-badge nav-badge--green" id="badge-chat_financeiro" style="display:none">0</span>
+          </a>
+        </div>
       </div>
 
-      <div class="nav-section">
-        <span class="nav-label">FLUXOS</span>
-
-        <a href="#solicitacoes" class="nav-item" data-module="solicitacoes">
-          <span class="nav-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
-              <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
-              <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
-              <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            </svg>
+      <!-- ── OPERAÇÕES (colapsável) ── -->
+      <div class="nav-group nav-group--open" data-group="operacoes">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-group-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
           </span>
-          <span class="nav-text">Solicitações Admin.</span>
-          <span class="nav-badge" id="badge-solicitacoes">0</span>
-        </a>
-
-        <a href="#contas_pagar" class="nav-item" data-module="contas_pagar">
-          <span class="nav-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M2 4h12v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4z" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M2 4l6-2 6 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M6 9l1.5 1.5L10 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <span class="nav-text">Contas a Pagar</span>
-          <span class="nav-badge" id="badge-contas_pagar">0</span>
-        </a>
-
-        <a href="#contas_receber" class="nav-item" data-module="contas_receber">
-          <span class="nav-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 2v12M3 7l5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <span class="nav-text">Contas a Receber</span>
-          <span class="nav-badge" id="badge-contas_receber">0</span>
-        </a>
-
-        <a href="#compras" class="nav-item" data-module="compras">
-          <span class="nav-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M2 2h2l2.5 7h5.5l2-5H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="7" cy="13" r="1" stroke="currentColor" stroke-width="1.5"/>
-              <circle cx="11" cy="13" r="1" stroke="currentColor" stroke-width="1.5"/>
-            </svg>
-          </span>
-          <span class="nav-text">Compras</span>
-          <span class="nav-badge" id="badge-compras">0</span>
-        </a>
-
-        <a href="#processos" class="nav-item" data-module="processos">
-          <span class="nav-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M4 8h8M4 4h8M4 12h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <span class="nav-text">Cumprimento de Proc.</span>
-          <span class="nav-badge" id="badge-processos">0</span>
-        </a>
-
-        <a href="#ti" class="nav-item" data-module="ti">
-          <span class="nav-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="1" y="2" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M5 14h6M8 11v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <span class="nav-text">T.I</span>
-          <span class="nav-badge" id="badge-ti">0</span>
-        </a>
-
-        <a href="#recursos_humanos" class="nav-item" data-module="recursos_humanos">
-          <span class="nav-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="6" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.4"/>
-              <path d="M1.5 13.5c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-              <path d="M11.5 7.5h3M13 6v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <span class="nav-text">Recursos Humanos</span>
-          <span class="nav-badge" id="badge-recursos_humanos">0</span>
-        </a>
-
-        <a href="#comercial" class="nav-item" data-module="comercial">
-          <span class="nav-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 2C5.2 2 3 4 3 6.5c0 1.5.7 2.8 1.8 3.7L4 14l3-1.5c.3.1.7.1 1 .1C10.8 12.6 13 10.6 13 8c0-3.3-2.2-6-5-6z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M6 7.5h4M6 5.5h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <span class="nav-text">Comercial — CRM</span>
-          <span class="nav-badge" id="badge-comercial">0</span>
-        </a>
+          <span class="nav-group-label">Operações</span>
+          <span class="nav-group-badge" id="group-badge-operacoes" style="display:none">0</span>
+          <svg class="nav-group-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4l4 4 4-4"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <a href="#solicitacoes" class="nav-item nav-item--sub" data-module="solicitacoes">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+            </span>
+            <span class="nav-text">Solicitações Admin.</span>
+            <span class="nav-badge" id="badge-solicitacoes">0</span>
+          </a>
+          <a href="#processos" class="nav-item nav-item--sub" data-module="processos">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8h8M4 4h8M4 12h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </span>
+            <span class="nav-text">Cumprimento de Proc.</span>
+            <span class="nav-badge" id="badge-processos">0</span>
+          </a>
+        </div>
       </div>
 
+      <!-- ── PESSOAS (colapsável) ── -->
+      <div class="nav-group nav-group--open" data-group="pessoas">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-group-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="4.5" r="2.5"/><path d="M1 13.5c0-2.5 2-4.5 5-4.5h0c3 0 5 2 5 4.5"/><circle cx="12" cy="5" r="2"/><path d="M14 13c0-1.7-1-3-3-3.5"/></svg>
+          </span>
+          <span class="nav-group-label">Pessoas</span>
+          <span class="nav-group-badge" id="group-badge-pessoas" style="display:none">0</span>
+          <svg class="nav-group-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4l4 4 4-4"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <a href="#recursos_humanos" class="nav-item nav-item--sub" data-module="recursos_humanos">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 13c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </span>
+            <span class="nav-text">Recursos Humanos</span>
+            <span class="nav-badge" id="badge-recursos_humanos">0</span>
+          </a>
+          <a href="#comercial" class="nav-item nav-item--sub" data-module="comercial">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2C5.2 2 3 4 3 6.5c0 1.5.7 2.8 1.8 3.7L4 14l3-1.5c.3.1.7.1 1 .1C10.8 12.6 13 10.6 13 8c0-3.3-2.2-6-5-6z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="nav-text">Comercial — CRM</span>
+            <span class="nav-badge" id="badge-comercial">0</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- ── T.I. (colapsável) ── -->
+      <div class="nav-group nav-group--open" data-group="tecnologia">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-group-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="14" height="9" rx="1.5"/><path d="M5 14h6M8 11v3" stroke-linecap="round"/></svg>
+          </span>
+          <span class="nav-group-label">T.I. & Infra</span>
+          <span class="nav-group-badge" id="group-badge-tecnologia" style="display:none">0</span>
+          <svg class="nav-group-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4l4 4 4-4"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <a href="#ti" class="nav-item nav-item--sub" data-module="ti">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 14h6M8 11v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </span>
+            <span class="nav-text">T.I</span>
+            <span class="nav-badge" id="badge-ti">0</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- ── GESTÃO (não colapsável) ── -->
       <div class="nav-section">
         <span class="nav-label">GESTÃO</span>
         <a href="#dashboard" class="nav-item" data-module="dashboard">
@@ -576,6 +582,11 @@
                 <path d="M11 6.5h3M12.5 5v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
               </svg>
               Usuários
+            </button>
+
+            <button class="settings-tab-btn" data-tab="permissoes">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Permissões
             </button>
           </aside>
 

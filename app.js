@@ -70,16 +70,53 @@ function clearSession() {
 /* Retorna o token para usar nos headers */
 function getAuthToken() { return _authToken; }
 
+/* Resolve permissions for current user + module using the matrix */
+function resolvePerms(moduleKey) {
+  if (!currentUser) return [];
+
+  /* 1. Check explicit user-level permissoes (from JWT/API) */
+  const explicit = currentUser.permissoes?.[moduleKey] || currentUser.permissions?.[moduleKey];
+  if (explicit && explicit.length > 0) return explicit;
+
+  /* 2. Use profile matrix (custom saved > defaults) */
+  const perfil = currentUser.perfil || currentUser.role || 'visualizador';
+  const customMatrix = settingsData.permissoes || {};
+  const profileMatrix = customMatrix[perfil] || DEFAULT_PERM_MATRIX[perfil] || DEFAULT_PERM_MATRIX.visualizador;
+
+  /* Module-specific entry takes priority over wildcard */
+  if (profileMatrix[moduleKey]) return profileMatrix[moduleKey];
+  if (profileMatrix['*']) return profileMatrix['*'];
+  return [];
+}
+
 function canAccess(moduleKey) {
   if (!currentUser) return false;
-  const perms = currentUser.permissoes?.[moduleKey] || currentUser.permissions?.[moduleKey] || [];
-  return perms.includes('ver');
+  if (currentUser.perfil === 'admin') return true;
+  return resolvePerms(moduleKey).includes('ver');
 }
 
 function canCreate(moduleKey) {
   if (!currentUser) return false;
-  const perms = currentUser.permissoes?.[moduleKey] || currentUser.permissions?.[moduleKey] || [];
-  return perms.includes('criar');
+  if (currentUser.perfil === 'admin') return true;
+  return resolvePerms(moduleKey).includes('criar');
+}
+
+function canEdit(moduleKey) {
+  if (!currentUser) return false;
+  if (currentUser.perfil === 'admin') return true;
+  return resolvePerms(moduleKey).includes('editar');
+}
+
+function canMove(moduleKey) {
+  if (!currentUser) return false;
+  if (currentUser.perfil === 'admin') return true;
+  return resolvePerms(moduleKey).includes('mover');
+}
+
+function canDelete(moduleKey) {
+  if (!currentUser) return false;
+  if (currentUser.perfil === 'admin') return true;
+  return resolvePerms(moduleKey).includes('excluir');
 }
 
 /* Atualiza sidebar com dados do usuário logado */
@@ -102,6 +139,50 @@ function applyNavPermissions() {
   });
   const newBtn = document.getElementById('newCardBtn');
   if (newBtn) newBtn.style.display = canCreate(state.currentModule) ? '' : 'none';
+
+  /* Hide nav-groups where ALL sub-items are hidden */
+  document.querySelectorAll('.nav-group').forEach(group => {
+    const items = group.querySelectorAll('.nav-item[data-module]');
+    const anyVisible = Array.from(items).some(el => el.style.display !== 'none');
+    group.style.display = anyVisible ? '' : 'none';
+  });
+}
+
+/* Aggregate badges for nav groups */
+function renderNavGroupBadges() {
+  document.querySelectorAll('.nav-group').forEach(group => {
+    const badge = group.querySelector('.nav-group-badge');
+    if (!badge) return;
+    const total = Array.from(group.querySelectorAll('.nav-item[data-module]')).reduce((sum, el) => {
+      const modBadge = document.getElementById(`badge-${el.dataset.module}`);
+      return sum + (parseInt(modBadge?.textContent || '0', 10) || 0);
+    }, 0);
+    badge.textContent = total;
+    badge.style.display = total > 0 ? '' : 'none';
+  });
+}
+
+/* Sidebar collapsible groups */
+function initSidebarGroups() {
+  const STORAGE_KEY = 'ped_nav_groups';
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+  document.querySelectorAll('.nav-group').forEach(group => {
+    const groupName = group.dataset.group;
+    /* Default: all open. Use saved state if present. */
+    const isOpen = saved[groupName] !== false;
+    group.classList.toggle('nav-group--open', isOpen);
+    const toggle = group.querySelector('.nav-group-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', isOpen);
+
+    toggle?.addEventListener('click', () => {
+      const nowOpen = group.classList.toggle('nav-group--open');
+      toggle.setAttribute('aria-expanded', nowOpen);
+      const states = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      states[groupName] = nowOpen;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(states));
+    });
+  });
 }
 
 /* ──── FUNÇÕES DE LOGIN/LOGOUT ──── */
@@ -535,12 +616,13 @@ const settingsData = {
     nomeExibicao: 'Central Ops',
     logo: null,
   },
+  permissoes: {}, /* Custom permission overrides per profile — populated by settings UI */
   usuarios: [
     { id:'usr1', nome:'Emerson Santos',  email:'emerson.santos@grupoped.com.br', perfil:'admin',        escolas:['ped1','ped2','ped3','ped4'], ativo:true,  criadoEm:'2026-01-10' },
     { id:'usr2', nome:'Maria Silva',     email:'maria.silva@grupoped.com.br',    perfil:'gestor',       escolas:['ped1','ped2'],              ativo:true,  criadoEm:'2026-01-15' },
-    { id:'usr3', nome:'João Oliveira',   email:'joao.oliveira@grupoped.com.br',  perfil:'operador',     escolas:['ped3'],                     ativo:true,  criadoEm:'2026-02-01' },
-    { id:'usr4', nome:'Ana Costa',       email:'ana.costa@grupoped.com.br',      perfil:'operador',     escolas:['ped1','ped4'],              ativo:true,  criadoEm:'2026-02-10' },
-    { id:'usr5', nome:'Carlos Mendes',   email:'carlos.mendes@grupoped.com.br',  perfil:'visualizador', escolas:['ped2'],                     ativo:false, criadoEm:'2026-03-05' },
+    { id:'usr3', nome:'João Oliveira',   email:'joao.oliveira@grupoped.com.br',  perfil:'financeiro',   escolas:['ped3'],                     ativo:true,  criadoEm:'2026-02-01' },
+    { id:'usr4', nome:'Ana Costa',       email:'ana.costa@grupoped.com.br',      perfil:'pedagogico',   escolas:['ped1','ped4'],              ativo:true,  criadoEm:'2026-02-10' },
+    { id:'usr5', nome:'Carlos Mendes',   email:'carlos.mendes@grupoped.com.br',  perfil:'ti',           escolas:['ped2'],                     ativo:false, criadoEm:'2026-03-05' },
   ],
 };
 
@@ -551,6 +633,7 @@ const SETTINGS_KEYS = {
   escolas:    'ped_escolas',
   etiquetas:  'ped_etiquetas',
   aparencia:  'ped_aparencia',
+  permissoes: 'ped_permissoes',
   usuarios:   'ped_usuarios',
 };
 
@@ -991,6 +1074,7 @@ function renderNavBadges() {
     const el = document.getElementById('badge-' + mod);
     if (el) { el.textContent = open; el.style.display = open > 0 ? '' : 'none'; }
   });
+  renderNavGroupBadges();
 }
 
 function renderStats() {
@@ -2815,6 +2899,7 @@ function renderSettingsPanel(tab) {
     case 'aparencia':   container.innerHTML = buildPanelAparencia();  bindAparenciaEvents();  break;
     case 'automacoes':  container.innerHTML = buildPanelAutomacoes(); bindAutomacoesEvents(); break;
     case 'usuarios':    container.innerHTML = buildPanelUsuarios();   bindUsuariosEvents();   break;
+    case 'permissoes':  buildPanelPermissoes(); break;
   }
 }
 
@@ -3694,8 +3779,50 @@ function applyTheme(theme) {
 const PERFIS = {
   admin:        { label:'Administrador', cor:'#3B82F6', desc:'Acesso total ao sistema e às configurações' },
   gestor:       { label:'Gestor',        cor:'#8B5CF6', desc:'Acesso total aos módulos, sem configurações' },
-  operador:     { label:'Operador',      cor:'#10B981', desc:'Cria, edita e move cards' },
-  visualizador: { label:'Visualizador',  cor:'#94A3B8', desc:'Somente leitura' },
+  financeiro:   { label:'Financeiro',    cor:'#F59E0B', desc:'Acesso aos módulos financeiros: Contas a Pagar/Receber, Compras, Pagamentos' },
+  pedagogico:   { label:'Pedagógico',    cor:'#EC4899', desc:'Acesso a Processos, RH e Solicitações Administrativas' },
+  ti:           { label:'T.I.',          cor:'#6366F1', desc:'Acesso ao módulo de T.I. e suporte técnico' },
+  operador:     { label:'Operador',      cor:'#10B981', desc:'Cria, edita e move cards em módulos permitidos' },
+  visualizador: { label:'Visualizador',  cor:'#94A3B8', desc:'Somente leitura em módulos liberados' },
+};
+
+/* ── Matriz de permissões padrão por perfil ─────────────────
+   Formato: { modulo: ['ver','criar','editar','mover','excluir'] }
+   '*' = todos os módulos
+   Carregado de settingsData.permissoes se customizado. ────── */
+const DEFAULT_PERM_MATRIX = {
+  admin: {
+    '*': ['ver','criar','editar','mover','excluir'],
+  },
+  gestor: {
+    '*': ['ver','criar','editar','mover'],
+  },
+  financeiro: {
+    contas_pagar:       ['ver','criar','editar','mover'],
+    contas_receber:     ['ver','criar','editar','mover'],
+    compras:            ['ver','criar','editar','mover'],
+    central_pagamentos: ['ver','criar'],
+    chat_financeiro:    ['ver','criar'],
+    dashboard:          ['ver'],
+    relatorios:         ['ver'],
+  },
+  pedagogico: {
+    processos:         ['ver','criar','editar','mover'],
+    recursos_humanos:  ['ver','criar','editar','mover'],
+    solicitacoes:      ['ver','criar','editar'],
+    dashboard:         ['ver'],
+  },
+  ti: {
+    ti:          ['ver','criar','editar','mover','excluir'],
+    solicitacoes:['ver'],
+    dashboard:   ['ver'],
+  },
+  operador: {
+    '*': ['ver','criar','editar','mover'],
+  },
+  visualizador: {
+    '*': ['ver'],
+  },
 };
 
 let _editingUserId = null;
@@ -3976,6 +4103,118 @@ function removeFromLoginUsers(id) {
 
 function saveUsuariosData() {
   saveSettingsData('usuarios');
+}
+
+/* ══════════════════════════════════════════════════════════
+   PAINEL: PERMISSÕES — Matrix perfil × módulo × ação
+══════════════════════════════════════════════════════════ */
+
+const PERM_ACTIONS = [
+  { key:'ver',     label:'Ver',     icon:'👁' },
+  { key:'criar',   label:'Criar',   icon:'＋' },
+  { key:'editar',  label:'Editar',  icon:'✏' },
+  { key:'mover',   label:'Mover',   icon:'↔' },
+  { key:'excluir', label:'Excluir', icon:'🗑' },
+];
+
+const PERM_MODULES = Object.entries(MODULES)
+  .filter(([k]) => !['dashboard','relatorios','agenda','configuracoes','chat_financeiro','central_pagamentos'].includes(k))
+  .map(([k, m]) => ({ key: k, label: m.shortLabel || m.label }));
+
+function buildPanelPermissoes() {
+  const wrap = document.getElementById('permsMatrixWrap');
+  if (!wrap) return;
+
+  /* Merged matrix: defaults overridden by saved custom */
+  const customMatrix = settingsData.permissoes || {};
+
+  const html = Object.entries(PERFIS).map(([perfil, pDef]) => {
+    const defaultPerms = DEFAULT_PERM_MATRIX[perfil] || { '*': ['ver'] };
+    const customPerms  = customMatrix[perfil] || {};
+
+    const moduleRows = PERM_MODULES.map(mod => {
+      /* Resolve effective permissions for this profile + module */
+      const effectiveDefault = defaultPerms[mod.key] || defaultPerms['*'] || [];
+      const effective = customPerms[mod.key] !== undefined ? customPerms[mod.key] : effectiveDefault;
+
+      const checkboxes = PERM_ACTIONS.map(action => {
+        const checked = effective.includes(action.key);
+        return `<label class="perm-check" title="${action.label}">
+          <input type="checkbox" class="perm-cb"
+                 data-perfil="${perfil}"
+                 data-module="${mod.key}"
+                 data-action="${action.key}"
+                 ${checked ? 'checked' : ''} />
+          <span class="perm-cb-label">${action.icon}</span>
+        </label>`;
+      }).join('');
+
+      return `<div class="perm-row">
+        <span class="perm-mod-name">${escHtml(mod.label)}</span>
+        <div class="perm-actions">${checkboxes}</div>
+      </div>`;
+    }).join('');
+
+    return `<div class="perm-profile-card">
+      <div class="perm-profile-header">
+        <span class="perm-profile-dot" style="background:${pDef.cor}"></span>
+        <span class="perm-profile-name">${escHtml(pDef.label)}</span>
+        <span class="perm-profile-desc">${escHtml(pDef.desc)}</span>
+        ${perfil === 'admin' ? '<span class="perm-admin-badge">Acesso total (fixo)</span>' : ''}
+      </div>
+      ${perfil === 'admin' ? '<div class="perm-admin-note">Administradores sempre têm acesso completo a todos os módulos.</div>' : `
+      <div class="perm-header-row">
+        <span class="perm-mod-name perm-col-header">Módulo</span>
+        <div class="perm-actions">${PERM_ACTIONS.map(a => `<span class="perm-action-label" title="${a.label}">${a.icon}</span>`).join('')}</div>
+      </div>
+      <div class="perm-rows">${moduleRows}</div>
+      `}
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="perm-intro">
+      <p>Configure as permissões de cada perfil por módulo. As alterações são salvas automaticamente e aplicadas no próximo login.</p>
+      <button class="perm-reset-btn" id="permResetBtn">↺ Restaurar padrões</button>
+    </div>
+    <div class="perm-profiles-list">${html}</div>`;
+
+  /* Event: checkbox change */
+  wrap.querySelectorAll('.perm-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const perfil = cb.getAttribute('data-perfil');
+      const mod = cb.getAttribute('data-module');
+      const action = cb.getAttribute('data-action');
+      settingsData.permissoes = settingsData.permissoes || {};
+      settingsData.permissoes[perfil] = settingsData.permissoes[perfil] || {};
+
+      /* Get current custom state for this profile+module */
+      const defaultBase = DEFAULT_PERM_MATRIX[perfil]?.[mod] || DEFAULT_PERM_MATRIX[perfil]?.['*'] || [];
+      let current = settingsData.permissoes[perfil][mod] !== undefined
+        ? [...settingsData.permissoes[perfil][mod]]
+        : [...defaultBase];
+
+      if (cb.checked) {
+        if (!current.includes(action)) current.push(action);
+      } else {
+        current = current.filter(a => a !== action);
+      }
+      settingsData.permissoes[perfil][mod] = current;
+      saveSettings('permissoes');
+      showToast('Permissão atualizada', 'success');
+    });
+  });
+
+  /* Reset button */
+  const resetBtn = document.getElementById('permResetBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      settingsData.permissoes = {};
+      saveSettings('permissoes');
+      buildPanelPermissoes();
+      showToast('Permissões restauradas ao padrão', 'success');
+    });
+  }
 }
 
 function saveUsuario() {
@@ -5933,6 +6172,7 @@ function init() {
   // Chat system init
   initChat();
   initChecklists();
+  initSidebarGroups();
 
   // Sidebar
   document.getElementById('sidebarToggle').addEventListener('click', () => {
