@@ -396,11 +396,11 @@
 
         <button class="btn-auto btn-my-tasks" id="myTasksBtn" title="Mostrar apenas meus cards">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-          Minhas tarefas
+          <span class="btn-label">Minhas tarefas</span>
         </button>
 
         <button class="btn-smart-sort" id="smartSortBtn" title="Ordenar por urgência/SLA">
-          🔴 Prioridade automática
+          🔴<span class="btn-label"> Prioridade</span>
         </button>
 
         <div class="view-toggle">
@@ -423,14 +423,14 @@
             <path d="M8.5 1H3.5A1.5 1.5 0 002 2.5v8A1.5 1.5 0 003.5 12h6A1.5 1.5 0 0011 10.5V4L8.5 1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
             <path d="M8.5 1v3H11M4.5 7h4M4.5 9.5h2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
           </svg>
-          Formulário
+          <span class="btn-label">Formulário</span>
         </button>
 
         <button class="btn-auto" id="automationBtn" title="Automações do fluxo">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M7.5 1L2 7.5h4.5L5 12l6.5-7H7L7.5 1z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          Automações
+          <span class="btn-label">Automações</span>
         </button>
 
         <button class="btn-primary" id="newCardBtn">
@@ -854,9 +854,13 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           Comentários
         </button>
-        <button class="pf-drawer-tab" data-tab="historico">
+        <button class="pf-drawer-tab" data-tab="atividades">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Histórico
+          Atividades
+        </button>
+        <button class="pf-drawer-tab" data-tab="checklists">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Checklists
         </button>
         <button class="pf-drawer-tab" data-tab="anexos">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
@@ -1207,10 +1211,19 @@
         </div>
       </div>
 
-      <!-- Tab: Histórico -->
-      <div class="pf-drawer-tab-content hidden" id="pf-tab-historico">
-        <div id="historySection">
-          <div class="pf-history-list" id="historyList"></div>
+      <!-- Tab: Atividades (feed unificado de histórico) -->
+      <div class="pf-drawer-tab-content hidden" id="pf-tab-atividades">
+        <div class="ativ-feed" id="atividadeFeed"></div>
+      </div>
+
+      <!-- Tab: Checklists -->
+      <div class="pf-drawer-tab-content hidden" id="pf-tab-checklists">
+        <div class="cl-wrap">
+          <div class="cl-lists" id="clLists"></div>
+          <button class="cl-add-list-btn" id="clAddListBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Adicionar checklist
+          </button>
         </div>
       </div>
 

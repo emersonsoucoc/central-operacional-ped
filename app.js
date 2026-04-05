@@ -1569,7 +1569,8 @@ function openModal(cardId) {
     }
 
     renderChat(card);
-    renderHistory(card);
+    renderAtividades(card);
+    renderChecklists(card);
     renderAttachments(cardId);
   } else {
     document.getElementById('modalTitle').textContent    = mod.btnLabel;
@@ -1660,8 +1661,8 @@ function saveCard(e) {
       ...(mod.hasPaymentLink ? { tipoPagamento, linkPagamento:'', codigoTransacao:'', linkStatus:'pendente' } : {}),
       ...(mod.hasLead ? { telefone, emailLead, origem, interesse } : {}),
       criadoEm: new Date().toISOString().split('T')[0],
-      comentarios:[], historico:[{ texto:'Card criado', data:now(), usuario:'Emerson Santos' }],
-      anexos:[],
+      comentarios:[], historico:[{ texto:'Card criado', data:now(), usuario:'Emerson Santos', timestamp:Date.now() }],
+      checklists:[], anexos:[],
     };
     allCards.unshift(newCard);
     persistCards();
@@ -2102,16 +2103,224 @@ function initChat() {
 /* ══════════════════════════════════════════════════════════
    HISTORY
 ══════════════════════════════════════════════════════════ */
-function renderHistory(card) {
-  const list = document.getElementById('historyList');
-  list.innerHTML = [...(card.historico || [])].reverse().map(h => `
-    <div class="history-item">
-      <div class="history-dot"></div>
-      <div class="history-content">
-        ${h.texto}
-        <div style="font-size:10px;color:var(--quadro-faint);margin-top:2px">${h.data} · ${escHtml(h.usuario)}</div>
+/* ══════════════════════════════════════════════════════════
+   ATIVIDADES — Feed unificado (histórico + comentários)
+══════════════════════════════════════════════════════════ */
+function renderAtividades(card) {
+  const feed = document.getElementById('atividadeFeed');
+  if (!feed) return;
+
+  /* Build unified timeline: history entries + comment events */
+  const items = [];
+
+  (card.historico || []).forEach(h => {
+    items.push({
+      tipo      : 'historico',
+      texto     : h.texto,
+      data      : h.data,
+      usuario   : h.usuario || 'Sistema',
+      timestamp : h.timestamp || 0,
+    });
+  });
+
+  (card.comentarios || []).forEach(c => {
+    if (c.tipo === 'sistema') {
+      items.push({
+        tipo      : 'sistema',
+        texto     : c.texto,
+        data      : c.data,
+        usuario   : c.autor || 'Sistema',
+        timestamp : c.timestamp || 0,
+      });
+    }
+  });
+
+  items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  if (!items.length) {
+    feed.innerHTML = '<div class="ativ-empty">Nenhuma atividade registrada.</div>';
+    return;
+  }
+
+  const iconMap = {
+    historico : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+    sistema   : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+  };
+
+  feed.innerHTML = items.map(item => `
+    <div class="ativ-item ativ-item--${item.tipo}">
+      <div class="ativ-icon">${iconMap[item.tipo] || iconMap.historico}</div>
+      <div class="ativ-body">
+        <div class="ativ-texto">${escHtml(item.texto)}</div>
+        <div class="ativ-meta">${escHtml(item.data)} · ${escHtml(item.usuario)}</div>
       </div>
     </div>`).join('');
+}
+
+/* Keep renderHistory as alias for any legacy call-sites */
+function renderHistory(card) { renderAtividades(card); }
+
+/* ══════════════════════════════════════════════════════════
+   CHECKLISTS — Pipefy-style
+══════════════════════════════════════════════════════════ */
+
+function renderChecklists(card) {
+  const container = document.getElementById('clLists');
+  if (!container) return;
+
+  const lists = card.checklists || [];
+
+  if (!lists.length) {
+    container.innerHTML = '<div class="cl-empty">Nenhum checklist ainda. Clique em "Adicionar checklist".</div>';
+    return;
+  }
+
+  container.innerHTML = lists.map(cl => {
+    const total  = (cl.itens || []).length;
+    const done   = (cl.itens || []).filter(i => i.concluido).length;
+    const pct    = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    const itensHtml = (cl.itens || []).map(item => `
+      <div class="cl-item ${item.concluido ? 'cl-item--done' : ''}" data-item-id="${item.id}" data-cl-id="${cl.id}">
+        <label class="cl-item-check">
+          <input type="checkbox" class="cl-checkbox" ${item.concluido ? 'checked' : ''}
+                 onchange="toggleChecklistItem('${cl.id}','${item.id}', this.checked)"
+                 aria-label="${escHtml(item.texto)}" />
+          <span class="cl-checkmark">
+            <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg>
+          </span>
+        </label>
+        <span class="cl-item-text">${escHtml(item.texto)}</span>
+        <button class="cl-item-del" onclick="deleteChecklistItem('${cl.id}','${item.id}')" title="Remover item">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>`).join('');
+
+    return `
+      <div class="cl-block" data-cl-id="${cl.id}">
+        <div class="cl-block-header">
+          <div class="cl-block-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span class="cl-title-text"
+                  contenteditable="true"
+                  spellcheck="false"
+                  onblur="renameChecklist('${cl.id}', this.innerText)"
+                  data-original="${escHtml(cl.titulo)}">${escHtml(cl.titulo)}</span>
+          </div>
+          <div class="cl-block-actions">
+            <span class="cl-count">${done}/${total}</span>
+            <button class="cl-del-list" onclick="deleteChecklist('${cl.id}')" title="Excluir checklist">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="cl-progress-wrap">
+          <div class="cl-progress-bar">
+            <div class="cl-progress-fill" style="width:${pct}%" data-pct="${pct}"></div>
+          </div>
+          <span class="cl-progress-pct">${pct}%</span>
+        </div>
+
+        <div class="cl-items">${itensHtml}</div>
+
+        <div class="cl-add-item-row" data-cl-id="${cl.id}">
+          <input type="text" class="cl-add-item-input" placeholder="Adicionar item..."
+                 id="clInput-${cl.id}"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();addChecklistItem('${cl.id}')}" />
+          <button class="cl-add-item-btn" onclick="addChecklistItem('${cl.id}')">Adicionar</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleChecklistItem(clId, itemId, checked) {
+  const card = allCards.find(c => c.id === state.editingCardId);
+  if (!card) return;
+  const cl = (card.checklists || []).find(c => c.id === clId);
+  if (!cl) return;
+  const item = (cl.itens || []).find(i => i.id === itemId);
+  if (!item) return;
+  item.concluido    = checked;
+  item.concluidoEm  = checked ? now() : '';
+  card.historico    = card.historico || [];
+  card.historico.push({
+    texto     : `Item "${item.texto}" ${checked ? 'marcado como concluído' : 'desmarcado'} no checklist "${cl.titulo}"`,
+    data      : now(),
+    usuario   : currentUser?.nome || 'Emerson Santos',
+    timestamp : Date.now(),
+  });
+  renderChecklists(card);
+}
+
+function addChecklistItem(clId) {
+  const input = document.getElementById(`clInput-${clId}`);
+  if (!input) return;
+  const text = (input.value || '').trim();
+  if (!text) return;
+  const card = allCards.find(c => c.id === state.editingCardId);
+  if (!card) return;
+  const cl = (card.checklists || []).find(c => c.id === clId);
+  if (!cl) return;
+  cl.itens = cl.itens || [];
+  cl.itens.push({ id: uid(), texto: text, concluido: false, criadoEm: now(), concluidoEm: '' });
+  card.historico = card.historico || [];
+  card.historico.push({ texto: `Item adicionado ao checklist "${cl.titulo}"`, data: now(), usuario: currentUser?.nome || 'Emerson Santos', timestamp: Date.now() });
+  renderChecklists(card);
+}
+
+function deleteChecklistItem(clId, itemId) {
+  const card = allCards.find(c => c.id === state.editingCardId);
+  if (!card) return;
+  const cl = (card.checklists || []).find(c => c.id === clId);
+  if (!cl) return;
+  const item = (cl.itens || []).find(i => i.id === itemId);
+  const nome = item?.texto || '';
+  cl.itens = (cl.itens || []).filter(i => i.id !== itemId);
+  card.historico = card.historico || [];
+  card.historico.push({ texto: `Item "${nome}" removido do checklist "${cl.titulo}"`, data: now(), usuario: currentUser?.nome || 'Emerson Santos', timestamp: Date.now() });
+  renderChecklists(card);
+}
+
+function deleteChecklist(clId) {
+  const card = allCards.find(c => c.id === state.editingCardId);
+  if (!card) return;
+  const cl = (card.checklists || []).find(c => c.id === clId);
+  const nome = cl?.titulo || '';
+  card.checklists = (card.checklists || []).filter(c => c.id !== clId);
+  card.historico = card.historico || [];
+  card.historico.push({ texto: `Checklist "${nome}" excluído`, data: now(), usuario: currentUser?.nome || 'Emerson Santos', timestamp: Date.now() });
+  renderChecklists(card);
+  showToast('Checklist excluído', 'warn');
+}
+
+function renameChecklist(clId, newTitle) {
+  const card = allCards.find(c => c.id === state.editingCardId);
+  if (!card) return;
+  const cl = (card.checklists || []).find(c => c.id === clId);
+  if (!cl) return;
+  const trimmed = (newTitle || '').trim();
+  if (!trimmed || trimmed === cl.titulo) return;
+  const old = cl.titulo;
+  cl.titulo = trimmed;
+  card.historico = card.historico || [];
+  card.historico.push({ texto: `Checklist renomeado de "${old}" para "${trimmed}"`, data: now(), usuario: currentUser?.nome || 'Emerson Santos', timestamp: Date.now() });
+}
+
+function addNewChecklist() {
+  const card = allCards.find(c => c.id === state.editingCardId);
+  if (!card) { showToast('Salve o card primeiro', 'warn'); return; }
+  card.checklists = card.checklists || [];
+  const num = card.checklists.length + 1;
+  card.checklists.push({ id: uid(), titulo: `Checklist ${num}`, itens: [] });
+  card.historico = card.historico || [];
+  card.historico.push({ texto: `Checklist ${num} adicionado`, data: now(), usuario: currentUser?.nome || 'Emerson Santos', timestamp: Date.now() });
+  renderChecklists(card);
+}
+
+function initChecklists() {
+  const btn = document.getElementById('clAddListBtn');
+  if (btn) btn.addEventListener('click', addNewChecklist);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -5723,6 +5932,7 @@ function init() {
 
   // Chat system init
   initChat();
+  initChecklists();
 
   // Sidebar
   document.getElementById('sidebarToggle').addEventListener('click', () => {
