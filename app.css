@@ -2588,31 +2588,34 @@ form { display:flex; flex-direction:column; gap:14px; }
 /* ══════════════════════════════════════════════════════════
    CARD DRAWER — ESTILO PIPEFY
 ══════════════════════════════════════════════════════════ */
+/* ── JANELA FLUTUANTE — Modal centralizado (estilo app desktop) ── */
 .pf-drawer-overlay {
   position: fixed; inset: 0;
-  background: rgba(15,23,42,0.45);
+  background: rgba(15,23,42,0.52);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: 1000;
   display: flex;
-  align-items: stretch;
-  justify-content: flex-end;
-  animation: pf-fade-in .2s ease;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: pf-fade-in .18s ease;
 }
 @keyframes pf-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 .pf-drawer {
   display: flex;
-  width: 90vw;
-  max-width: 1100px;
-  min-width: 700px;
-  height: 100vh;
+  width: min(96vw, 1380px);
+  height: min(92vh, 880px);
   background: #F8FAFC;
-  animation: pf-slide-in .22s cubic-bezier(.25,.46,.45,.94);
-  box-shadow: -8px 0 32px rgba(15,23,42,0.14);
+  border-radius: 16px;
+  box-shadow: 0 32px 96px rgba(15,23,42,0.32), 0 0 0 1px rgba(15,23,42,0.06);
   overflow: hidden;
+  animation: pf-modal-in .22s cubic-bezier(0.34,1.2,0.64,1);
 }
-@keyframes pf-slide-in {
-  from { transform: translateX(60px); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
+@keyframes pf-modal-in {
+  from { opacity: 0; transform: scale(.97) translateY(10px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0); }
 }
 
 /* COLUNA ESQUERDA */
@@ -3100,7 +3103,7 @@ form { display:flex; flex-direction:column; gap:14px; }
 
 /* COLUNA CENTRAL */
 .pf-drawer-center {
-  width: 280px; flex-shrink: 0;
+  width: 230px; flex-shrink: 0;
   background: #FAFAFA; border-right: 1px solid #E2E8F0;
   padding: 20px 16px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 16px;
@@ -3124,7 +3127,7 @@ form { display:flex; flex-direction:column; gap:14px; }
 
 /* COLUNA DIREITA */
 .pf-drawer-right {
-  width: 220px; flex-shrink: 0;
+  width: 210px; flex-shrink: 0;
   background: #fff; padding: 20px 14px;
   overflow-y: auto; border-left: 1px solid #E2E8F0;
 }
@@ -3148,9 +3151,10 @@ form { display:flex; flex-direction:column; gap:14px; }
 .pf-move-btn svg { color: #94A3B8; flex-shrink: 0; }
 .pf-move-btn.active-phase svg { color: #6366F1; }
 
-/* Responsivo drawer */
+/* Responsivo drawer — janela flutuante */
 @media (max-width: 900px) {
-  .pf-drawer { min-width: 100vw; width: 100vw; flex-direction: column; }
+  .pf-drawer-overlay { padding: 0; }
+  .pf-drawer { width: 100vw; height: 100dvh; border-radius: 0; flex-direction: column; }
   .pf-drawer-center, .pf-drawer-right { display: none; }
   .pf-drawer-left { overflow-y: auto; flex: 1; }
 }
