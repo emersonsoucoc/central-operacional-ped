@@ -904,10 +904,11 @@ function switchModule(modulo) {
   state.filterSearch  = '';
   document.getElementById('searchInput').value = '';
 
-  // Sai do modo configurações, dashboard ou agenda se estava ativo
+  // Sai do modo configurações, dashboard, agenda ou chat se estava ativo
   exitSettings();
   closeDashboard();
   closeAgenda();
+  closeChatFinanceiro();
 
   // Update URL hash without creating a browser history entry
   if (location.hash.slice(1) !== modulo) {
@@ -1073,20 +1074,29 @@ function buildCardHTML(card) {
   let dueDateHtml = '';
   if (card.prazo) {
     const cls = overdue ? 'card-meta-item overdue' : 'card-meta-item';
+    /* Ícone calendário estilo Lucide — traço fino, 12×12 */
+    const calIcon = overdue
+      ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`
+      : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
     dueDateHtml = `<span class="${cls}">
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.2"/><path d="M5 3v2l1.5 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      ${calIcon}
       ${overdue ? 'Atrasado' : formatDate(card.prazo)}
     </span>`;
   }
 
+  /* Ícone balão de comentário estilo Lucide */
+  const msgIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+  /* Ícone clipe de anexo estilo Lucide */
+  const clipIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>`;
+
   const metaItems = [
     dueDateHtml,
     comments > 0 ? `<span class="card-meta-item">
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 1.5h7a.5.5 0 01.5.5v4a.5.5 0 01-.5.5H4L1.5 8V2a.5.5 0 010 0z" stroke="currentColor" stroke-width="1.1"/></svg>
+      ${msgIcon}
       ${comments}
     </span>` : '',
     anexos > 0 ? `<span class="card-meta-item">
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5.5 1L8 3.5 4 7.5a2 2 0 01-2.83-2.83L5.5.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+      ${clipIcon}
       ${anexos}
     </span>` : '',
   ].filter(Boolean).join('');
@@ -4415,6 +4425,405 @@ function renderDashboard() {
 }
 
 /* ══════════════════════════════════════════════════════════
+   CHAT FINANCEIRO — AgendaEdu
+   Integra o Canal Financeiro do AgendaEdu via proxy backend.
+   Endpoints usados (proxy em /api/agendaedu/*):
+     GET  /api/agendaedu/channels
+     GET  /api/agendaedu/tickets?channelId=X&include=requester,currentAttendant
+     GET  /api/agendaedu/tickets/:id
+     POST /api/agendaedu/tickets/:id/start
+     POST /api/agendaedu/tickets/:id/close
+══════════════════════════════════════════════════════════ */
+
+const CHAT_FIN = {
+  channels      : [],    // canais carregados da API
+  tickets       : [],    // tickets do canal selecionado
+  selectedTicket: null,  // ticket aberto no detalhe
+  currentChannel: null,  // canal selecionado
+  loading       : false,
+  searchQuery   : '',
+  statusFilter  : '',
+};
+
+/* ── Helpers de API ── */
+async function chatFinAPI(method, path, body = null) {
+  const opts = {
+    method,
+    headers: {
+      'Content-Type' : 'application/json',
+      'Authorization': `Bearer ${getAuthToken()}`,
+    },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res  = await fetch(`${PAYMENT_BACKEND_URL}${path}`, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+/* ── Labels de status ── */
+function chatFinStatusLabel(status) {
+  const map = {
+    waiting        : 'Aguardando',
+    in_attendance  : 'Em Atendimento',
+    done           : 'Encerrado',
+    pending_ratings: 'Pend. Avaliação',
+  };
+  return map[status] || status || '—';
+}
+
+function chatFinStatusClass(status) {
+  const map = {
+    waiting        : 'status--waiting',
+    in_attendance  : 'status--in-attendance',
+    done           : 'status--done',
+    pending_ratings: 'status--pending-ratings',
+  };
+  return map[status] || '';
+}
+
+/* ── Abrir / Fechar view ── */
+function openChatFinanceiro() {
+  // Esconde todas as outras views
+  exitSettings();
+  closeDashboard();
+  closeAgenda();
+  document.getElementById('statsBar')?.classList.add('hidden');
+  document.getElementById('kanbanView')?.classList.add('hidden');
+  document.getElementById('listView')?.classList.add('hidden');
+  document.getElementById('settingsView')?.classList.add('hidden');
+  document.getElementById('dashboardView')?.classList.add('hidden');
+
+  // Mostra view do chat
+  document.getElementById('chatFinanceiroView').classList.remove('hidden');
+
+  // Marca nav item ativo
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelector('.nav-item[data-module="chat_financeiro"]')?.classList.add('active');
+
+  // Carrega canais se ainda não carregou
+  if (CHAT_FIN.channels.length === 0) chatFinLoadChannels();
+}
+
+function closeChatFinanceiro() {
+  document.getElementById('chatFinanceiroView')?.classList.add('hidden');
+}
+
+/* ── Carregar canais ── */
+async function chatFinLoadChannels() {
+  const select = document.getElementById('chatFinChannelSelect');
+  if (!select) return;
+  select.innerHTML = '<option value="">Carregando...</option>';
+  try {
+    const data = await chatFinAPI('GET', '/api/agendaedu/channels');
+    CHAT_FIN.channels = (data.data || []);
+    if (CHAT_FIN.channels.length === 0) {
+      select.innerHTML = '<option value="">Nenhum canal encontrado</option>';
+      return;
+    }
+    select.innerHTML = CHAT_FIN.channels.map(ch =>
+      `<option value="${escHtml(ch.id)}">${escHtml(ch.attributes?.name || 'Canal ' + ch.id)}</option>`
+    ).join('');
+    // Seleciona o primeiro canal e carrega seus tickets
+    CHAT_FIN.currentChannel = CHAT_FIN.channels[0].id;
+    select.value = CHAT_FIN.currentChannel;
+    chatFinLoadTickets();
+  } catch (err) {
+    console.warn('[ChatFin] channels error:', err.message);
+    select.innerHTML = '<option value="">Erro ao carregar canais</option>';
+    if (err.message.includes('não configurad')) {
+      document.getElementById('chatFinConfigBanner')?.classList.remove('hidden');
+    } else {
+      showToast('Erro ao carregar canais AgendaEdu: ' + err.message, 'error');
+    }
+  }
+}
+
+/* ── Carregar tickets do canal ── */
+async function chatFinLoadTickets() {
+  if (!CHAT_FIN.currentChannel) return;
+  const container = document.getElementById('chatFinTickets');
+  const emptyEl   = document.getElementById('chatFinEmptyList');
+  if (!container) return;
+
+  CHAT_FIN.loading = true;
+  container.innerHTML = `
+    <div class="chat-fin-loading">
+      <svg class="spin" width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="8" stroke="#CBD5E1" stroke-width="2"/>
+        <path d="M10 2a8 8 0 018 8" stroke="#3B82F6" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Carregando tickets...
+    </div>`;
+
+  try {
+    const qs = new URLSearchParams({
+      channelId: CHAT_FIN.currentChannel,
+      include  : 'requester,currentAttendant',
+      'page[size]': '50',
+    });
+    if (CHAT_FIN.statusFilter) qs.append('filter[status][]', CHAT_FIN.statusFilter);
+    const data = await chatFinAPI('GET', `/api/agendaedu/tickets?${qs}`);
+    CHAT_FIN.tickets = data.data || [];
+    chatFinRenderTicketList();
+  } catch (err) {
+    console.warn('[ChatFin] tickets error:', err.message);
+    container.innerHTML = `<div class="chat-fin-empty"><span>Erro: ${escHtml(err.message)}</span></div>`;
+  } finally {
+    CHAT_FIN.loading = false;
+  }
+}
+
+/* ── Renderizar lista de tickets ── */
+function chatFinRenderTicketList() {
+  const container = document.getElementById('chatFinTickets');
+  const badge     = document.getElementById('badge-chat_financeiro');
+  if (!container) return;
+
+  const q = (CHAT_FIN.searchQuery || '').toLowerCase();
+  let tickets = CHAT_FIN.tickets;
+
+  // Filtro de busca local
+  if (q) {
+    tickets = tickets.filter(t => {
+      const title = (t.attributes?.title || '').toLowerCase();
+      return title.includes(q);
+    });
+  }
+
+  // Badge com tickets abertos (waiting + in_attendance)
+  const openCount = CHAT_FIN.tickets.filter(t =>
+    ['waiting', 'in_attendance', 'pending_ratings'].includes(t.attributes?.status)
+  ).length;
+  if (badge) {
+    badge.textContent = openCount;
+    badge.style.display = openCount > 0 ? '' : 'none';
+  }
+
+  if (tickets.length === 0) {
+    container.innerHTML = `
+      <div class="chat-fin-empty" id="chatFinEmptyList">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <path d="M33 7H7a2 2 0 00-2 2v18a2 2 0 002 2h7v6l8-6h11a2 2 0 002-2V9a2 2 0 00-2-2z" stroke="#94A3B8" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+        <span>${q ? 'Nenhum resultado para "' + escHtml(q) + '"' : 'Nenhum ticket encontrado'}</span>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = tickets.map(t => {
+    const attr     = t.attributes || {};
+    const status   = attr.status || 'waiting';
+    const title    = attr.title  || '(sem assunto)';
+    const date     = attr.updatedAt || attr.createdAt || '';
+    const dateStr  = date ? new Date(date).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+    const isActive = CHAT_FIN.selectedTicket?.id === t.id;
+    return `
+      <div class="chat-fin-ticket-item${isActive ? ' active' : ''}" data-ticket-id="${escHtml(t.id)}">
+        <div class="chat-fin-ticket-header">
+          <span class="chat-fin-ticket-title">${escHtml(title)}</span>
+          <span class="chat-fin-ticket-status ${chatFinStatusClass(status)}">${chatFinStatusLabel(status)}</span>
+        </div>
+        <div class="chat-fin-ticket-footer">
+          <span class="chat-fin-ticket-date">${escHtml(dateStr)}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Eventos de clique nos tickets
+  container.querySelectorAll('.chat-fin-ticket-item').forEach(el => {
+    el.addEventListener('click', () => chatFinSelectTicket(el.dataset.ticketId));
+  });
+}
+
+/* ── Selecionar e exibir ticket ── */
+async function chatFinSelectTicket(ticketId) {
+  const detailEmpty   = document.getElementById('chatFinDetailEmpty');
+  const detailContent = document.getElementById('chatFinDetailContent');
+  if (!detailEmpty || !detailContent) return;
+
+  // Marca como ativo na lista
+  document.querySelectorAll('.chat-fin-ticket-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.ticketId === ticketId);
+  });
+
+  detailEmpty.classList.add('hidden');
+  detailContent.classList.remove('hidden');
+  detailContent.innerHTML = `
+    <div class="chat-fin-loading" style="padding:2rem;justify-content:center;">
+      <svg class="spin" width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="8" stroke="#CBD5E1" stroke-width="2"/>
+        <path d="M10 2a8 8 0 018 8" stroke="#3B82F6" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Carregando...
+    </div>`;
+
+  try {
+    const data   = await chatFinAPI('GET', `/api/agendaedu/tickets/${ticketId}`);
+    const ticket = data.data;
+    CHAT_FIN.selectedTicket = ticket;
+    chatFinRenderTicketDetail(ticket, data.included || []);
+  } catch (err) {
+    detailContent.innerHTML = `<div class="chat-fin-empty"><span>Erro ao carregar ticket: ${escHtml(err.message)}</span></div>`;
+  }
+}
+
+/* ── Renderizar detalhe do ticket ── */
+function chatFinRenderTicketDetail(ticket, included) {
+  const attr   = ticket.attributes || {};
+  const status = attr.status || 'waiting';
+  const title  = attr.title  || '(sem assunto)';
+  const desc   = attr.description || '';
+  const createdAt = attr.createdAt
+    ? new Date(attr.createdAt).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+    : '—';
+
+  // Extrai requester e currentAttendant do included
+  const reqRel  = ticket.relationships?.requester?.data;
+  const attRel  = ticket.relationships?.currentAttendant?.data;
+  const requester  = reqRel  ? included.find(i => i.id === reqRel.id)  : null;
+  const attendant  = attRel  ? included.find(i => i.id === attRel.id)  : null;
+  const reqName    = requester?.attributes?.name  || requester?.attributes?.firstName || reqRel?.id   || '—';
+  const attName    = attendant?.attributes?.name  || attendant?.attributes?.firstName || null;
+
+  const statusLabel = chatFinStatusLabel(status);
+  const statusCls   = chatFinStatusClass(status);
+
+  // Monta HTML do detalhe
+  document.getElementById('chatFinDetailContent').innerHTML = `
+    <div class="chat-fin-detail-header">
+      <div class="chat-fin-detail-meta">
+        <span class="chat-fin-ticket-status ${escHtml(statusCls)}">${escHtml(statusLabel)}</span>
+        <span class="chat-fin-detail-date">${escHtml(createdAt)}</span>
+      </div>
+      <h3 class="chat-fin-detail-title">${escHtml(title)}</h3>
+      <div class="chat-fin-detail-info">
+        <span>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="vertical-align:middle;margin-right:3px">
+            <circle cx="6" cy="4.5" r="2" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M2 10c0-2 1.8-3.5 4-3.5S10 8 10 10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          Solicitante: <strong>${escHtml(reqName)}</strong>
+        </span>
+        ${attName ? `<span style="margin-left:.75rem">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="vertical-align:middle;margin-right:3px">
+            <circle cx="6" cy="4.5" r="2" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M2 10c0-2 1.8-3.5 4-3.5S10 8 10 10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          Atendente: <strong>${escHtml(attName)}</strong>
+        </span>` : ''}
+      </div>
+    </div>
+
+    <div class="chat-fin-messages" id="chatFinMessages">
+      <div class="chat-fin-bubble chat-fin-bubble--incoming">
+        <div class="chat-fin-bubble-header">
+          <span class="chat-fin-bubble-name">${escHtml(reqName)}</span>
+          <span class="chat-fin-bubble-time">${escHtml(createdAt)}</span>
+        </div>
+        <div class="chat-fin-bubble-text">${escHtml(desc || '(sem descrição)')}</div>
+      </div>
+    </div>
+
+    <div class="chat-fin-actions" id="chatFinActions">
+      ${status === 'waiting' ? `
+        <button class="chat-fin-btn chat-fin-btn--start" id="chatFinBtnStart" data-ticket-id="${escHtml(ticket.id)}">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M5 2.5l6 4.5-6 4.5V2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          </svg>
+          Iniciar Atendimento
+        </button>` : ''}
+      ${(status === 'waiting' || status === 'in_attendance') ? `
+        <button class="chat-fin-btn chat-fin-btn--close" id="chatFinBtnClose" data-ticket-id="${escHtml(ticket.id)}">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M4.5 7l2 2 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Encerrar Atendimento
+        </button>` : ''}
+      <a class="chat-fin-btn chat-fin-btn--external" href="https://app.agendaedu.com" target="_blank" rel="noopener">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M7.5 1.5h4v4M11.5 1.5l-5 5M5.5 3H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Abrir no AgendaEdu
+      </a>
+    </div>`;
+
+  // Eventos dos botões
+  document.getElementById('chatFinBtnStart')?.addEventListener('click', e => {
+    chatFinStartTicket(e.currentTarget.dataset.ticketId);
+  });
+  document.getElementById('chatFinBtnClose')?.addEventListener('click', e => {
+    chatFinCloseTicket(e.currentTarget.dataset.ticketId);
+  });
+}
+
+/* ── Iniciar atendimento ── */
+async function chatFinStartTicket(ticketId) {
+  const btn = document.getElementById('chatFinBtnStart');
+  if (btn) { btn.disabled = true; btn.textContent = 'Iniciando...'; }
+  try {
+    await chatFinAPI('POST', `/api/agendaedu/tickets/${ticketId}/start`);
+    showToast('Atendimento iniciado!', 'success');
+    // Atualiza ticket na lista local
+    const t = CHAT_FIN.tickets.find(x => x.id === ticketId);
+    if (t) t.attributes.status = 'in_attendance';
+    chatFinRenderTicketList();
+    chatFinSelectTicket(ticketId);
+  } catch (err) {
+    showToast('Erro ao iniciar: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Iniciar Atendimento'; }
+  }
+}
+
+/* ── Encerrar atendimento ── */
+async function chatFinCloseTicket(ticketId) {
+  if (!confirm('Encerrar este atendimento?')) return;
+  const btn = document.getElementById('chatFinBtnClose');
+  if (btn) { btn.disabled = true; btn.textContent = 'Encerrando...'; }
+  try {
+    await chatFinAPI('POST', `/api/agendaedu/tickets/${ticketId}/close`);
+    showToast('Atendimento encerrado.', 'success');
+    const t = CHAT_FIN.tickets.find(x => x.id === ticketId);
+    if (t) t.attributes.status = 'done';
+    chatFinRenderTicketList();
+    chatFinSelectTicket(ticketId);
+  } catch (err) {
+    showToast('Erro ao encerrar: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Encerrar Atendimento'; }
+  }
+}
+
+/* ── Inicializar módulo Chat ── */
+function initChatFinanceiro() {
+  // Troca de canal
+  document.getElementById('chatFinChannelSelect')?.addEventListener('change', e => {
+    CHAT_FIN.currentChannel = e.target.value;
+    CHAT_FIN.selectedTicket = null;
+    document.getElementById('chatFinDetailEmpty')?.classList.remove('hidden');
+    document.getElementById('chatFinDetailContent')?.classList.add('hidden');
+    chatFinLoadTickets();
+  });
+
+  // Filtro de status
+  document.getElementById('chatFinStatusFilter')?.addEventListener('change', e => {
+    CHAT_FIN.statusFilter = e.target.value;
+    chatFinLoadTickets();
+  });
+
+  // Botão Refresh
+  document.getElementById('chatFinRefreshBtn')?.addEventListener('click', () => {
+    chatFinLoadChannels();
+  });
+
+  // Busca local (filtra sem nova requisição)
+  document.getElementById('chatFinSearch')?.addEventListener('input', e => {
+    CHAT_FIN.searchQuery = e.target.value;
+    chatFinRenderTicketList();
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════ */
 function init() {
@@ -4424,6 +4833,7 @@ function init() {
     if (hash === 'configuracoes') openSettings();
     else if (hash === 'dashboard') openDashboard();
     else if (hash === 'agenda') openAgenda();
+    else if (hash === 'chat_financeiro') openChatFinanceiro();
     else if (MODULES[hash]) switchModule(hash);
   });
 
@@ -4441,6 +4851,9 @@ function init() {
       } else if (target === 'agenda') {
         history.pushState(null, '', '#agenda');
         openAgenda();
+      } else if (target === 'chat_financeiro') {
+        history.pushState(null, '', '#chat_financeiro');
+        openChatFinanceiro();
       } else if (MODULES[target]) {
         history.pushState(null, '', '#' + target);
         switchModule(target);
@@ -4544,10 +4957,12 @@ function init() {
   state.automations = loadAutomations() || [];
   initAutomationPanel();
   initPhaseEditor();
+  initChatFinanceiro();
   initLogin();
 
   const initialHash = location.hash.slice(1);
   if (initialHash === 'configuracoes') openSettings();
+  else if (initialHash === 'chat_financeiro') openChatFinanceiro();
   else switchModule(MODULES[initialHash] ? initialHash : 'solicitacoes');
 
   console.log('%c🏫 Central Operacional — Grupo PED', 'color:#3B82F6;font-weight:bold;font-size:14px');
