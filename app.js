@@ -831,6 +831,8 @@ let state = {
   editingCardId: null,
   draggingCardId: null,
   settingsTab:   'escolas',
+  smartSort:     false,
+  filterMyTasks: false,
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -876,7 +878,7 @@ function getCurrentModuleCards() {
 
 function getFilteredCards() {
   const term = state.filterSearch.toLowerCase();
-  return getCurrentModuleCards().filter(c => {
+  let filtered = getCurrentModuleCards().filter(c => {
     const schoolOk = state.filterSchool === 'all' || c.escola === state.filterSchool || c.escola === 'all';
     const searchOk = !term ||
       c.titulo.toLowerCase().includes(term) ||
@@ -889,6 +891,16 @@ function getFilteredCards() {
       (c.interesse||'').toLowerCase().includes(term);
     return schoolOk && searchOk;
   });
+
+  // Filtro "Minhas Tarefas"
+  if (state.filterMyTasks && currentUser) {
+    const myName = currentUser.nome || currentUser.name || '';
+    filtered = filtered.filter(c => c.responsavel && c.responsavel.toLowerCase().includes(myName.split(' ')[0].toLowerCase()));
+  }
+
+  // Aplicar smart sort se ativo
+  const sorted = state.smartSort ? sortCardsBySmart(filtered) : filtered;
+  return sorted;
 }
 
 function getCurrentModule() { return MODULES[state.currentModule]; }
@@ -928,6 +940,39 @@ function switchModule(modulo) {
 
   renderAll();
   if (currentUser) applyNavPermissions();
+}
+
+/* ══════════════════════════════════════════════════════════
+   SMART PRIORITY — Semáforo automático de status
+══════════════════════════════════════════════════════════ */
+function getCardSmartStatus(card) {
+  const mod = MODULES[card.modulo] || getCurrentModule();
+  if (card.fase === mod.lastPhase) return null; // Concluído — sem alerta
+
+  const days = daysUntil(card.prazo);
+  const overdue = isOverdue(card.prazo);
+
+  if (card.prioridade === 'urgente') return { icon: '🔴', label: 'Urgente', cls: 'smart-red' };
+  if (overdue) return { icon: '🔴', label: 'Precisa de ação hoje', cls: 'smart-red' };
+  if (card.prioridade === 'alta') return { icon: '🔴', label: 'Alta prioridade', cls: 'smart-red' };
+  if (days !== null && days <= 2) return { icon: '🟡', label: 'Atrasando', cls: 'smart-yellow' };
+  if (days !== null && days <= 5) return { icon: '🟡', label: 'Atenção', cls: 'smart-yellow' };
+  return { icon: '🟢', label: 'Ok', cls: 'smart-green' };
+}
+
+function sortCardsBySmart(cards) {
+  const priority = { 'smart-red': 0, 'smart-yellow': 1, 'smart-green': 2, null: 3 };
+  return [...cards].sort((a, b) => {
+    const sa = getCardSmartStatus(a);
+    const sb = getCardSmartStatus(b);
+    const pa = priority[sa?.cls ?? null] ?? 3;
+    const pb = priority[sb?.cls ?? null] ?? 3;
+    if (pa !== pb) return pa - pb;
+    // Dentro da mesma prioridade, mais antigo primeiro
+    const da = daysUntil(a.prazo) ?? 999;
+    const db = daysUntil(b.prazo) ?? 999;
+    return da - db;
+  });
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1071,6 +1116,7 @@ function buildCardHTML(card) {
   const anexos  = (card.anexos  || []).length;
   const comments = (card.comentarios || []).length;
   const days    = daysUntil(card.prazo);
+  const smartStatus = getCardSmartStatus(card);
 
   // Badge de categoria (pill colorida como Pipefy)
   const catBadge = card.categoria
@@ -1171,7 +1217,7 @@ function buildCardHTML(card) {
     <div class="kanban-card pf-card" draggable="true" data-id="${card.id}" data-prio="${card.prioridade}">
       <div class="pf-card-head">
         ${schoolBadge}
-        <div class="pf-card-badges">${catBadge}${prioBadge}</div>
+        <div class="pf-card-badges">${catBadge}${prioBadge}${smartStatus ? `<span class="pf-smart-badge pf-smart-badge--${smartStatus.cls}" title="${smartStatus.label}">${smartStatus.icon}</span>` : ''}</div>
       </div>
       ${titulo}
       ${fields ? `<div class="pf-card-fields">${fields}</div>` : ''}
@@ -1359,6 +1405,51 @@ function openModal(cardId) {
         renderAll();
       });
     });
+
+    // ── Configurar movimentações ──
+    const configBtn = document.getElementById('pf-config-move-btn');
+    const configPanel = document.getElementById('pf-move-config-panel');
+    const configPhasesList = document.getElementById('pf-config-phases-list');
+
+    if (configBtn && configPanel) {
+      configBtn.onclick = () => {
+        configPanel.classList.toggle('hidden');
+        if (!configPanel.classList.contains('hidden') && configPhasesList) {
+          // Renderiza checkboxes das fases
+          const modKey = state.currentModule;
+          const cardAllowedPhases = JSON.parse(localStorage.getItem('ped_allowed_phases_' + modKey) || 'null');
+          configPhasesList.innerHTML = Object.entries(phases).map(([key, phase]) => {
+            const checked = !cardAllowedPhases || cardAllowedPhases.includes(key) ? 'checked' : '';
+            return `<label class="pf-config-phase-item">
+              <input type="checkbox" value="${key}" ${checked}>
+              <span style="width:8px;height:8px;border-radius:50%;background:${phase.color};flex-shrink:0;display:inline-block"></span>
+              ${escHtml(phase.label)}
+            </label>`;
+          }).join('');
+        }
+      };
+
+      document.getElementById('pf-config-save-btn').onclick = () => {
+        const modKey = state.currentModule;
+        const checked = [...configPhasesList.querySelectorAll('input:checked')].map(i => i.value);
+        localStorage.setItem('ped_allowed_phases_' + modKey, JSON.stringify(checked));
+        configPanel.classList.add('hidden');
+        showToast('Configuração de movimentação salva!', 'success');
+        // Refiltrar botões visíveis
+        moveList.querySelectorAll('.pf-move-btn').forEach(btn => {
+          btn.style.display = checked.includes(btn.dataset.phase) ? '' : 'none';
+        });
+      };
+
+      // Aplica filtro de fases permitidas ao renderizar
+      const modKey = state.currentModule;
+      const allowedPhases = JSON.parse(localStorage.getItem('ped_allowed_phases_' + modKey) || 'null');
+      if (allowedPhases) {
+        moveList.querySelectorAll('.pf-move-btn').forEach(btn => {
+          btn.style.display = allowedPhases.includes(btn.dataset.phase) ? '' : 'none';
+        });
+      }
+    }
   }
 
   // ── Fase atual badge ──
@@ -1450,8 +1541,8 @@ function openModal(cardId) {
     }
 
     document.getElementById('deleteCardArea').style.display = '';
-    document.getElementById('commentSection').style.display = '';
-    document.getElementById('historySection').style.display = '';
+    const legacyCommentSection = document.getElementById('commentSectionLegacy');
+    if (legacyCommentSection) legacyCommentSection.style.display = '';
 
     // Populate payment link section
     if (mod.hasPaymentLink) {
@@ -1477,7 +1568,7 @@ function openModal(cardId) {
       }
     }
 
-    renderComments(card);
+    renderChat(card);
     renderHistory(card);
     renderAttachments(cardId);
   } else {
@@ -1490,8 +1581,8 @@ function openModal(cardId) {
     if (state.filterSchool !== 'all') document.getElementById('formEscola').value = state.filterSchool;
 
     document.getElementById('deleteCardArea').style.display = 'none';
-    document.getElementById('commentSection').style.display = 'none';
-    document.getElementById('historySection').style.display = 'none';
+    const legacyCommentSectionNew = document.getElementById('commentSectionLegacy');
+    if (legacyCommentSectionNew) legacyCommentSectionNew.style.display = 'none';
 
     // Reset payment link section for new card
     if (mod.hasPaymentLink) {
@@ -1696,40 +1787,316 @@ function setupAttachmentZone() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   COMMENTS
+   CHAT / COMMENTS SYSTEM — Slack/Notion style
 ══════════════════════════════════════════════════════════ */
-function renderComments(card) {
-  const list = document.getElementById('commentsList');
-  list.innerHTML = '';
-  if (!card.comentarios?.length) {
-    list.innerHTML = `<p style="font-size:12px;color:var(--quadro-faint);padding:6px 0">Sem comentários ainda.</p>`;
-    return;
-  }
-  card.comentarios.forEach(c => {
-    const el = document.createElement('div');
-    el.className = 'comment-item';
-    el.innerHTML = `
-      <div class="comment-avatar">${initials(c.autor)}</div>
-      <div class="comment-content">
-        <div class="comment-author">${escHtml(c.autor)}</div>
-        <div class="comment-text">${escHtml(c.texto)}</div>
-        <div class="comment-time">${c.data}</div>
-      </div>`;
-    list.appendChild(el);
-  });
-  list.scrollTop = list.scrollHeight;
+
+/* Render @mentions as highlighted spans (escHtml already applied to text) */
+function renderMentions(safeText) {
+  return safeText.replace(/@([\w][\w .]*)/g, '<span class="chat-mention">@$1</span>');
 }
 
-function addComment() {
-  const input = document.getElementById('commentInput');
-  const text  = input.value.trim();
+/* Extract user IDs from raw text where @Name matches a known user */
+function extractMentions(rawText) {
+  const matches = rawText.match(/@([\w][\w .]*)/g) || [];
+  const ids = [];
+  matches.forEach(m => {
+    const name = m.slice(1).trim();
+    const user = (settingsData.usuarios || []).find(u =>
+      u.nome.toLowerCase() === name.toLowerCase()
+    );
+    if (user && !ids.includes(user.id)) ids.push(user.id);
+  });
+  return ids;
+}
+
+/* Add a system log entry to a card's comentarios array */
+function addSystemLog(card, texto) {
+  if (!card) return;
+  card.comentarios = card.comentarios || [];
+  card.comentarios.push({
+    id        : uid(),
+    tipo      : 'sistema',
+    autor     : 'Sistema',
+    autorId   : 'sistema',
+    texto     : texto,
+    mencoes   : [],
+    editado   : false,
+    excluido  : false,
+    data      : now(),
+    timestamp : Date.now(),
+  });
+}
+
+/* Main render function — replaces renderComments() */
+function renderChat(card) {
+  const feed = document.getElementById('chatFeed');
+  if (!feed) return;
+
+  const entries = [...(card.comentarios || [])].sort((a, b) =>
+    (a.timestamp || 0) - (b.timestamp || 0)
+  );
+
+  if (!entries.length) {
+    feed.innerHTML = '<div class="chat-empty">Nenhuma mensagem ainda. Seja o primeiro a comentar.</div>';
+    return;
+  }
+
+  const meId   = currentUser?.id   || 'usr1';
+  const meName = currentUser?.nome || 'Emerson Santos';
+
+  feed.innerHTML = entries.map(entry => {
+    if (entry.tipo === 'sistema') {
+      return `<div class="chat-system">
+        <span>${escHtml(entry.texto)}</span>
+        <time class="chat-system-time">${escHtml(entry.data || '')}</time>
+      </div>`;
+    }
+
+    const isMe    = entry.autorId === meId;
+    const avt     = initials(entry.autor || '');
+    const txt     = entry.excluido
+      ? '<em class="chat-deleted">Mensagem excluída</em>'
+      : renderMentions(escHtml(entry.texto || ''));
+    const editedMark = entry.editado && !entry.excluido
+      ? '<span class="chat-edited">(editado)</span>'
+      : '';
+    const actions = isMe && !entry.excluido
+      ? `<button class="chat-action-btn" onclick="editChatMsg('${entry.id}')">Editar</button>
+         <button class="chat-action-btn chat-action-btn--del" onclick="deleteChatMsg('${entry.id}')">Excluir</button>`
+      : '';
+
+    return `<div class="chat-msg ${isMe ? 'chat-msg--mine' : ''}" data-msg-id="${entry.id}">
+      ${!isMe ? `<div class="chat-avatar" title="${escHtml(entry.autor || '')}">${avt}</div>` : ''}
+      <div class="chat-msg-body">
+        ${!isMe ? `<div class="chat-msg-name">${escHtml(entry.autor || '')}</div>` : ''}
+        <div class="chat-bubble" data-msg-id="${entry.id}">${txt}</div>
+        <div class="chat-msg-meta">
+          <time>${escHtml(entry.data || '')}</time>
+          ${editedMark}
+          ${actions}
+        </div>
+      </div>
+      ${isMe ? `<div class="chat-avatar chat-avatar--me" title="${escHtml(meName)}">${avt}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  feed.scrollTop = feed.scrollHeight;
+}
+
+/* Also keep renderComments as alias for backward compat */
+function renderComments(card) { renderChat(card); }
+
+/* Send a new chat message */
+function sendChatMessage() {
+  const input = document.getElementById('chatInput');
+  if (!input) return;
+  const text = (input.innerText || '').trim();
   if (!text || !state.editingCardId) return;
+
   const card = allCards.find(c => c.id === state.editingCardId);
   if (!card) return;
-  card.comentarios.push({ id:uid(), autor:'Emerson Santos', texto:text, data:now() });
-  input.value = '';
-  renderComments(card);
-  showToast('Comentário adicionado', 'success');
+
+  const meId   = currentUser?.id   || 'usr1';
+  const meName = currentUser?.nome || 'Emerson Santos';
+  const mentions = extractMentions(text);
+
+  card.comentarios = card.comentarios || [];
+  card.comentarios.push({
+    id        : uid(),
+    tipo      : 'comentario',
+    autorId   : meId,
+    autor     : meName,
+    texto     : text,
+    mencoes   : mentions,
+    editado   : false,
+    excluido  : false,
+    data      : now(),
+    timestamp : Date.now(),
+  });
+
+  input.innerText = '';
+  closeMentionPicker();
+  renderChat(card);
+
+  /* Fire mention notifications */
+  mentions.forEach(uid_ => {
+    const u = (settingsData.usuarios || []).find(x => x.id === uid_);
+    if (u) {
+      addNotification(
+        `${escHtml(meName)} mencionou você em "${escHtml(card.titulo)}"`,
+        'mention', card.id, card.modulo
+      );
+    }
+  });
+
+  showToast('Comentário enviado', 'success');
+}
+
+/* Legacy addComment — now delegates to sendChatMessage */
+function addComment() { sendChatMessage(); }
+
+/* ── Inline edit ── */
+function editChatMsg(msgId) {
+  const card = allCards.find(c => c.id === state.editingCardId);
+  if (!card) return;
+  const msg = (card.comentarios || []).find(c => c.id === msgId);
+  if (!msg || msg.excluido) return;
+
+  const bubble = document.querySelector(`.chat-bubble[data-msg-id="${msgId}"]`);
+  if (!bubble) return;
+
+  const original = msg.texto;
+  bubble.setAttribute('contenteditable', 'true');
+  bubble.innerText = original;   /* strip any HTML */
+  bubble.focus();
+
+  /* Move cursor to end */
+  const range = document.createRange();
+  range.selectNodeContents(bubble);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  function onKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const newText = (bubble.innerText || '').trim();
+      bubble.removeEventListener('keydown', onKey);
+      bubble.removeAttribute('contenteditable');
+      if (newText && newText !== original) {
+        msg.texto    = newText;
+        msg.editado  = true;
+        msg.editadoEm = now();
+        card.historico = card.historico || [];
+        card.historico.push({
+          texto   : `Comentário editado`,
+          data    : now(),
+          usuario : currentUser?.nome || 'Emerson Santos',
+        });
+      }
+      renderChat(card);
+    } else if (e.key === 'Escape') {
+      bubble.removeEventListener('keydown', onKey);
+      renderChat(card);
+    }
+  }
+  bubble.addEventListener('keydown', onKey);
+}
+
+/* ── Delete (soft) ── */
+function deleteChatMsg(msgId) {
+  const card = allCards.find(c => c.id === state.editingCardId);
+  if (!card) return;
+  const msg = (card.comentarios || []).find(c => c.id === msgId);
+  if (!msg) return;
+  msg.excluido = true;
+  msg.texto    = '';
+  card.historico = card.historico || [];
+  card.historico.push({
+    texto   : 'Comentário excluído',
+    data    : now(),
+    usuario : currentUser?.nome || 'Emerson Santos',
+  });
+  renderChat(card);
+  showToast('Comentário removido', 'warn');
+}
+
+/* ── @mention picker ── */
+let _mentionActive = false;
+
+function openMentionPicker(query) {
+  const picker = document.getElementById('chatMentionPicker');
+  const list   = document.getElementById('chatMentionList');
+  if (!picker || !list) return;
+
+  const users = (settingsData.usuarios || [])
+    .filter(u => u.ativo !== false && u.nome.toLowerCase().includes(query.toLowerCase()))
+    .slice(0, 6);
+
+  if (!users.length) { closeMentionPicker(); return; }
+
+  list.innerHTML = users.map(u => `
+    <div class="chat-mention-item"
+         onclick="insertMention('${escHtml(u.nome)}')"
+         tabindex="0"
+         role="option">
+      <div class="chat-mention-avatar">${initials(u.nome)}</div>
+      <div>
+        <div class="chat-mention-name">${escHtml(u.nome)}</div>
+        <div class="chat-mention-role">${escHtml(u.perfil || '')}</div>
+      </div>
+    </div>`).join('');
+
+  picker.style.display = 'block';
+  _mentionActive = true;
+}
+
+function closeMentionPicker() {
+  const picker = document.getElementById('chatMentionPicker');
+  if (picker) picker.style.display = 'none';
+  _mentionActive = false;
+}
+
+function insertMention(userName) {
+  const input = document.getElementById('chatInput');
+  if (!input) return;
+  const text   = input.innerText || '';
+  const atPos  = text.lastIndexOf('@');
+  if (atPos === -1) return;
+  const before = text.substring(0, atPos);
+  input.innerText = before + '@' + userName + ' ';
+  /* Move cursor to end */
+  const range = document.createRange();
+  range.selectNodeContents(input);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  closeMentionPicker();
+  input.focus();
+}
+
+/* ── Init chat events ── */
+function initChat() {
+  const input   = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('chatSendBtn');
+  if (!input || !sendBtn) return;
+
+  /* Sync avatar */
+  const avatar = document.getElementById('chatInputAvatar');
+  if (avatar && currentUser) {
+    avatar.textContent = currentUser.initials ||
+      initials(currentUser.nome || currentUser.name || '');
+  }
+
+  sendBtn.addEventListener('click', sendChatMessage);
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); return; }
+    if (e.key === 'Escape') { closeMentionPicker(); return; }
+  });
+
+  input.addEventListener('input', () => {
+    const text   = input.innerText || '';
+    const atPos  = text.lastIndexOf('@');
+    if (atPos !== -1) {
+      const after = text.substring(atPos + 1);
+      /* Only trigger if the query has no space yet (still typing) */
+      if (!after.includes(' ') || after.length === 0) {
+        openMentionPicker(after);
+        return;
+      }
+    }
+    closeMentionPicker();
+  });
+
+  /* Close picker on outside click */
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#chatMentionPicker') && !e.target.closest('#chatInput')) {
+      closeMentionPicker();
+    }
+  });
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -5007,6 +5374,259 @@ function initInvite() {
 }
 
 /* ══════════════════════════════════════════════════════════
+   QUICK CREATE — Templates pré-preenchidos
+══════════════════════════════════════════════════════════ */
+const QUICK_TEMPLATES = [
+  {
+    icon: '💳',
+    label: 'Pagamento',
+    desc: 'Conta a pagar ou receber',
+    modulo: 'contas_pagar',
+    titulo: 'Pagamento pendente',
+    categoria: 'Fornecedores',
+    prioridade: 'media',
+  },
+  {
+    icon: '🛒',
+    label: 'Compra',
+    desc: 'Solicitação de compra',
+    modulo: 'compras',
+    titulo: 'Solicitação de compra',
+    categoria: 'Material de Escritório',
+    prioridade: 'media',
+  },
+  {
+    icon: '💻',
+    label: 'Chamado de T.I',
+    desc: 'Suporte técnico',
+    modulo: 'ti',
+    titulo: 'Chamado de suporte',
+    categoria: 'Suporte ao Usuário',
+    prioridade: 'media',
+  },
+  {
+    icon: '🔧',
+    label: 'Manutenção',
+    desc: 'Reparo ou manutenção',
+    modulo: 'solicitacoes',
+    titulo: 'Solicitação de manutenção',
+    categoria: 'Manutenção',
+    prioridade: 'media',
+  },
+  {
+    icon: '👤',
+    label: 'RH',
+    desc: 'Solicitação de RH',
+    modulo: 'recursos_humanos',
+    titulo: 'Solicitação de RH',
+    categoria: 'Outros',
+    prioridade: 'media',
+  },
+  {
+    icon: '📋',
+    label: 'Do zero',
+    desc: 'Card em branco',
+    modulo: null,
+    titulo: '',
+    categoria: '',
+    prioridade: 'media',
+  },
+];
+
+function openQuickCreate() {
+  const grid = document.getElementById('quickTemplatesGrid');
+  if (!grid) return;
+
+  grid.innerHTML = QUICK_TEMPLATES.map((tpl, i) => `
+    <button class="quick-template-card" data-idx="${i}">
+      <div class="quick-template-icon">${tpl.icon}</div>
+      <div class="quick-template-label">${escHtml(tpl.label)}</div>
+      <div class="quick-template-desc">${escHtml(tpl.desc)}</div>
+    </button>
+  `).join('');
+
+  grid.querySelectorAll('.quick-template-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tpl = QUICK_TEMPLATES[+btn.dataset.idx];
+      closeQuickCreate();
+      applyTemplate(tpl);
+    });
+  });
+
+  document.getElementById('quickCreateOverlay').style.display = 'flex';
+}
+
+function closeQuickCreate() {
+  document.getElementById('quickCreateOverlay').style.display = 'none';
+}
+
+function applyTemplate(tpl) {
+  // Muda de módulo se necessário
+  if (tpl.modulo && tpl.modulo !== state.currentModule && MODULES[tpl.modulo]) {
+    switchModule(tpl.modulo);
+  }
+  // Abre modal com dados pré-preenchidos
+  setTimeout(() => {
+    openModal(null);
+    setTimeout(() => {
+      if (tpl.titulo)    { const el = document.getElementById('formTitulo');    if (el) el.value = tpl.titulo; }
+      if (tpl.categoria) { const el = document.getElementById('formCategoria'); if (el) el.value = tpl.categoria; }
+      if (tpl.prioridade){ const el = document.getElementById('formPrioridade');if (el) el.value = tpl.prioridade; }
+    }, 80);
+  }, tpl.modulo ? 300 : 0);
+}
+
+function initQuickCreate() {
+  document.getElementById('quickCreateFab')?.addEventListener('click', openQuickCreate);
+  document.getElementById('quickCreateClose')?.addEventListener('click', closeQuickCreate);
+  document.getElementById('quickCreateOverlay')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('quickCreateOverlay')) closeQuickCreate();
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   NOTIFICAÇÕES — Sistema de alertas úteis
+══════════════════════════════════════════════════════════ */
+const NOTIF_KEY = 'ped_notifications';
+
+function loadNotifications() {
+  try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); } catch(_) { return []; }
+}
+function saveNotifications(notifs) {
+  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs.slice(0, 50))); } catch(_) {}
+}
+
+function addNotification(msg, type, cardId) {
+  const notifs = loadNotifications();
+  notifs.unshift({
+    id    : uid(),
+    msg,
+    type  : type || 'info',
+    cardId: cardId || null,
+    ts    : new Date().toISOString(),
+    read  : false,
+  });
+  saveNotifications(notifs);
+  renderNotifBadge();
+}
+
+function renderNotifBadge() {
+  const notifs = loadNotifications();
+  const unread = notifs.filter(n => !n.read).length;
+  const badge  = document.getElementById('notifBadge');
+  if (badge) {
+    badge.textContent = unread > 9 ? '9+' : unread;
+    badge.style.display = unread > 0 ? '' : 'none';
+  }
+}
+
+function renderNotifPanel() {
+  const notifs = loadNotifications();
+  const list   = document.getElementById('notifList');
+  if (!list) return;
+
+  if (!notifs.length) {
+    list.innerHTML = '<div class="notif-empty">Nenhuma notificação</div>';
+    return;
+  }
+
+  const icons = { info:'ℹ️', warn:'⚠️', success:'✅', error:'🔴', assign:'👤', move:'↗️' };
+  list.innerHTML = notifs.map(n => {
+    const ts = new Date(n.ts).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+    return `<div class="notif-item ${n.read ? '' : 'notif-item--unread'}" data-id="${n.id}" data-card="${n.cardId || ''}">
+      <span class="notif-item-icon">${icons[n.type] || 'ℹ️'}</span>
+      <div class="notif-item-body">
+        <div class="notif-item-msg">${escHtml(n.msg)}</div>
+        <div class="notif-item-ts">${ts}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.notif-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const notifId = el.dataset.id;
+      const cardId  = el.dataset.card;
+      // Marca como lida
+      const notifs2 = loadNotifications();
+      const notif   = notifs2.find(n => n.id === notifId);
+      if (notif) { notif.read = true; saveNotifications(notifs2); }
+      renderNotifBadge();
+      renderNotifPanel();
+      // Abre card se houver
+      if (cardId && allCards.find(c => c.id === cardId)) {
+        const card = allCards.find(c => c.id === cardId);
+        if (card && MODULES[card.modulo]) {
+          if (card.modulo !== state.currentModule) switchModule(card.modulo);
+          setTimeout(() => openModal(cardId), 200);
+        }
+      }
+      closeNotifPanel();
+    });
+  });
+}
+
+function openNotifPanel() {
+  const panel = document.getElementById('notifPanel');
+  if (!panel) return;
+  renderNotifPanel();
+  panel.style.display = '';
+  // Fecha ao clicar fora
+  setTimeout(() => {
+    document.addEventListener('click', closeNotifOnOutside);
+  }, 0);
+}
+
+function closeNotifPanel() {
+  const panel = document.getElementById('notifPanel');
+  if (panel) panel.style.display = 'none';
+  document.removeEventListener('click', closeNotifOnOutside);
+}
+
+function closeNotifOnOutside(e) {
+  const panel = document.getElementById('notifPanel');
+  const btn   = document.getElementById('notifBtn');
+  if (panel && !panel.contains(e.target) && !btn?.contains(e.target)) {
+    closeNotifPanel();
+  }
+}
+
+function initNotifications() {
+  renderNotifBadge();
+
+  document.getElementById('notifBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const panel = document.getElementById('notifPanel');
+    if (panel?.style.display === 'none' || !panel?.style.display) openNotifPanel();
+    else closeNotifPanel();
+  });
+
+  document.getElementById('notifClearBtn')?.addEventListener('click', () => {
+    const notifs = loadNotifications().map(n => ({ ...n, read: true }));
+    saveNotifications(notifs);
+    renderNotifBadge();
+    renderNotifPanel();
+  });
+
+  // Gera notificações de cards urgentes / SLA ao carregar
+  setTimeout(() => {
+    const urgentes = allCards.filter(c => {
+      const mod = MODULES[c.modulo];
+      if (!mod || c.fase === mod.lastPhase) return false;
+      return c.prioridade === 'urgente' || isOverdue(c.prazo);
+    });
+
+    if (urgentes.length > 0) {
+      const stored = loadNotifications();
+      const todayKey = new Date().toDateString();
+      const alreadyNotified = stored.some(n => n.msg?.includes('SLA') && n.ts?.startsWith(new Date().toISOString().slice(0,10)));
+      if (!alreadyNotified) {
+        addNotification(`🔴 ${urgentes.length} card(s) precisam de ação hoje (urgente ou SLA vencido)`, 'warn', null);
+      }
+    }
+  }, 2000);
+}
+
+/* ══════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════ */
 function init() {
@@ -5093,11 +5713,16 @@ function init() {
   document.getElementById('cardForm').addEventListener('submit', saveCard);
   document.getElementById('deleteCardBtn').addEventListener('click', deleteCard);
 
-  // Comments
-  document.getElementById('addCommentBtn').addEventListener('click', addComment);
-  document.getElementById('commentInput').addEventListener('keydown', e => {
+  // Comments (legacy - hidden form section)
+  const legacyAddBtn = document.getElementById('addCommentBtnLegacy');
+  if (legacyAddBtn) legacyAddBtn.addEventListener('click', addComment);
+  const legacyInput = document.getElementById('commentInputLegacy');
+  if (legacyInput) legacyInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); addComment(); }
   });
+
+  // Chat system init
+  initChat();
 
   // Sidebar
   document.getElementById('sidebarToggle').addEventListener('click', () => {
@@ -5111,6 +5736,24 @@ function init() {
   // View toggle
   document.getElementById('viewKanban').addEventListener('click', () => setViewMode('kanban'));
   document.getElementById('viewList').addEventListener('click',   () => setViewMode('list'));
+
+  // Smart sort toggle
+  document.getElementById('smartSortBtn')?.addEventListener('click', function() {
+    state.smartSort = !state.smartSort;
+    this.classList.toggle('active', state.smartSort);
+    this.textContent = state.smartSort ? '🔴 Smart ON' : '🔴 Prioridade automática';
+    renderAll();
+    if (state.smartSort) showToast('Cards ordenados por urgência e SLA', 'success');
+  });
+
+  // Minhas tarefas
+  document.getElementById('myTasksBtn')?.addEventListener('click', function() {
+    state.filterMyTasks = !state.filterMyTasks;
+    this.classList.toggle('active', state.filterMyTasks);
+    renderAll();
+    if (state.filterMyTasks) showToast('Mostrando apenas seus cards', 'info');
+    else showToast('Mostrando todos os cards', 'info');
+  });
 
   // Mostrar/esconder parcelas ao mudar tipo de pagamento
   document.getElementById('formTipoPagamento').addEventListener('change', function () {
@@ -5156,6 +5799,8 @@ function init() {
   initChatFinanceiro();
   initFormShare();
   initInvite();
+  initQuickCreate();
+  initNotifications();
   initLogin();
 
   const initialHash = location.hash.slice(1);

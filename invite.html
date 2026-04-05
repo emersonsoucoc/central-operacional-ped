@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Convite — Central Operacional PED</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --accent:       #3B82F6;
+    --accent-hover: #2563EB;
+    --accent-light: #EFF6FF;
+    --danger:       #EF4444;
+    --success:      #10B981;
+    --warn:         #F59E0B;
+    --text:         #1E293B;
+    --muted:        #64748B;
+    --faint:        #94A3B8;
+    --border:       #E2E8F0;
+    --surface:      #FFFFFF;
+    --bg:           #F1F5F9;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+
+  /* ── CARD ── */
+  .invite-card {
+    background: var(--surface);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 32px rgba(0,0,0,.1);
+    width: 100%;
+    max-width: 440px;
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  .card-header {
+    padding: 1.75rem 2rem 1.5rem;
+    background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
+    text-align: center;
+  }
+  .card-header-logo {
+    width: 52px; height: 52px;
+    background: rgba(255,255,255,.2);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 1rem;
+  }
+  .card-header h1 { font-size: 1.2rem; font-weight: 700; color: #fff; margin-bottom: .3rem; }
+  .card-header p  { font-size: .82rem; color: rgba(255,255,255,.75); }
+
+  /* INVITE INFO */
+  .invite-info {
+    padding: 1.25rem 2rem;
+    background: #F0F7FF;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+  }
+  .invite-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: .85rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .invite-info-text { flex: 1; min-width: 0; }
+  .invite-info-text strong { display: block; font-size: .88rem; font-weight: 600; color: var(--text); }
+  .invite-info-text span   { font-size: .78rem; color: var(--muted); }
+  .invite-role-badge {
+    padding: .25rem .65rem;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .role-admin    { background: #FEF3C7; color: #D97706; }
+  .role-gestor   { background: #EDE9FE; color: #7C3AED; }
+  .role-operador { background: #DBEAFE; color: #1D4ED8; }
+  .role-visualizador { background: #F1F5F9; color: #475569; }
+
+  /* BODY */
+  .card-body { padding: 1.75rem 2rem; }
+
+  .form-row { margin-bottom: 1.1rem; }
+  .form-row label {
+    display: block;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: .35rem;
+  }
+  .form-row label .req { color: var(--danger); }
+  .form-control {
+    width: 100%;
+    padding: .65rem .9rem;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    font-size: .9rem;
+    color: var(--text);
+    background: #fff;
+    outline: none;
+    font-family: inherit;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .form-control:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+  }
+  .form-control[readonly] { background: #F8FAFC; color: var(--muted); }
+
+  .password-wrap { position: relative; }
+  .password-wrap .form-control { padding-right: 2.75rem; }
+  .eye-btn {
+    position: absolute; right: .75rem; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: var(--faint);
+    display: flex; align-items: center;
+    transition: color .15s;
+  }
+  .eye-btn:hover { color: var(--accent); }
+
+  .password-hint {
+    font-size: .72rem;
+    color: var(--faint);
+    margin-top: .3rem;
+  }
+
+  .btn-submit {
+    width: 100%;
+    padding: .85rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: .95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+    display: flex; align-items: center; justify-content: center; gap: .5rem;
+    margin-top: .25rem;
+  }
+  .btn-submit:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-submit:active:not(:disabled) { transform: scale(.98); }
+  .btn-submit:disabled { opacity: .6; cursor: not-allowed; }
+  .btn-submit .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    display: none;
+  }
+  .btn-submit.loading .spinner { display: block; }
+  .btn-submit.loading .btn-label { display: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .form-error {
+    background: #FEF2F2; border: 1px solid #FECACA;
+    border-radius: 8px; color: var(--danger);
+    font-size: .82rem; font-weight: 500;
+    padding: .65rem .9rem; margin-bottom: .75rem;
+    display: none;
+  }
+  .form-error.visible { display: block; }
+
+  /* LOADING */
+  .loading-screen {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 1rem; padding: 3rem 2rem;
+    color: var(--muted); font-size: .9rem;
+  }
+  .spinner-lg {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+
+  /* ERROR */
+  .error-screen {
+    display: none; flex-direction: column; align-items: center;
+    text-align: center; padding: 2.5rem 2rem; gap: .75rem;
+  }
+  .error-screen.visible { display: flex; }
+  .error-screen h2 { font-size: 1.1rem; font-weight: 700; color: var(--danger); }
+  .error-screen p  { font-size: .85rem; color: var(--muted); }
+
+  /* SUCCESS */
+  .success-screen {
+    display: none; flex-direction: column; align-items: center;
+    text-align: center; padding: 2.5rem 2rem; gap: .75rem;
+  }
+  .success-screen.visible { display: flex; }
+  .success-icon {
+    width: 64px; height: 64px;
+    border-radius: 50%; background: #ECFDF5;
+    display: flex; align-items: center; justify-content: center;
+    animation: popIn .4s cubic-bezier(.175,.885,.32,1.275);
+  }
+  @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .success-screen h2 { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+  .success-screen p  { font-size: .88rem; color: var(--muted); line-height: 1.6; max-width: 320px; }
+  .btn-go {
+    margin-top: .75rem;
+    padding: .7rem 1.75rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: .4rem;
+  }
+  .btn-go:hover { background: var(--accent-hover); }
+
+  /* MODULOS LIST */
+  .modulos-list {
+    display: flex; flex-wrap: wrap; gap: .35rem;
+    margin-top: .4rem;
+  }
+  .modulo-tag {
+    padding: .2rem .6rem;
+    background: var(--accent-light);
+    color: var(--accent);
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 600;
+  }
+
+  /* FOOTER */
+  footer {
+    margin-top: 1.5rem;
+    font-size: .72rem;
+    color: var(--faint);
+    text-align: center;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 480px) {
+    .card-body, .card-header { padding: 1.25rem 1.5rem; }
+    .invite-info { padding: 1rem 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="invite-card">
+
+  <!-- HEADER -->
+  <div class="card-header">
+    <div class="card-header-logo">
+      <svg width="26" height="26" viewBox="0 0 18 18" fill="none">
+        <rect x="2" y="2" width="6" height="6" rx="1.5" stroke="white" stroke-width="1.8"/>
+        <rect x="10" y="2" width="6" height="6" rx="1.5" stroke="white" stroke-width="1.8"/>
+        <rect x="2" y="10" width="6" height="6" rx="1.5" stroke="white" stroke-width="1.8"/>
+        <rect x="10" y="10" width="6" height="6" rx="1.5" stroke="white" stroke-width="1.8"/>
+      </svg>
+    </div>
+    <h1>Central Operacional</h1>
+    <p>Grupo PED — Você foi convidado!</p>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="spinner-lg"></div>
+    <span>Validando convite…</span>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-screen" id="errorScreen">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="1.5">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <h2>Convite inválido</h2>
+    <p id="errorMsg">Este link de convite é inválido, já foi utilizado ou expirou.</p>
+  </div>
+
+  <!-- INVITE INFO + FORM -->
+  <div id="mainContent" style="display:none;">
+
+    <!-- QUEM CONVIDOU / DADOS DO CONVITE -->
+    <div class="invite-info" id="inviteInfo">
+      <div class="invite-avatar" id="inviteAvatar">?</div>
+      <div class="invite-info-text">
+        <strong id="inviteEmail">email@exemplo.com</strong>
+        <span>Convidado para a Central Operacional</span>
+        <div class="modulos-list" id="modulosList"></div>
+      </div>
+      <span class="invite-role-badge" id="inviteRoleBadge">Operador</span>
+    </div>
+
+    <!-- FORM DE CADASTRO -->
+    <div class="card-body">
+      <form id="inviteForm" autocomplete="off">
+        <div class="form-error" id="formError"></div>
+
+        <div class="form-row">
+          <label>E-mail</label>
+          <input type="email" id="fEmail" class="form-control" readonly>
+        </div>
+
+        <div class="form-row">
+          <label>Seu nome completo <span class="req">*</span></label>
+          <input type="text" id="fNome" class="form-control" placeholder="Como você quer ser chamado" required maxlength="80">
+        </div>
+
+        <div class="form-row">
+          <label>Criar senha <span class="req">*</span></label>
+          <div class="password-wrap">
+            <input type="password" id="fSenha" class="form-control" placeholder="Mínimo 6 caracteres" required minlength="6" maxlength="80">
+            <button type="button" class="eye-btn" id="eyeBtn1" aria-label="Mostrar/ocultar senha">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <p class="password-hint">Use ao menos 6 caracteres com letras e números.</p>
+        </div>
+
+        <div class="form-row">
+          <label>Confirmar senha <span class="req">*</span></label>
+          <div class="password-wrap">
+            <input type="password" id="fSenhaConf" class="form-control" placeholder="Repita a senha" required minlength="6" maxlength="80">
+            <button type="button" class="eye-btn" id="eyeBtn2" aria-label="Mostrar/ocultar senha">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submitBtn">
+          <div class="spinner"></div>
+          <span class="btn-label">Criar minha conta e acessar</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="success-screen" id="successScreen">
+    <div class="success-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 6L9 17l-5-5"/>
+      </svg>
+    </div>
+    <h2>Conta criada com sucesso!</h2>
+    <p>Seu acesso foi configurado. Você será redirecionado para o painel em instantes…</p>
+    <a href="/" class="btn-go" id="btnGo">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Ir para o painel
+    </a>
+  </div>
+
+</div>
+
+<footer>
+  Central Operacional — <a href="https://grupoped.com.br" target="_blank">Grupo PED</a>
+</footer>
+
+<script>
+'use strict';
+
+const BACKEND = 'https://central-operacional-ped-production.up.railway.app';
+const token   = new URLSearchParams(window.location.search).get('token') || '';
+
+const AUTH_TOKEN_KEY = 'ped_jwt_token';
+const AUTH_USER_KEY  = 'ped_auth_user';
+
+// ── Módulos labels (para exibição nos badges) ─────────────────────────────────
+const MODULE_LABELS = {
+  solicitacoes     : 'Solicitações',
+  contas_pagar     : 'Contas a Pagar',
+  contas_receber   : 'Contas a Receber',
+  compras          : 'Compras',
+  processos        : 'Processos',
+  ti               : 'T.I',
+  recursos_humanos : 'RH',
+  comercial        : 'Comercial',
+  central_pagamentos: 'Central Pgto.',
+};
+
+const ROLE_LABELS = { admin:'Admin', gestor:'Gestor', operador:'Operador', visualizador:'Somente leitura' };
+const ROLE_CLASSES = { admin:'role-admin', gestor:'role-gestor', operador:'role-operador', visualizador:'role-visualizador' };
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function showEl(id, flex) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = flex ? 'flex' : '';
+}
+function hideEl(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Carrega e valida convite ──────────────────────────────────────────────────
+async function loadInvite() {
+  showEl('loadingScreen', true);
+
+  if (!token) {
+    hideEl('loadingScreen');
+    document.getElementById('errorMsg').textContent = 'Link de convite inválido — token ausente.';
+    showEl('errorScreen', true);
+    return;
+  }
+
+  try {
+    const res  = await fetch(`${BACKEND}/api/invite/${encodeURIComponent(token)}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      hideEl('loadingScreen');
+      document.getElementById('errorMsg').textContent = data.error || 'Convite inválido ou expirado.';
+      showEl('errorScreen', true);
+      return;
+    }
+
+    // Preenche dados do convite
+    document.getElementById('inviteEmail').textContent   = data.email;
+    document.getElementById('fEmail').value              = data.email;
+
+    // Avatar (iniciais do email)
+    const initials = data.email.split('@')[0].slice(0,2).toUpperCase();
+    document.getElementById('inviteAvatar').textContent = initials;
+
+    // Badge de perfil
+    const badge = document.getElementById('inviteRoleBadge');
+    badge.textContent  = ROLE_LABELS[data.perfil] || data.perfil;
+    badge.className    = 'invite-role-badge ' + (ROLE_CLASSES[data.perfil] || '');
+
+    // Módulos com acesso
+    const modList = document.getElementById('modulosList');
+    const modulos = Array.isArray(data.modulos) ? data.modulos : [];
+    if (modulos.length) {
+      modulos.forEach(m => {
+        const tag = document.createElement('span');
+        tag.className   = 'modulo-tag';
+        tag.textContent = MODULE_LABELS[m] || m;
+        modList.appendChild(tag);
+      });
+    } else {
+      const tag = document.createElement('span');
+      tag.className   = 'modulo-tag';
+      tag.textContent = 'Todos os módulos';
+      modList.appendChild(tag);
+    }
+
+    // Se nome foi pré-preenchido no convite
+    if (data.nome) document.getElementById('fNome').value = data.nome;
+
+    hideEl('loadingScreen');
+    showEl('mainContent');
+
+    setTimeout(() => document.getElementById('fNome')?.focus(), 100);
+
+  } catch (err) {
+    hideEl('loadingScreen');
+    document.getElementById('errorMsg').textContent = 'Não foi possível validar o convite. Verifique sua conexão.';
+    showEl('errorScreen', true);
+  }
+}
+
+// ── Submit cadastro ───────────────────────────────────────────────────────────
+document.getElementById('inviteForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const errorEl  = document.getElementById('formError');
+  const submitBtn = document.getElementById('submitBtn');
+  errorEl.classList.remove('visible');
+
+  const nome     = document.getElementById('fNome').value.trim();
+  const senha    = document.getElementById('fSenha').value;
+  const senhaC   = document.getElementById('fSenhaConf').value;
+
+  if (!nome) {
+    errorEl.textContent = 'Informe seu nome completo.';
+    errorEl.classList.add('visible');
+    return;
+  }
+  if (senha.length < 6) {
+    errorEl.textContent = 'A senha deve ter ao menos 6 caracteres.';
+    errorEl.classList.add('visible');
+    return;
+  }
+  if (senha !== senhaC) {
+    errorEl.textContent = 'As senhas não coincidem.';
+    errorEl.classList.add('visible');
+    return;
+  }
+
+  submitBtn.classList.add('loading');
+  submitBtn.disabled = true;
+
+  try {
+    const res = await fetch(`${BACKEND}/api/invite/${encodeURIComponent(token)}/accept`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ nome, password: senha }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || 'Erro ao criar conta.');
+
+    // Salva sessão automaticamente
+    if (data.token && data.user) {
+      sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+      try {
+        localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+      } catch(_) {}
+    }
+
+    // Sucesso — mostra tela e redireciona
+    hideEl('mainContent');
+    showEl('successScreen', true);
+
+    setTimeout(() => { window.location.href = '/'; }, 2800);
+
+  } catch (err) {
+    errorEl.textContent = err.message || 'Erro de conexão. Tente novamente.';
+    errorEl.classList.add('visible');
+  } finally {
+    submitBtn.classList.remove('loading');
+    submitBtn.disabled = false;
+  }
+});
+
+// ── Eye toggles ──────────────────────────────────────────────────────────────
+function makeEyeToggle(btnId, inputId) {
+  document.getElementById(btnId)?.addEventListener('click', () => {
+    const inp = document.getElementById(inputId);
+    if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+}
+makeEyeToggle('eyeBtn1', 'fSenha');
+makeEyeToggle('eyeBtn2', 'fSenhaConf');
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadInvite();
+</script>
+</body>
+</html>

@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formulário — Central Operacional PED</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --accent:       #3B82F6;
+    --accent-hover: #2563EB;
+    --accent-light: #EFF6FF;
+    --danger:       #EF4444;
+    --success:      #10B981;
+    --warn:         #F59E0B;
+    --text:         #1E293B;
+    --muted:        #64748B;
+    --faint:        #94A3B8;
+    --border:       #E2E8F0;
+    --surface:      #FFFFFF;
+    --bg:           #F1F5F9;
+    --radius:       12px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── HEADER ── */
+  .page-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: .9rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  }
+  .page-header-logo {
+    width: 34px;
+    height: 34px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .page-header-logo svg { color: #fff; }
+  .page-header-info { flex: 1; min-width: 0; }
+  .page-header-title {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .page-header-subtitle {
+    font-size: .75rem;
+    color: var(--muted);
+  }
+  .module-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: .2rem .6rem;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 600;
+    background: var(--accent-light);
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* ── MAIN ── */
+  .page-main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+  .form-card {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 24px rgba(0,0,0,.07);
+    width: 100%;
+    max-width: 640px;
+    overflow: hidden;
+  }
+  .form-card-header {
+    padding: 1.5rem 1.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, #F8FAFF 0%, #F0F4FF 100%);
+  }
+  .form-card-header h1 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: .3rem;
+  }
+  .form-card-header p {
+    font-size: .82rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .form-card-body { padding: 1.5rem 1.75rem; }
+
+  /* ── FORM ── */
+  .form-row { margin-bottom: 1.1rem; }
+  .form-row label {
+    display: block;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: .35rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .form-row label .req { color: var(--danger); margin-left: 2px; }
+  .form-control {
+    width: 100%;
+    padding: .6rem .85rem;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: .88rem;
+    color: var(--text);
+    background: #fff;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    font-family: inherit;
+  }
+  .form-control:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+  }
+  textarea.form-control {
+    resize: vertical;
+    min-height: 90px;
+  }
+  select.form-control { cursor: pointer; }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1rem;
+  }
+
+  /* Prioridade radio pills */
+  .prio-group {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+  .prio-pill input { display: none; }
+  .prio-pill label {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .35rem .85rem;
+    border-radius: 999px;
+    font-size: .78rem;
+    font-weight: 600;
+    border: 1.5px solid var(--border);
+    cursor: pointer;
+    transition: all .15s;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--muted);
+  }
+  .prio-pill input:checked + label { border-color: currentColor; }
+  .prio-pill.baixa   input:checked + label { background:#F0FDF4; color:#16A34A; border-color:#16A34A; }
+  .prio-pill.media   input:checked + label { background:#FFFBEB; color:#D97706; border-color:#D97706; }
+  .prio-pill.alta    input:checked + label { background:#FFF7ED; color:#EA580C; border-color:#EA580C; }
+  .prio-pill.urgente input:checked + label { background:#FEF2F2; color:#DC2626; border-color:#DC2626; }
+
+  /* Separator */
+  .form-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 1.25rem 0;
+  }
+  .form-section-title {
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--faint);
+    margin-bottom: .85rem;
+  }
+
+  /* Submit */
+  .btn-submit {
+    width: 100%;
+    padding: .85rem 1.5rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: .95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    margin-top: .5rem;
+  }
+  .btn-submit:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-submit:active:not(:disabled) { transform: scale(.98); }
+  .btn-submit:disabled { opacity: .6; cursor: not-allowed; }
+  .btn-submit.loading { pointer-events: none; }
+  .btn-submit .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    display: none;
+  }
+  .btn-submit.loading .spinner { display: block; }
+  .btn-submit.loading .btn-label { display: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── SUCCESS STATE ── */
+  .success-screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 3rem 2rem;
+  }
+  .success-screen.visible { display: flex; }
+  .success-icon {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: #ECFDF5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+    animation: popIn .4s cubic-bezier(.175,.885,.32,1.275);
+  }
+  @keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  .success-screen h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: .5rem;
+  }
+  .success-screen p {
+    font-size: .9rem;
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 360px;
+  }
+  .success-id {
+    margin-top: 1.25rem;
+    padding: .6rem 1.25rem;
+    background: var(--bg);
+    border-radius: 8px;
+    font-size: .82rem;
+    color: var(--muted);
+    font-family: monospace;
+  }
+  .btn-new {
+    margin-top: 1.5rem;
+    padding: .6rem 1.5rem;
+    background: var(--accent-light);
+    color: var(--accent);
+    border: none;
+    border-radius: 8px;
+    font-size: .88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-new:hover { background: #DBEAFE; }
+
+  /* ── ERROR ── */
+  .form-error {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: 8px;
+    color: var(--danger);
+    font-size: .82rem;
+    font-weight: 500;
+    padding: .65rem .9rem;
+    margin-top: .5rem;
+    display: none;
+  }
+  .form-error.visible { display: block; }
+
+  /* ── LOADING STATE ── */
+  .loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 3rem 2rem;
+    color: var(--muted);
+    font-size: .9rem;
+  }
+  .loading-screen .spinner-lg {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+
+  /* ── ERROR STATE (module not found) ── */
+  .error-screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 3rem 2rem;
+    gap: .75rem;
+  }
+  .error-screen.visible { display: flex; }
+  .error-screen h2 { font-size: 1.1rem; font-weight: 700; color: var(--danger); }
+  .error-screen p  { font-size: .85rem; color: var(--muted); }
+
+  /* ── FOOTER ── */
+  .page-footer {
+    text-align: center;
+    padding: 1.25rem;
+    font-size: .75rem;
+    color: var(--faint);
+  }
+  .page-footer a { color: var(--accent); text-decoration: none; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 480px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .page-main  { padding: 1rem .75rem; }
+    .form-card-body, .form-card-header { padding: 1.25rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="page-header">
+  <div class="page-header-logo">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="2" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+      <rect x="10" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+      <rect x="2" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+      <rect x="10" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+    </svg>
+  </div>
+  <div class="page-header-info">
+    <div class="page-header-title" id="headerTitle">Central Operacional — Grupo PED</div>
+    <div class="page-header-subtitle">Formulário de solicitação</div>
+  </div>
+  <span class="module-badge" id="moduleBadge">Carregando…</span>
+</header>
+
+<!-- MAIN -->
+<main class="page-main">
+  <div class="form-card">
+
+    <!-- LOADING -->
+    <div class="loading-screen" id="loadingScreen">
+      <div class="spinner-lg"></div>
+      <span>Carregando formulário…</span>
+    </div>
+
+    <!-- ERROR (módulo não encontrado) -->
+    <div class="error-screen" id="errorScreen">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <h2>Formulário não encontrado</h2>
+      <p id="errorMsg">Este link de formulário é inválido ou o módulo não está disponível.</p>
+    </div>
+
+    <!-- FORM -->
+    <div id="formContainer" style="display:none;">
+      <div class="form-card-header">
+        <h1 id="formTitle">Nova Solicitação</h1>
+        <p id="formDescription">Preencha os campos abaixo. Sua solicitação será registrada e encaminhada automaticamente ao setor responsável.</p>
+      </div>
+
+      <div class="form-card-body">
+        <form id="publicForm" autocomplete="off">
+
+          <!-- DADOS DO SOLICITANTE -->
+          <div class="form-section-title">Identificação</div>
+
+          <div class="form-grid">
+            <div class="form-row">
+              <label>Seu nome <span class="req">*</span></label>
+              <input type="text" id="fSolicitante" class="form-control" placeholder="Nome completo" required maxlength="100">
+            </div>
+            <div class="form-row">
+              <label>Seu e-mail</label>
+              <input type="email" id="fEmail" class="form-control" placeholder="email@escola.com.br" maxlength="120">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>Unidade <span class="req">*</span></label>
+            <select id="fEscola" class="form-control" required>
+              <option value="">Selecione a unidade</option>
+            </select>
+          </div>
+
+          <div class="form-sep"></div>
+
+          <!-- DADOS DA SOLICITAÇÃO -->
+          <div class="form-section-title">Solicitação</div>
+
+          <div class="form-row">
+            <label id="labelTitulo">Assunto / Título <span class="req">*</span></label>
+            <input type="text" id="fTitulo" class="form-control" placeholder="Descreva brevemente o assunto" required maxlength="120">
+          </div>
+
+          <div class="form-grid">
+            <div class="form-row">
+              <label>Categoria</label>
+              <select id="fCategoria" class="form-control">
+                <option value="">Selecione</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Prioridade</label>
+              <div class="prio-group">
+                <span class="prio-pill baixa">
+                  <input type="radio" name="prioridade" id="pBaixa" value="baixa">
+                  <label for="pBaixa">Baixa</label>
+                </span>
+                <span class="prio-pill media">
+                  <input type="radio" name="prioridade" id="pMedia" value="media" checked>
+                  <label for="pMedia">Média</label>
+                </span>
+                <span class="prio-pill alta">
+                  <input type="radio" name="prioridade" id="pAlta" value="alta">
+                  <label for="pAlta">Alta</label>
+                </span>
+                <span class="prio-pill urgente">
+                  <input type="radio" name="prioridade" id="pUrgente" value="urgente">
+                  <label for="pUrgente">Urgente</label>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>Detalhamento <span class="req">*</span></label>
+            <textarea id="fDescricao" class="form-control" placeholder="Descreva em detalhes sua solicitação, incluindo informações relevantes…" required maxlength="2000"></textarea>
+          </div>
+
+          <div class="form-row">
+            <label>Prazo desejado</label>
+            <input type="date" id="fPrazo" class="form-control">
+          </div>
+
+          <!-- CAMPOS FINANCEIROS (ocultos por padrão) -->
+          <div id="financialSection" style="display:none;">
+            <div class="form-sep"></div>
+            <div class="form-section-title">Informações Financeiras</div>
+            <div class="form-grid">
+              <div class="form-row">
+                <label id="labelFornecedor">Fornecedor / Cliente</label>
+                <input type="text" id="fFornecedor" class="form-control" placeholder="Nome do fornecedor" maxlength="120">
+              </div>
+              <div class="form-row">
+                <label id="labelNumDoc">Nº Documento</label>
+                <input type="text" id="fNumDoc" class="form-control" placeholder="NF, pedido, fatura…" maxlength="80">
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-row">
+                <label>Valor (R$)</label>
+                <input type="number" id="fValor" class="form-control" placeholder="0,00" step="0.01" min="0">
+              </div>
+              <div class="form-row">
+                <label>Vencimento</label>
+                <input type="date" id="fVencimento" class="form-control">
+              </div>
+            </div>
+          </div>
+
+          <!-- CAMPOS LEAD (ocultos por padrão) -->
+          <div id="leadSection" style="display:none;">
+            <div class="form-sep"></div>
+            <div class="form-section-title">Dados de Contato</div>
+            <div class="form-grid">
+              <div class="form-row">
+                <label>Telefone / WhatsApp</label>
+                <input type="tel" id="fTelefone" class="form-control" placeholder="(71) 9 0000-0000" maxlength="20">
+              </div>
+              <div class="form-row">
+                <label>Como nos encontrou?</label>
+                <select id="fOrigem" class="form-control">
+                  <option value="">Selecione</option>
+                  <option>Indicação</option>
+                  <option>Instagram</option>
+                  <option>Facebook</option>
+                  <option>Site / SEO</option>
+                  <option>WhatsApp</option>
+                  <option>Evento</option>
+                  <option>Outros</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Interesse / Ano letivo</label>
+              <input type="text" id="fInteresse" class="form-control" placeholder="Ex: 2026, Ensino Fundamental I…" maxlength="80">
+            </div>
+          </div>
+
+          <div class="form-sep"></div>
+
+          <div class="form-error" id="formError"></div>
+          <button type="submit" class="btn-submit" id="submitBtn">
+            <div class="spinner"></div>
+            <span class="btn-label">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style="flex-shrink:0">
+                <path d="M1.5 7.5h12M8 2l5.5 5.5L8 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Enviar Solicitação
+            </span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div class="success-screen" id="successScreen">
+      <div class="success-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+      </div>
+      <h2>Solicitação enviada!</h2>
+      <p>Sua solicitação foi registrada com sucesso e encaminhada ao setor responsável. Em breve você será contactado.</p>
+      <div class="success-id" id="successId"></div>
+      <button class="btn-new" id="btnNew">Enviar outra solicitação</button>
+    </div>
+
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="page-footer">
+  Central Operacional — <a href="https://grupoped.com.br" target="_blank">Grupo PED</a> · Powered by <strong>Claude</strong>
+</footer>
+
+<script>
+'use strict';
+
+const BACKEND = 'https://central-operacional-ped-production.up.railway.app';
+const params  = new URLSearchParams(window.location.search);
+const modKey  = params.get('modulo') || '';
+
+let moduleData  = null;
+let escolasData = [];
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function show(id)  { document.getElementById(id).style.display = ''; }
+function hide(id)  { document.getElementById(id).style.display = 'none'; }
+function showFlex(id) { document.getElementById(id).style.display = 'flex'; }
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Carrega config do backend ────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const res = await fetch(`${BACKEND}/api/public/config`);
+    if (!res.ok) throw new Error('Erro ao carregar configuração.');
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    // Fallback: tenta localStorage
+    try {
+      const mods = localStorage.getItem('ped_modules');
+      const escs = localStorage.getItem('ped_escolas');
+      if (mods) return {
+        modules: JSON.parse(mods),
+        escolas: escs ? JSON.parse(escs).filter(e => e.ativa !== false) : []
+      };
+    } catch(_) {}
+    throw err;
+  }
+}
+
+// ── Renderiza escolas no select ──────────────────────────────────────────────
+function renderEscolas(escolas) {
+  const sel = document.getElementById('fEscola');
+  escolas.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.id;
+    opt.textContent = e.nome;
+    sel.appendChild(opt);
+  });
+
+  // Se URL tem ?escola=xxx, pré-seleciona
+  const preEscola = params.get('escola');
+  if (preEscola) sel.value = preEscola;
+}
+
+// ── Renderiza categorias no select ───────────────────────────────────────────
+function renderCategorias(categorias) {
+  const sel = document.getElementById('fCategoria');
+  categorias.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    sel.appendChild(opt);
+  });
+}
+
+// ── Configura campos conforme módulo ────────────────────────────────────────
+function configureForm(mod) {
+  // Título e subtítulo
+  document.getElementById('formTitle').textContent = 'Nova ' + (mod.btnLabel || 'Solicitação').replace(/^(Nova?|Novo)\s/i,'') || 'Solicitação';
+  document.getElementById('headerTitle').textContent = mod.label || 'Formulário';
+  document.getElementById('moduleBadge').textContent = mod.shortLabel || mod.label || '';
+
+  // Campos financeiros
+  if (mod.hasFinancial) {
+    show('financialSection');
+    document.getElementById('labelFornecedor').textContent = mod.fornecedorLabel || 'Fornecedor / Cliente';
+    document.getElementById('labelNumDoc').textContent     = mod.numDocLabel     || 'Nº Documento';
+  }
+
+  // Campos lead
+  if (mod.hasLead) {
+    show('leadSection');
+    document.getElementById('labelTitulo').innerHTML = 'Nome do Lead <span class="req">*</span>';
+    document.getElementById('fTitulo').placeholder = 'Nome completo do interessado';
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  showFlex('loadingScreen');
+
+  if (!modKey) {
+    hide('loadingScreen');
+    document.getElementById('errorMsg').textContent = 'Nenhum módulo especificado no link. Solicite o link correto ao responsável.';
+    showFlex('errorScreen');
+    return;
+  }
+
+  let config;
+  try {
+    config = await loadConfig();
+  } catch (err) {
+    hide('loadingScreen');
+    document.getElementById('errorMsg').textContent = 'Não foi possível carregar o formulário. Verifique sua conexão e tente novamente.';
+    showFlex('errorScreen');
+    return;
+  }
+
+  const mod = config.modules?.[modKey];
+  if (!mod) {
+    hide('loadingScreen');
+    document.getElementById('errorMsg').textContent = `O módulo "${escHtml(modKey)}" não foi encontrado. Solicite um link válido ao responsável.`;
+    showFlex('errorScreen');
+    return;
+  }
+
+  moduleData  = mod;
+  escolasData = config.escolas || [];
+
+  renderEscolas(escolasData);
+  renderCategorias(mod.categorias || []);
+  configureForm(mod);
+
+  hide('loadingScreen');
+  show('formContainer');
+
+  // Foco no primeiro campo
+  setTimeout(() => document.getElementById('fSolicitante')?.focus(), 100);
+}
+
+// ── Submit ────────────────────────────────────────────────────────────────────
+document.getElementById('publicForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const errorEl  = document.getElementById('formError');
+  const submitBtn = document.getElementById('submitBtn');
+  errorEl.classList.remove('visible');
+
+  const solicitante = document.getElementById('fSolicitante').value.trim();
+  const escola      = document.getElementById('fEscola').value;
+  const titulo      = document.getElementById('fTitulo').value.trim();
+  const descricao   = document.getElementById('fDescricao').value.trim();
+
+  if (!solicitante || !escola || !titulo || !descricao) {
+    errorEl.textContent = 'Preencha todos os campos obrigatórios (*).';
+    errorEl.classList.add('visible');
+    return;
+  }
+
+  const prioridade = document.querySelector('input[name="prioridade"]:checked')?.value || 'media';
+
+  const payload = {
+    modulo      : modKey,
+    titulo      : titulo,
+    descricao   : descricao,
+    escola      : escola,
+    categoria   : document.getElementById('fCategoria').value || '',
+    prioridade  : prioridade,
+    prazo       : document.getElementById('fPrazo').value || '',
+    solicitante : solicitante,
+    emailLead   : document.getElementById('fEmail').value.trim() || '',
+  };
+
+  // Financeiro
+  if (moduleData?.hasFinancial) {
+    payload.fornecedor = document.getElementById('fFornecedor').value.trim();
+    payload.numDoc     = document.getElementById('fNumDoc').value.trim();
+    payload.valor      = document.getElementById('fValor').value || '0';
+    payload.vencimento = document.getElementById('fVencimento').value || '';
+  }
+
+  // Lead
+  if (moduleData?.hasLead) {
+    payload.telefone  = document.getElementById('fTelefone').value.trim();
+    payload.origem    = document.getElementById('fOrigem').value;
+    payload.interesse = document.getElementById('fInteresse').value.trim();
+  }
+
+  submitBtn.classList.add('loading');
+  submitBtn.disabled = true;
+
+  try {
+    const res = await fetch(`${BACKEND}/api/public/form`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(payload),
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || 'Erro ao enviar.');
+
+    // Sucesso
+    hide('formContainer');
+    document.getElementById('successId').textContent = `Protocolo: ${(data.id || '').toUpperCase()}`;
+    showFlex('successScreen');
+
+  } catch (err) {
+    errorEl.textContent = err.message || 'Erro de conexão. Tente novamente.';
+    errorEl.classList.add('visible');
+  } finally {
+    submitBtn.classList.remove('loading');
+    submitBtn.disabled = false;
+  }
+});
+
+// ── Nova solicitação ──────────────────────────────────────────────────────────
+document.getElementById('btnNew').addEventListener('click', () => {
+  document.getElementById('publicForm').reset();
+  document.getElementById('pMedia').checked = true;
+  hide('successScreen');
+  show('formContainer');
+  setTimeout(() => document.getElementById('fSolicitante')?.focus(), 100);
+});
+
+// ── Inicia ────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>

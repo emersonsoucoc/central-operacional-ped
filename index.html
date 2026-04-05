@@ -371,6 +371,11 @@
       </div>
 
       <div class="topbar-right">
+        <button class="notif-btn" id="notifBtn" title="Notificações">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        </button>
+
         <div class="topbar-filter">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M1.5 3h10M3.5 6.5h6M5.5 10h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -388,6 +393,15 @@
           </svg>
           <input type="text" id="searchInput" class="search-input" placeholder="Buscar..." />
         </div>
+
+        <button class="btn-auto btn-my-tasks" id="myTasksBtn" title="Mostrar apenas meus cards">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          Minhas tarefas
+        </button>
+
+        <button class="btn-smart-sort" id="smartSortBtn" title="Ordenar por urgência/SLA">
+          🔴 Prioridade automática
+        </button>
 
         <div class="view-toggle">
           <button class="view-btn active" id="viewKanban" title="Kanban">
@@ -1111,7 +1125,7 @@
         </div>
 
         <!-- ══ COMENTÁRIOS (apenas no edit) ══ -->
-        <div class="form-group form-group--full form-divider" id="commentSection" style="display:none">
+        <div class="form-group form-group--full form-divider" id="commentSectionLegacy" style="display:none">
           <label class="form-label">
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="display:inline-block;vertical-align:-2px;margin-right:4px">
               <path d="M2 2h9a1 1 0 011 1v5a1 1 0 01-1 1H5L2 11.5V3a1 1 0 010 0z" stroke="currentColor" stroke-width="1.3"/>
@@ -1121,8 +1135,8 @@
           <div class="comments-list" id="commentsList"></div>
           <div class="comment-input-row">
             <div class="comment-avatar">ES</div>
-            <input type="text" class="form-input" id="commentInput" placeholder="Adicionar comentário interno..." />
-            <button type="button" class="btn-comment" id="addCommentBtn">Enviar</button>
+            <input type="text" class="form-input" id="commentInputLegacy" placeholder="Adicionar comentário interno..." />
+            <button type="button" class="btn-comment" id="addCommentBtnLegacy">Enviar</button>
           </div>
         </div>
 
@@ -1156,14 +1170,40 @@
         </div>
       </form>
 
-      <!-- Tab: Comentários -->
+      <!-- Tab: Comentários — CHAT SYSTEM -->
       <div class="pf-drawer-tab-content hidden" id="pf-tab-comentarios">
-        <div id="commentSection">
-          <div class="pf-comment-input-row">
-            <textarea class="pf-field-input pf-field-textarea" id="commentInput" rows="2" placeholder="Escreva um comentário... (Enter para enviar)"></textarea>
-            <button type="button" class="pf-btn-comment" id="addCommentBtn">Comentar</button>
+        <div class="chat-wrap">
+          <!-- @mention picker (shown above input) -->
+          <div class="chat-mention-picker" id="chatMentionPicker" style="display:none">
+            <div class="chat-mention-list" id="chatMentionList"></div>
           </div>
-          <div class="pf-comment-list" id="commentList"></div>
+
+          <!-- Chat feed (scrollable) -->
+          <div class="chat-feed" id="chatFeed">
+            <div class="chat-empty">Nenhuma mensagem ainda. Seja o primeiro a comentar.</div>
+          </div>
+
+          <!-- Input area -->
+          <div class="chat-input-wrap">
+            <div class="chat-input-row">
+              <div class="chat-input-avatar" id="chatInputAvatar">ES</div>
+              <div class="chat-input-box">
+                <div class="chat-input-field"
+                     id="chatInput"
+                     contenteditable="true"
+                     data-placeholder="Comentar... use @nome para mencionar"
+                     role="textbox"
+                     aria-multiline="true"
+                     aria-label="Campo de comentário"></div>
+              </div>
+              <button class="chat-send-btn" id="chatSendBtn" title="Enviar (Enter)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
+            <div class="chat-input-hint">Enter para enviar · Shift+Enter para nova linha</div>
+          </div>
         </div>
       </div>
 
@@ -1201,6 +1241,22 @@
     <div class="pf-drawer-right">
       <div class="pf-move-title">Mover card para fase</div>
       <div class="pf-move-list" id="pf-move-list"></div>
+
+      <div class="pf-move-divider"></div>
+
+      <button class="pf-move-config-btn" id="pf-config-move-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41M2 12h2M20 12h2"/>
+        </svg>
+        Configurar movimentações
+      </button>
+
+      <div class="pf-move-config-panel hidden" id="pf-move-config-panel">
+        <div class="pf-move-config-title">Configurar movimentações</div>
+        <p class="pf-move-config-desc">Defina para quais fases este card pode ser movido diretamente.</p>
+        <div id="pf-config-phases-list"></div>
+        <button class="pf-move-config-save" id="pf-config-save-btn">Salvar configuração</button>
+      </div>
     </div>
 
   </div>
@@ -1381,6 +1437,44 @@
         </button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ══ QUICK CREATE — Ação rápida ══════════════════════════ -->
+<div class="quick-create-overlay" id="quickCreateOverlay" style="display:none">
+  <div class="quick-create-modal">
+    <div class="quick-create-header">
+      <div>
+        <h3 class="quick-create-title">⚡ Criar solicitação rápida</h3>
+        <p class="quick-create-subtitle">Escolha um template ou crie do zero</p>
+      </div>
+      <button class="pf-drawer-close" id="quickCreateClose">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="quick-create-body">
+      <div class="quick-templates-grid" id="quickTemplatesGrid">
+        <!-- Renderizado por JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Botão fixo Quick Create -->
+<button class="quick-create-fab" id="quickCreateFab" title="Criar solicitação rápida">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+</button>
+
+<!-- ══ NOTIFICAÇÕES ════════════════════════════════════════ -->
+<div class="notif-panel" id="notifPanel" style="display:none">
+  <div class="notif-panel-header">
+    <span class="notif-panel-title">Notificações</span>
+    <button class="notif-clear-btn" id="notifClearBtn">Marcar todas como lidas</button>
+  </div>
+  <div class="notif-list" id="notifList">
+    <div class="notif-empty">Nenhuma notificação</div>
   </div>
 </div>
 
