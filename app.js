@@ -1064,113 +1064,122 @@ function buildColumnHTML(phaseKey, phase, phaseCards) {
 }
 
 function buildCardHTML(card) {
-  const prio   = PRIORITIES[card.prioridade] || PRIORITIES.media;
-  const school = SCHOOLS[card.escola] || SCHOOLS.all;
-  const overdue = isOverdue(card.prazo) && card.fase !== getCurrentModule().lastPhase;
-  const days   = daysUntil(card.prazo);
-  const anexos = (card.anexos || []).length;
+  const prio    = PRIORITIES[card.prioridade] || PRIORITIES.media;
+  const school  = SCHOOLS[card.escola] || SCHOOLS.all;
+  const mod     = MODULES[card.modulo] || getCurrentModule();
+  const overdue = isOverdue(card.prazo) && card.fase !== mod.lastPhase;
+  const anexos  = (card.anexos  || []).length;
   const comments = (card.comentarios || []).length;
+  const days    = daysUntil(card.prazo);
 
-  let dueDateHtml = '';
+  // Badge de categoria (pill colorida como Pipefy)
+  const catBadge = card.categoria
+    ? `<span class="pf-card-badge pf-card-badge--cat">${escHtml(card.categoria)}</span>` : '';
+
+  // Badge de prioridade (só mostra alta/urgente no card)
+  const prioBadge = (card.prioridade === 'alta' || card.prioridade === 'urgente')
+    ? `<span class="pf-card-badge pf-card-badge--prio-${card.prioridade}">${prio.label}</span>` : '';
+
+  // Escola
+  const schoolBadge = `<span class="pf-card-school" style="color:${school.cor || '#64748B'}">${school.sigla || school.nome}</span>`;
+
+  // Título (negrito, destaque)
+  const titulo = `<div class="pf-card-title">${escHtml(card.titulo)}</div>`;
+
+  // Campos visíveis no card (estilo Pipefy: ícone + label + valor)
+  let fields = '';
+
+  if (mod.hasFinancial && card.fornecedor) {
+    fields += `<div class="pf-card-field">
+      <svg class="pf-card-field-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span class="pf-card-field-val">${escHtml(card.fornecedor)}</span>
+    </div>`;
+  }
+
+  if (card.responsavel) {
+    fields += `<div class="pf-card-field">
+      <svg class="pf-card-field-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <span class="pf-card-field-val">${escHtml(card.responsavel)}</span>
+    </div>`;
+  }
+
+  if (mod.hasFinancial && card.valor && card.valor !== '0') {
+    fields += `<div class="pf-card-field">
+      <svg class="pf-card-field-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <span class="pf-card-field-val" style="font-weight:600;color:#10B981">${formatCurrency(card.valor)}</span>
+    </div>`;
+  }
+
+  // Lead: telefone
+  if (mod.hasLead && card.telefone) {
+    fields += `<div class="pf-card-field">
+      <svg class="pf-card-field-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2A19.79 19.79 0 012.05 5.18 2 2 0 014.11 3h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 10.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+      <span class="pf-card-field-val">${escHtml(card.telefone)}</span>
+    </div>`;
+  }
+
+  // Footer: meta info
+  let metaItems = '';
+
   if (card.prazo) {
-    const cls = overdue ? 'card-meta-item overdue' : 'card-meta-item';
-    /* Ícone calendário estilo Lucide — traço fino, 12×12 */
-    const calIcon = overdue
-      ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`
-      : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
-    dueDateHtml = `<span class="${cls}">
-      ${calIcon}
-      ${overdue ? 'Atrasado' : formatDate(card.prazo)}
+    const cls = overdue ? 'pf-meta-item pf-meta-item--overdue' : 'pf-meta-item';
+    const txt  = overdue
+      ? 'Atrasado'
+      : (days === 0 ? 'Hoje' : days === 1 ? 'Amanhã' : `${days}d`);
+    metaItems += `<span class="${cls}">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      ${txt}
     </span>`;
   }
 
-  /* Ícone balão de comentário estilo Lucide */
-  const msgIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-  /* Ícone clipe de anexo estilo Lucide */
-  const clipIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>`;
-
-  const metaItems = [
-    dueDateHtml,
-    comments > 0 ? `<span class="card-meta-item">
-      ${msgIcon}
+  if (comments > 0) {
+    metaItems += `<span class="pf-meta-item">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       ${comments}
-    </span>` : '',
-    anexos > 0 ? `<span class="card-meta-item">
-      ${clipIcon}
-      ${anexos}
-    </span>` : '',
-  ].filter(Boolean).join('');
-
-  const valorHtml = card.valor
-    ? `<div class="card-valor">${formatCurrency(card.valor)}</div>`
-    : '';
-
-  const assigneeHtml = card.responsavel
-    ? `<div class="card-assignee">
-        <div class="assignee-avatar" title="${escHtml(card.responsavel)}">${initials(card.responsavel)}</div>
-       </div>`
-    : '';
-
-  // Bloco de informações de lead (Comercial)
-  let leadInfoHtml = '';
-  if (MODULES[card.modulo]?.hasLead) {
-    const telHtml = card.telefone
-      ? `<a class="lead-contact-link" href="https://wa.me/55${card.telefone.replace(/\D/g,'')}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="WhatsApp">
-          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 1a4.5 4.5 0 100 9 4.5 4.5 0 000-9zm0 1.5a3 3 0 110 6 3 3 0 010-6z" fill="currentColor" opacity=".3"/><path d="M3 5.5s.5-2 2.5-2c1.5 0 2.5 1 2.5 2s-1 2.5-2.5 2.5c-.7 0-1.3-.2-1.7-.5L2.5 8" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>
-          ${escHtml(card.telefone)}
-        </a>` : '';
-    const oriHtml = card.origem
-      ? `<span class="lead-origem-tag">${escHtml(card.origem)}</span>` : '';
-    const intHtml = card.interesse
-      ? `<span class="lead-interesse-tag" title="Interesse">${escHtml(card.interesse)}</span>` : '';
-    if (telHtml || oriHtml || intHtml) {
-      leadInfoHtml = `<div class="lead-card-info">${telHtml}${oriHtml}${intHtml}</div>`;
-    }
+    </span>`;
   }
 
-  // Bloco de link de pagamento — para qualquer módulo com hasPaymentLink
+  if (anexos > 0) {
+    metaItems += `<span class="pf-meta-item">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      ${anexos}
+    </span>`;
+  }
+
+  const assigneeHtml = card.responsavel
+    ? `<div class="pf-assignee" title="${escHtml(card.responsavel)}">${initials(card.responsavel)}</div>` : '';
+
+  // Link de pagamento inline
   let paymentBlockHtml = '';
-  if (MODULES[card.modulo]?.hasPaymentLink) {
-    if (!card.linkPagamento) {
-      paymentBlockHtml = `
-        <div class="card-payment-action">
-          <button class="btn-card-gen-link" data-id="${card.id}">⚡ Gerar Link</button>
-        </div>`;
+  if (mod.hasPaymentLink) {
+    if (!card.linkPagamento && card.fase === mod.paymentGenPhase) {
+      paymentBlockHtml = `<button class="btn-card-gen-link pf-action-btn" data-id="${card.id}">
+        <svg width="10" height="10" viewBox="0 0 13 13" fill="none"><path d="M7 1h4a1 1 0 011 1v4M6 12H2a1 1 0 01-1-1V7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M11.5 1.5L5.5 7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Gerar Link
+      </button>`;
     } else if (card.linkPagamento && card.linkStatus !== 'pago') {
-      const tipTag = card.tipoPagamento
-        ? `<span class="pay-type-tag">${card.tipoPagamento.toUpperCase()}</span>` : '';
-      paymentBlockHtml = `
-        <div class="card-payment-row">
-          ${tipTag}
-          <span class="pay-code">${escHtml(card.codigoTransacao)}</span>
-          <button class="btn-card-confirm-pay" data-id="${card.id}">✓ Pago</button>
-        </div>`;
-    } else if (card.linkStatus === 'pago' && card.codigoTransacao) {
-      paymentBlockHtml = `
-        <div class="card-paid-row">
-          <span class="pay-paid-badge">✅ ${escHtml(card.codigoTransacao)}</span>
-        </div>`;
+      paymentBlockHtml = `<button class="btn-card-confirm-pay pf-action-btn pf-action-btn--success" data-id="${card.id}">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+        Confirmar Pago
+      </button>`;
+    } else if (card.linkStatus === 'pago') {
+      paymentBlockHtml = `<span class="pf-paid-badge">✓ Pago — ${escHtml(card.codigoTransacao || '')}</span>`;
     }
   }
 
   return `
-    <div class="kanban-card" draggable="true" data-id="${card.id}" data-prio="${card.prioridade}">
-      <div class="card-top">
-        <div class="card-badges">
-          <span class="badge badge--cat">${escHtml(card.categoria)}</span>
-          <span class="badge badge--escola">${school.sigla}</span>
-          <span class="badge ${prio.cls}">${prio.icon} ${prio.label}</span>
-        </div>
-        <button class="card-menu-btn" data-id="${card.id}" title="Editar">⋯</button>
+    <div class="kanban-card pf-card" draggable="true" data-id="${card.id}" data-prio="${card.prioridade}">
+      <div class="pf-card-head">
+        ${schoolBadge}
+        <div class="pf-card-badges">${catBadge}${prioBadge}</div>
       </div>
-      ${valorHtml}
-      <p class="card-title">${escHtml(card.titulo)}</p>
-      ${leadInfoHtml}
-      <div class="card-footer">
-        <div class="card-meta">${metaItems}</div>
+      ${titulo}
+      ${fields ? `<div class="pf-card-fields">${fields}</div>` : ''}
+      ${paymentBlockHtml}
+      <div class="pf-card-footer">
+        <div class="pf-card-meta">${metaItems}</div>
         ${assigneeHtml}
       </div>
-      ${paymentBlockHtml}
     </div>`;
 }
 
@@ -1305,6 +1314,67 @@ function openModal(cardId) {
   const mod = getCurrentModule();
   state.editingCardId = cardId || null;
 
+  // ── Tabs do drawer ──
+  document.querySelectorAll('.pf-drawer-tab').forEach(tab => {
+    tab.classList.remove('active');
+    const contentId = 'pf-tab-' + tab.dataset.tab;
+    const content = document.getElementById(contentId);
+    if (content) content.classList.add('hidden');
+  });
+  const firstTab = document.querySelector('.pf-drawer-tab[data-tab="form"]');
+  if (firstTab) {
+    firstTab.classList.add('active');
+    const formContent = document.getElementById('pf-tab-form');
+    if (formContent) formContent.classList.remove('hidden');
+  }
+
+  // ── Painel de mover fase ──
+  const phases = getCurrentPhases();
+  const moveList = document.getElementById('pf-move-list');
+  if (moveList) {
+    moveList.innerHTML = Object.entries(phases).map(([key, phase]) => {
+      const isActive = cardId ? (allCards.find(c => c.id === cardId)?.fase === key) : false;
+      return `<button type="button" class="pf-move-btn ${isActive ? 'active-phase' : ''}" data-phase="${key}" style="${isActive ? `background:${phase.bg};border-color:${phase.color};color:${phase.color}` : ''}">
+        <span style="${isActive ? `color:${phase.color}` : ''}">${escHtml(phase.label)}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>`;
+    }).join('');
+
+    moveList.querySelectorAll('.pf-move-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const newPhase = btn.dataset.phase;
+        const cardIdEdit = document.getElementById('formCardId').value;
+        if (!cardIdEdit) return;
+        const card = allCards.find(c => c.id === cardIdEdit);
+        if (!card || card.fase === newPhase) return;
+        const oldLabel = getPhaseStyle(state.currentModule, card.fase).label;
+        const newLabel = getPhaseStyle(state.currentModule, newPhase).label;
+        card.fase = newPhase;
+        persistCards();
+        apiMoveCard(card.id, newPhase, 0);
+        card.historico.push({ texto:`Movido para <strong>${newLabel}</strong> (via painel de fases)`, data:now(), usuario: currentUser?.nome || 'Usuário' });
+        AutomationEngine.execute('card_enter_phase', card, { fase: newPhase });
+        showToast(`Card movido para "${newLabel}"`, 'success');
+        closeModal();
+        renderAll();
+      });
+    });
+  }
+
+  // ── Fase atual badge ──
+  if (cardId) {
+    const card = allCards.find(c => c.id === cardId);
+    if (card) {
+      const phaseStyle = getPhaseStyle(state.currentModule, card.fase);
+      const badge = document.getElementById('pf-phase-badge');
+      if (badge) {
+        badge.textContent = phaseStyle.label;
+        badge.style.background = phaseStyle.bg;
+        badge.style.color = phaseStyle.color;
+      }
+    }
+  }
+
   // Update module badge
   document.getElementById('modalModuleBadge').textContent = mod.shortLabel;
 
@@ -1434,13 +1504,13 @@ function openModal(cardId) {
     document.getElementById('attachCountBadge').style.display = 'none';
   }
 
-  document.getElementById('modalOverlay').classList.remove('hidden');
+  document.getElementById('modalOverlay').style.display = 'flex';
   document.body.style.overflow = 'hidden';
   setTimeout(() => document.getElementById('formTitulo').focus(), 50);
 }
 
 function closeModal() {
-  document.getElementById('modalOverlay').classList.add('hidden');
+  document.getElementById('modalOverlay').style.display = 'none';
   document.body.style.overflow = '';
   state.editingCardId = null;
 }
@@ -4824,6 +4894,119 @@ function initChatFinanceiro() {
 }
 
 /* ══════════════════════════════════════════════════════════
+   FORMULÁRIO PÚBLICO — Compartilhamento
+══════════════════════════════════════════════════════════ */
+function openFormShareModal() {
+  const mod = getCurrentModule();
+  const modKey = state.currentModule;
+  const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'form.html';
+  const link = `${baseUrl}?modulo=${encodeURIComponent(modKey)}`;
+  const firstPhase = Object.values(mod.fases || {})[0]?.label || '—';
+
+  document.getElementById('formShareModuleName').textContent = mod.label || modKey;
+  document.getElementById('formShareLink').value = link;
+  document.getElementById('formSharePhaseName').textContent = firstPhase;
+
+  // QR Code via API pública
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(link)}`;
+  const qrImg = document.getElementById('formShareQrImg');
+  if (qrImg) qrImg.src = qrUrl;
+
+  document.getElementById('formShareOverlay').style.display = 'flex';
+}
+
+function closeFormShareModal() {
+  document.getElementById('formShareOverlay').style.display = 'none';
+}
+
+function initFormShare() {
+  document.getElementById('formShareBtn').addEventListener('click', openFormShareModal);
+  document.getElementById('formShareClose').addEventListener('click', closeFormShareModal);
+  document.getElementById('formShareOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('formShareOverlay')) closeFormShareModal();
+  });
+  document.getElementById('formShareCopyBtn').addEventListener('click', () => {
+    const link = document.getElementById('formShareLink').value;
+    navigator.clipboard.writeText(link).then(
+      () => showToast('Link copiado para a área de transferência!', 'success'),
+      () => showToast('Não foi possível copiar o link', 'warn')
+    );
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   SISTEMA DE CONVITES
+══════════════════════════════════════════════════════════ */
+function openInviteModal() {
+  // Renderiza checkboxes de módulos
+  const container = document.getElementById('inviteModulosCheck');
+  if (container) {
+    container.innerHTML = Object.entries(MODULES).map(([key, mod]) =>
+      `<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#475569;cursor:pointer">
+        <input type="checkbox" value="${key}" style="width:13px;height:13px">
+        ${escHtml(mod.shortLabel || mod.label)}
+      </label>`
+    ).join('');
+  }
+  document.getElementById('inviteLinkResult').style.display = 'none';
+  document.getElementById('inviteError').style.display = 'none';
+  document.getElementById('inviteEmail').value = '';
+  document.getElementById('inviteNome').value = '';
+  document.getElementById('inviteModalOverlay').style.display = 'flex';
+}
+
+function closeInviteModal() {
+  document.getElementById('inviteModalOverlay').style.display = 'none';
+}
+
+function initInvite() {
+  document.getElementById('inviteModalClose')?.addEventListener('click', closeInviteModal);
+  document.getElementById('inviteCancelBtn')?.addEventListener('click', closeInviteModal);
+  document.getElementById('inviteModalOverlay')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('inviteModalOverlay')) closeInviteModal();
+  });
+
+  document.getElementById('inviteSubmitBtn')?.addEventListener('click', async () => {
+    const email  = document.getElementById('inviteEmail').value.trim();
+    const nome   = document.getElementById('inviteNome').value.trim();
+    const perfil = document.getElementById('invitePerfil').value;
+    const modulos = [...document.querySelectorAll('#inviteModulosCheck input:checked')].map(c => c.value);
+    const errorEl = document.getElementById('inviteError');
+    const resultEl = document.getElementById('inviteLinkResult');
+    const btn = document.getElementById('inviteSubmitBtn');
+
+    errorEl.style.display = 'none';
+    resultEl.style.display = 'none';
+
+    if (!email) { errorEl.textContent = 'Informe o e-mail do convidado.'; errorEl.style.display = ''; return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Gerando...';
+
+    try {
+      const res = await apiRequest('POST', '/api/invite', { email, nome, perfil, modulos, escolas:[] });
+      document.getElementById('inviteLinkInput').value = res.url;
+      resultEl.style.display = '';
+      showToast('Convite gerado com sucesso!', 'success');
+    } catch (err) {
+      errorEl.textContent = err.message || 'Erro ao gerar convite.';
+      errorEl.style.display = '';
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Gerar Link de Convite`;
+    }
+  });
+
+  document.getElementById('inviteLinkCopyBtn')?.addEventListener('click', () => {
+    const link = document.getElementById('inviteLinkInput').value;
+    navigator.clipboard.writeText(link).then(
+      () => showToast('Link de convite copiado!', 'success'),
+      () => showToast('Não foi possível copiar', 'warn')
+    );
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════ */
 function init() {
@@ -4894,6 +5077,19 @@ function init() {
   document.getElementById('modalOverlay').addEventListener('click', e => {
     if (e.target === document.getElementById('modalOverlay')) closeModal();
   });
+
+  // Tab switching no drawer
+  document.addEventListener('click', (e) => {
+    const tab = e.target.closest('.pf-drawer-tab');
+    if (!tab) return;
+    const tabName = tab.dataset.tab;
+    document.querySelectorAll('.pf-drawer-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.pf-drawer-tab-content').forEach(c => c.classList.add('hidden'));
+    tab.classList.add('active');
+    const content = document.getElementById('pf-tab-' + tabName);
+    if (content) content.classList.remove('hidden');
+  });
+
   document.getElementById('cardForm').addEventListener('submit', saveCard);
   document.getElementById('deleteCardBtn').addEventListener('click', deleteCard);
 
@@ -4958,6 +5154,8 @@ function init() {
   initAutomationPanel();
   initPhaseEditor();
   initChatFinanceiro();
+  initFormShare();
+  initInvite();
   initLogin();
 
   const initialHash = location.hash.slice(1);

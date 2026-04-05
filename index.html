@@ -181,6 +181,16 @@
           <span class="nav-text">Gerar Pagamento</span>
           <span class="nav-badge" id="badge-central_pagamentos">0</span>
         </a>
+        <a href="#chat_financeiro" class="nav-item" data-module="chat_financeiro">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M13 2H3a1 1 0 00-1 1v7a1 1 0 001 1h2v2.5l3-2.5h5a1 1 0 001-1V3a1 1 0 00-1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M5 6h6M5 8.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="nav-text">Chat Financeiro</span>
+          <span class="nav-badge nav-badge--green" id="badge-chat_financeiro" style="display:none">0</span>
+        </a>
       </div>
 
       <div class="nav-section">
@@ -264,6 +274,17 @@
           </span>
           <span class="nav-text">Recursos Humanos</span>
           <span class="nav-badge" id="badge-recursos_humanos">0</span>
+        </a>
+
+        <a href="#comercial" class="nav-item" data-module="comercial">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2C5.2 2 3 4 3 6.5c0 1.5.7 2.8 1.8 3.7L4 14l3-1.5c.3.1.7.1 1 .1C10.8 12.6 13 10.6 13 8c0-3.3-2.2-6-5-6z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 7.5h4M6 5.5h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="nav-text">Comercial — CRM</span>
+          <span class="nav-badge" id="badge-comercial">0</span>
         </a>
       </div>
 
@@ -382,6 +403,14 @@
             </svg>
           </button>
         </div>
+
+        <button class="btn-auto" id="formShareBtn" title="Formulário público do fluxo">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M8.5 1H3.5A1.5 1.5 0 002 2.5v8A1.5 1.5 0 003.5 12h6A1.5 1.5 0 0011 10.5V4L8.5 1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+            <path d="M8.5 1v3H11M4.5 7h4M4.5 9.5h2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          Formulário
+        </button>
 
         <button class="btn-auto" id="automationBtn" title="Automações do fluxo">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
@@ -629,28 +658,200 @@
         <iframe id="agendaFrame" src="" class="agenda-iframe" title="Agenda Edu"></iframe>
       </section>
 
+      <!-- ══ CHAT FINANCEIRO — AgendaEdu ══ -->
+      <section class="chat-fin-view hidden" id="chatFinanceiroView">
+
+        <!-- Topbar do Chat -->
+        <div class="chat-fin-topbar">
+          <div class="chat-fin-topbar-left">
+            <div class="chat-fin-icon">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M15 2H3a1 1 0 00-1 1v9a1 1 0 001 1h3v2.5l3.5-2.5H15a1 1 0 001-1V3a1 1 0 00-1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="chat-fin-title">Chat Financeiro</h2>
+              <p class="chat-fin-subtitle">Atendimentos via AgendaEdu · Canal Financeiro</p>
+            </div>
+          </div>
+          <div class="chat-fin-topbar-right">
+            <select id="chatFinChannelSelect" class="chat-fin-channel-select">
+              <option value="">Carregando canais...</option>
+            </select>
+            <select id="chatFinStatusFilter" class="chat-fin-status-filter">
+              <option value="">Todos os status</option>
+              <option value="waiting">Aguardando</option>
+              <option value="in_attendance">Em Atendimento</option>
+              <option value="done">Encerrado</option>
+              <option value="pending_ratings">Pend. Avaliação</option>
+            </select>
+            <button class="chat-fin-refresh-btn" id="chatFinRefreshBtn" title="Atualizar tickets">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <path d="M12.5 7.5A5 5 0 112.5 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M12.5 3v4.5H8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Layout de duas colunas -->
+        <div class="chat-fin-body">
+
+          <!-- Coluna esquerda: lista de tickets -->
+          <div class="chat-fin-list-col" id="chatFinListCol">
+            <div class="chat-fin-search-wrap">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="chat-fin-search-icon">
+                <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M9.5 9.5l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+              <input type="text" id="chatFinSearch" class="chat-fin-search" placeholder="Buscar por nome ou assunto...">
+            </div>
+            <div class="chat-fin-tickets" id="chatFinTickets">
+              <div class="chat-fin-empty" id="chatFinEmptyList">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <path d="M33 7H7a2 2 0 00-2 2v18a2 2 0 002 2h7v6l8-6h11a2 2 0 002-2V9a2 2 0 00-2-2z" stroke="#94A3B8" stroke-width="1.5" stroke-linejoin="round"/>
+                </svg>
+                <span>Nenhum ticket encontrado</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Coluna direita: detalhe do ticket -->
+          <div class="chat-fin-detail-col" id="chatFinDetailCol">
+            <div class="chat-fin-detail-empty" id="chatFinDetailEmpty">
+              <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+                <path d="M42 8H10a2 2 0 00-2 2v24a2 2 0 002 2h9v8l10-8h13a2 2 0 002-2V10a2 2 0 00-2-2z" stroke="#CBD5E1" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M18 22h16M18 28h10" stroke="#CBD5E1" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <p>Selecione um ticket para ver o detalhe</p>
+            </div>
+            <div class="chat-fin-detail-content hidden" id="chatFinDetailContent">
+              <!-- Header do ticket -->
+              <div class="chat-fin-detail-header">
+                <div class="chat-fin-detail-meta">
+                  <span class="chat-fin-detail-status" id="chatFinDetailStatus">—</span>
+                  <span class="chat-fin-detail-date" id="chatFinDetailDate">—</span>
+                </div>
+                <h3 class="chat-fin-detail-title" id="chatFinDetailTitle">—</h3>
+                <div class="chat-fin-detail-info">
+                  <span class="chat-fin-detail-requester" id="chatFinDetailRequester">—</span>
+                  <span class="chat-fin-detail-attendant" id="chatFinDetailAttendant"></span>
+                </div>
+              </div>
+
+              <!-- Mensagem (descrição do ticket) -->
+              <div class="chat-fin-messages" id="chatFinMessages">
+                <!-- Preenchido por JS -->
+              </div>
+
+              <!-- Rodapé: ações -->
+              <div class="chat-fin-actions" id="chatFinActions">
+                <button class="chat-fin-btn chat-fin-btn--start hidden" id="chatFinBtnStart">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M5 2.5l6 4.5-6 4.5V2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                  </svg>
+                  Iniciar Atendimento
+                </button>
+                <button class="chat-fin-btn chat-fin-btn--close hidden" id="chatFinBtnClose">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+                    <path d="M4.5 7l2 2 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Encerrar Atendimento
+                </button>
+                <a class="chat-fin-btn chat-fin-btn--external" id="chatFinBtnExternal" href="https://app.agendaedu.com" target="_blank" rel="noopener">
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                    <path d="M7.5 1.5h4v4M11.5 1.5l-5 5M5.5 3H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Abrir no AgendaEdu
+                </a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Banner de configuração (se API não estiver configurada) -->
+        <div class="chat-fin-config-banner hidden" id="chatFinConfigBanner">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="8.5" stroke="#F59E0B" stroke-width="1.5"/>
+            <path d="M10 6v4M10 13v.5" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <div>
+            <strong>Integração não configurada</strong>
+            <span>Adicione <code>AGENDAEDU_CLIENT_ID</code>, <code>AGENDAEDU_CLIENT_SECRET</code> e <code>AGENDAEDU_SCHOOL_TOKEN</code> nas variáveis de ambiente do Railway.</span>
+          </div>
+        </div>
+
+      </section>
+
     </main>
   </div>
 </div>
 
-<!-- ══ MODAL ══════════════════════════════════════════════ -->
-<div class="modal-overlay hidden" id="modalOverlay">
-  <div class="modal" id="modal" role="dialog" aria-modal="true">
+<!-- ══ CARD DRAWER — ESTILO PIPEFY ═════════════════════════ -->
+<div class="pf-drawer-overlay" id="modalOverlay" style="display:none">
+  <div class="pf-drawer" id="modal" role="dialog" aria-modal="true">
 
-    <div class="modal-header">
-      <div class="modal-title-group">
-        <div class="modal-module-badge" id="modalModuleBadge">Solicitações Admin.</div>
-        <h2 class="modal-title" id="modalTitle">Nova Solicitação</h2>
-        <p class="modal-subtitle" id="modalSubtitle">Preencha os campos abaixo</p>
+    <!-- ── COLUNA ESQUERDA: Dados do card ── -->
+    <div class="pf-drawer-left" id="pf-drawer-left">
+
+      <!-- Header do drawer -->
+      <div class="pf-drawer-header">
+        <div class="pf-drawer-header-meta">
+          <span class="pf-drawer-module-badge" id="modalModuleBadge">Módulo</span>
+          <span class="pf-drawer-id" id="modalSubtitle"></span>
+        </div>
+        <button class="pf-drawer-close" id="modalClose" aria-label="Fechar">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>
-      <button class="modal-close" id="modalClose" aria-label="Fechar">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </div>
 
-    <div class="modal-body">
+      <!-- Título do card -->
+      <div class="pf-drawer-title-wrap">
+        <h2 class="pf-drawer-title" id="modalTitle">Novo Card</h2>
+      </div>
+
+      <!-- Quick actions: responsável, vencimento, etiquetas -->
+      <div class="pf-quick-actions">
+        <div class="pf-quick-action" id="qa-responsavel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <span id="qa-resp-label">Adicionar responsável</span>
+        </div>
+        <div class="pf-quick-action" id="qa-vencimento">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="qa-prazo-label">Vencimento</span>
+        </div>
+        <div class="pf-quick-action" id="qa-prioridade">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h18v13H3zM9 21h6M12 17v4"/></svg>
+          <span id="qa-prio-label">Prioridade</span>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="pf-drawer-tabs">
+        <button class="pf-drawer-tab active" data-tab="form">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Formulário
+        </button>
+        <button class="pf-drawer-tab" data-tab="comentarios">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Comentários
+        </button>
+        <button class="pf-drawer-tab" data-tab="historico">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Histórico
+        </button>
+        <button class="pf-drawer-tab" data-tab="anexos">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          Anexos
+        </button>
+      </div>
+
+      <!-- Tab content -->
+      <div class="pf-drawer-tab-content" id="pf-tab-form">
       <form id="cardForm" autocomplete="off">
         <input type="hidden" id="formCardId" />
 
@@ -742,6 +943,54 @@
           <div class="form-group" data-campo="vencimento">
             <label class="form-label" for="formVencimento" id="label-vencimento">Vencimento</label>
             <input type="date" class="form-input" id="formVencimento" />
+          </div>
+        </div>
+
+        <!-- ══ CAMPOS DE LEAD — Comercial / CRM ══ -->
+        <!-- Contato: Telefone + E-mail -->
+        <div class="form-row" id="leadContactFields" style="display:none">
+          <div class="form-group" data-campo="telefone">
+            <label class="form-label" for="formTelefone">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="display:inline-block;vertical-align:-1px;margin-right:3px">
+                <path d="M3 1.5C3 1.5 2 3.5 2.5 5c.3.8 1 1.5 2 2.5 1 1 1.7 1.7 2.5 2 1.5.5 3.5-.5 3.5-.5L9 7.5 7.5 7l-.5 1S5.5 7.5 4.5 6.5 3.5 5 3.5 5L4.5 4.5 4 3 3 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Telefone / WhatsApp
+            </label>
+            <input type="tel" class="form-input" id="formTelefone" placeholder="(71) 99999-9999" />
+          </div>
+          <div class="form-group" data-campo="emailLead">
+            <label class="form-label" for="formEmailLead">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="display:inline-block;vertical-align:-1px;margin-right:3px">
+                <rect x="1" y="2.5" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+                <path d="M1 5l5 3 5-3" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+              </svg>
+              E-mail do Lead
+            </label>
+            <input type="email" class="form-input" id="formEmailLead" placeholder="contato@email.com" />
+          </div>
+        </div>
+
+        <!-- Origem + Interesse -->
+        <div class="form-row" id="leadOriginFields" style="display:none">
+          <div class="form-group" data-campo="origem">
+            <label class="form-label" for="formOrigem">Origem do Lead</label>
+            <select class="form-select" id="formOrigem">
+              <option value="">Selecionar origem...</option>
+              <option value="Indicação">📣 Indicação</option>
+              <option value="Site / SEO">🌐 Site / SEO</option>
+              <option value="Redes Sociais">📱 Redes Sociais</option>
+              <option value="Instagram">📸 Instagram</option>
+              <option value="Facebook">👍 Facebook</option>
+              <option value="WhatsApp">💬 WhatsApp</option>
+              <option value="Evento">🎉 Evento</option>
+              <option value="Captação Ativa">🎯 Captação Ativa</option>
+              <option value="Parceria">🤝 Parceria</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+          <div class="form-group" data-campo="interesse">
+            <label class="form-label" for="formInteresse">Interesse / Série</label>
+            <input type="text" class="form-input" id="formInteresse" placeholder="Ex: Ed. Infantil — Maternal 2" />
           </div>
         </div>
 
@@ -889,27 +1138,69 @@
           <div class="history-list" id="historyList"></div>
         </div>
 
+        <!-- Actions -->
+        <div class="pf-form-actions">
+          <button type="submit" class="pf-btn-save" id="saveCardBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Salvar
+          </button>
+          <button type="button" class="pf-btn-cancel" id="cancelModalBtn">Cancelar</button>
+        </div>
+
+        <!-- Delete area -->
+        <div id="deleteCardArea" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #F1F5F9;">
+          <button type="button" class="pf-btn-delete" id="deleteCardBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            Excluir este card
+          </button>
+        </div>
       </form>
+
+      <!-- Tab: Comentários -->
+      <div class="pf-drawer-tab-content hidden" id="pf-tab-comentarios">
+        <div id="commentSection">
+          <div class="pf-comment-input-row">
+            <textarea class="pf-field-input pf-field-textarea" id="commentInput" rows="2" placeholder="Escreva um comentário... (Enter para enviar)"></textarea>
+            <button type="button" class="pf-btn-comment" id="addCommentBtn">Comentar</button>
+          </div>
+          <div class="pf-comment-list" id="commentList"></div>
+        </div>
+      </div>
+
+      <!-- Tab: Histórico -->
+      <div class="pf-drawer-tab-content hidden" id="pf-tab-historico">
+        <div id="historySection">
+          <div class="pf-history-list" id="historyList"></div>
+        </div>
+      </div>
+
+      <!-- Tab: Anexos -->
+      <div class="pf-drawer-tab-content hidden" id="pf-tab-anexos">
+        <div class="attach-zone" id="attachZone">
+          <input type="file" id="attachInput" multiple style="display:none">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          <span>Arraste arquivos ou <label for="attachInput" style="color:var(--accent);cursor:pointer;font-weight:600">clique aqui</label></span>
+        </div>
+        <div id="attachList" class="attach-list"></div>
+      </div>
+
     </div>
 
-    <div class="modal-footer">
-      <div id="deleteCardArea" style="display:none">
-        <button type="button" class="btn-danger" id="deleteCardBtn">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <path d="M2 3.5h9M5 3.5V2h3v1.5M5 5.5v4M8 5.5v4M3 3.5l.8 7h5.4l.8-7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-          </svg>
-          Excluir
-        </button>
+    <!-- ── COLUNA CENTRAL: Fase atual ── -->
+    <div class="pf-drawer-center">
+      <div class="pf-phase-section">
+        <div class="pf-phase-label">Fase atual</div>
+        <div class="pf-phase-current" id="pf-phase-current">
+          <span class="pf-phase-badge" id="pf-phase-badge">—</span>
+        </div>
+        <div class="pf-phase-info" id="pf-phase-info"></div>
       </div>
-      <div class="modal-footer-right">
-        <button type="button" class="btn-secondary" id="cancelModalBtn">Cancelar</button>
-        <button type="submit" form="cardForm" class="btn-primary" id="saveCardBtn">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <path d="M2 6.5l3.5 3.5 5.5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Salvar
-        </button>
-      </div>
+    </div>
+
+    <!-- ── COLUNA DIREITA: Mover para fase ── -->
+    <div class="pf-drawer-right">
+      <div class="pf-move-title">Mover card para fase</div>
+      <div class="pf-move-list" id="pf-move-list"></div>
     </div>
 
   </div>
@@ -989,6 +1280,107 @@
       </button>
     </div>
 
+  </div>
+</div>
+
+<!-- ══ MODAL FORMULÁRIO PÚBLICO ════════════════════════════ -->
+<div class="pf-share-overlay" id="formShareOverlay" style="display:none">
+  <div class="pf-share-modal">
+    <div class="pf-share-header">
+      <div>
+        <h3 class="pf-share-title">Formulário Público</h3>
+        <p class="pf-share-subtitle" id="formShareModuleName">Compartilhe este link com quem não tem acesso ao sistema</p>
+      </div>
+      <button class="pf-drawer-close" id="formShareClose">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <div class="pf-share-body">
+      <label class="pf-share-label">Link do formulário</label>
+      <div class="pf-share-link-row">
+        <input type="text" class="pf-share-link-input" id="formShareLink" readonly>
+        <button class="pf-share-copy-btn" id="formShareCopyBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copiar
+        </button>
+      </div>
+      <div class="pf-share-qr" id="formShareQr">
+        <img id="formShareQrImg" src="" alt="QR Code" style="width:120px;height:120px;border-radius:8px">
+      </div>
+      <p class="pf-share-hint">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        As submissões entram automaticamente na primeira fase do fluxo <strong id="formSharePhaseName"></strong>.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL CONVIDAR PESSOAS ══════════════════════════════ -->
+<div class="pf-share-overlay" id="inviteModalOverlay" style="display:none">
+  <div class="pf-share-modal" style="max-width:520px">
+    <div class="pf-share-header">
+      <div>
+        <h3 class="pf-share-title">Convidar Pessoas</h3>
+        <p class="pf-share-subtitle">O convidado receberá um link para se cadastrar e acessar o sistema</p>
+      </div>
+      <button class="pf-drawer-close" id="inviteModalClose">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="pf-share-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
+        <div style="margin-bottom:10px">
+          <label class="pf-share-label">E-mail *</label>
+          <input type="email" id="inviteEmail" style="width:100%;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;outline:none" placeholder="email@escola.com.br">
+        </div>
+        <div style="margin-bottom:10px">
+          <label class="pf-share-label">Nome (opcional)</label>
+          <input type="text" id="inviteNome" style="width:100%;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;outline:none" placeholder="Nome do convidado">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label class="pf-share-label">Perfil de acesso</label>
+        <select id="invitePerfil" style="width:100%;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;outline:none">
+          <option value="operador">Operador — pode criar e editar cards</option>
+          <option value="gestor">Gestor — pode criar, editar e gerenciar</option>
+          <option value="visualizador">Somente leitura — apenas visualiza</option>
+          <option value="admin">Admin — acesso total</option>
+        </select>
+      </div>
+      <div style="margin-bottom:14px">
+        <label class="pf-share-label">Acesso aos módulos (deixe vazio para todos)</label>
+        <div id="inviteModulosCheck" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:4px"></div>
+      </div>
+
+      <div id="inviteLinkResult" style="display:none;margin-bottom:14px">
+        <label class="pf-share-label">Link de convite gerado</label>
+        <div class="pf-share-link-row">
+          <input type="text" id="inviteLinkInput" class="pf-share-link-input" readonly>
+          <button class="pf-share-copy-btn" id="inviteLinkCopyBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copiar
+          </button>
+        </div>
+        <p style="font-size:11px;color:#10B981;margin-top:6px">✓ Convite criado! Compartilhe o link acima com o convidado. Expira em 7 dias.</p>
+      </div>
+
+      <div id="inviteError" style="display:none;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;color:#DC2626;font-size:12px;font-weight:500;padding:8px 12px;margin-bottom:10px"></div>
+
+      <div style="display:flex;gap:8px">
+        <button id="inviteSubmitBtn" style="
+          display:inline-flex;align-items:center;gap:6px;
+          padding:8px 18px;background:#4F46E5;color:#fff;
+          border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
+        ">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Gerar Link de Convite
+        </button>
+        <button id="inviteCancelBtn" style="padding:8px 14px;background:#F1F5F9;color:#475569;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">
+          Fechar
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
