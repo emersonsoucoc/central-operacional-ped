@@ -2100,6 +2100,179 @@ form { display:flex; flex-direction:column; gap:14px; }
 .form-hint { font-size:11px; color:var(--quadro-muted); margin-top:4px; min-height:14px; }
 
 /* ══════════════════════════════════════════════════════════
+   EQUIPE & PERMISSÕES — Tabela Untitled UI + Modal Invite
+══════════════════════════════════════════════════════════ */
+
+/* ── Barra de filtros ── */
+.team-filter-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+.team-search-wrap { position:relative; flex:1; min-width:200px; }
+.team-search-icon {
+  position:absolute; left:10px; top:50%; transform:translateY(-50%);
+  color:var(--quadro-muted); pointer-events:none;
+}
+.team-search-input {
+  width:100%; padding:8px 10px 8px 32px;
+  border:1px solid var(--quadro-border); border-radius:8px;
+  background:var(--quadro-surface); color:var(--quadro-text);
+  font-size:13px; outline:none; transition:border-color var(--t-fast); font-family:inherit;
+}
+.team-search-input:focus { border-color:var(--accent); }
+.team-perfil-filter {
+  padding:8px 10px; border:1px solid var(--quadro-border); border-radius:8px;
+  background:var(--quadro-surface); color:var(--quadro-text); font-size:13px;
+  outline:none; cursor:pointer; min-width:160px; font-family:inherit;
+}
+
+/* ── Table ── */
+.team-table-wrap { padding:0; overflow-x:auto; }
+.team-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+.team-th {
+  padding:10px 16px; text-align:left; font-size:11px; font-weight:600;
+  color:var(--quadro-muted); text-transform:uppercase; letter-spacing:0.5px;
+  border-bottom:1px solid var(--quadro-border); white-space:nowrap;
+  background:var(--quadro-card);
+}
+.team-th:first-child { border-radius:10px 0 0 0; }
+.team-th:last-child  { border-radius:0 10px 0 0; }
+.team-td { padding:14px 16px; border-bottom:1px solid var(--quadro-border); vertical-align:middle; }
+.team-tr:last-child .team-td { border-bottom:none; }
+.team-tr { transition:background var(--t-fast); }
+.team-tr:hover .team-td { background:var(--quadro-card); }
+.team-tr--inactive .team-td { opacity:0.55; }
+
+/* ── User cell ── */
+.team-user-cell { display:flex; align-items:center; gap:12px; }
+.team-avatar {
+  width:38px; height:38px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:13px; font-weight:700; letter-spacing:0.5px;
+}
+.team-user-info { display:flex; flex-direction:column; gap:1px; min-width:0; }
+.team-user-nome  { font-size:13.5px; font-weight:600; color:var(--quadro-text); white-space:nowrap; }
+.team-user-email { font-size:12px; color:var(--quadro-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
+
+/* ── Role badge ── */
+.team-role-badge {
+  display:inline-flex; align-items:center; padding:3px 10px;
+  border-radius:99px; font-size:11.5px; font-weight:600; letter-spacing:0.2px; white-space:nowrap;
+}
+
+/* ── Status badge ── */
+.team-status-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 10px; border-radius:99px; font-size:12px; font-weight:500;
+}
+.team-status-badge--active   { background:#ECFDF5; color:#059669; }
+.team-status-badge--inactive { background:#F1F5F9; color:#64748B; }
+.team-status-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.team-status-badge--active   .team-status-dot { background:#10B981; }
+.team-status-badge--inactive .team-status-dot { background:#94A3B8; }
+
+/* ── Schools chip ── */
+.team-schools-chip {
+  font-size:12px; color:var(--quadro-muted);
+  background:var(--quadro-card); border:1px solid var(--quadro-border);
+  border-radius:6px; padding:2px 8px; white-space:nowrap;
+}
+
+/* ── Row actions ── */
+.team-td--actions { text-align:right; }
+.team-actions { display:flex; align-items:center; justify-content:flex-end; gap:6px; opacity:0; transition:opacity var(--t-fast); }
+.team-tr:hover .team-actions { opacity:1; }
+.team-action-btn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 10px; border-radius:7px; font-size:12px; font-weight:500;
+  border:1px solid var(--quadro-border); background:var(--quadro-surface);
+  color:var(--quadro-text); cursor:pointer; transition:all var(--t-fast); white-space:nowrap;
+}
+.team-action-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+.team-action-btn--danger:hover { border-color:#EF4444; color:#EF4444; background:#FEF2F2; }
+.team-empty-row { padding:32px; text-align:center; color:var(--quadro-muted); font-size:14px; }
+
+/* ── Invite Modal ── */
+.invite-modal {
+  background:var(--quadro-surface); border-radius:16px; width:100%; max-width:620px;
+  max-height:88vh; display:flex; flex-direction:column;
+  box-shadow:0 20px 60px rgba(0,0,0,0.18); overflow:hidden;
+}
+.invite-modal-header {
+  display:flex; align-items:flex-start; justify-content:space-between;
+  padding:22px 24px 18px; border-bottom:1px solid var(--quadro-border); flex-shrink:0;
+}
+.invite-modal-header h3 { font-size:17px; font-weight:700; color:var(--quadro-text); margin:0; }
+.invite-modal-subtitle  { font-size:13px; color:var(--quadro-muted); margin:3px 0 0; }
+.invite-modal-body {
+  flex:1; overflow-y:auto; padding:0 24px 4px;
+  display:flex; flex-direction:column; gap:0;
+}
+.invite-modal-footer {
+  display:flex; justify-content:flex-end; gap:10px;
+  padding:16px 24px; border-top:1px solid var(--quadro-border); flex-shrink:0;
+}
+
+/* ── Invite sections ── */
+.invite-section { padding:20px 0; border-bottom:1px solid var(--quadro-border); }
+.invite-section:last-child { border-bottom:none; }
+.invite-section-title {
+  font-size:11px; font-weight:700; color:var(--quadro-muted);
+  margin:0 0 14px; display:flex; align-items:center; gap:8px;
+  text-transform:uppercase; letter-spacing:0.6px;
+}
+.invite-section-badge {
+  font-size:10px; font-weight:600; padding:2px 7px; border-radius:99px;
+  background:var(--accent-light); color:var(--accent); letter-spacing:0.3px; text-transform:none;
+}
+.invite-section-desc { font-size:12px; color:var(--quadro-muted); margin:-8px 0 14px; }
+.invite-fields-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:560px) { .invite-fields-grid { grid-template-columns:1fr; } }
+.invite-password-row { display:flex; gap:8px; align-items:center; }
+.invite-password-row .form-input { flex:1; }
+.invite-role-hint { font-size:12px; color:var(--quadro-muted); min-height:16px; margin-top:4px; }
+
+/* ── Role cards ── */
+.role-cards-row { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
+.role-card {
+  border:1.5px solid var(--quadro-border); border-radius:10px;
+  padding:12px 14px; cursor:pointer; transition:all var(--t-fast);
+  display:flex; flex-direction:column; gap:4px;
+}
+.role-card:hover    { border-color:var(--accent); background:var(--accent-light); }
+.role-card--selected { border-color:var(--accent); background:var(--accent-light); }
+.role-card-icon {
+  width:32px; height:32px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center; margin-bottom:6px;
+}
+.role-card-label { font-size:13px; font-weight:600; color:var(--quadro-text); }
+.role-card-desc  { font-size:11px; color:var(--quadro-muted); }
+
+/* ── Granular permissions ── */
+.granular-perms-grid { display:flex; flex-direction:column; gap:2px; }
+.granular-perm-item {
+  display:flex; align-items:center; gap:12px; padding:10px 12px;
+  border-radius:8px; cursor:pointer; transition:background var(--t-fast);
+}
+.granular-perm-item:hover { background:var(--quadro-card); }
+.granular-perm-check-wrap { position:relative; flex-shrink:0; }
+.granular-perm-check-wrap input[type="checkbox"] { position:absolute; opacity:0; width:0; height:0; }
+.granular-cb-custom {
+  width:18px; height:18px; border-radius:5px; display:flex;
+  align-items:center; justify-content:center; flex-shrink:0;
+  border:1.5px solid var(--quadro-border); background:var(--quadro-surface);
+  transition:all var(--t-fast); cursor:pointer;
+}
+.granular-perm-check-wrap input:checked ~ .granular-cb-custom {
+  background:var(--accent); border-color:var(--accent);
+}
+.granular-perm-check-wrap input:checked ~ .granular-cb-custom::after {
+  content:''; display:block; width:4px; height:8px;
+  border:2px solid #fff; border-top:none; border-left:none;
+  transform:rotate(45deg) translateY(-1px);
+}
+.granular-perm-text { flex:1; min-width:0; }
+.granular-perm-label { font-size:13px; font-weight:500; color:var(--quadro-text); display:block; }
+.granular-perm-desc  { font-size:11.5px; color:var(--quadro-muted); display:block; margin-top:1px; }
+
+/* ══════════════════════════════════════════════════════════
    DASHBOARD GERAL
 ══════════════════════════════════════════════════════════ */
 .dashboard-view {
@@ -2632,7 +2805,7 @@ form { display:flex; flex-direction:column; gap:14px; }
 
 .pf-drawer {
   display: flex;
-  width: min(96vw, 900px);
+  width: min(96vw, 680px);
   height: min(90vh, 720px);
   background: #F8FAFC;
   border-radius: 16px;
@@ -3128,16 +3301,9 @@ form { display:flex; flex-direction:column; gap:14px; }
   text-transform: capitalize;
 }
 
-/* PAINEL DIREITO — fase atual + movimentação (layout 2 colunas) */
-.pf-drawer-center { display: none; } /* removido — conteúdo migrou para pf-drawer-right */
-
-.pf-drawer-right {
-  width: 228px; flex-shrink: 0;
-  background: #FAFBFC;
-  border-left: 1px solid #E8EDF4;
-  overflow-y: auto;
-  display: flex; flex-direction: column;
-}
+/* PAINEL DIREITO — oculto, apenas formulário visível */
+.pf-drawer-center { display: none; }
+.pf-drawer-right   { display: none; }
 
 /* Seção: Fase atual */
 .pf-phase-section {
