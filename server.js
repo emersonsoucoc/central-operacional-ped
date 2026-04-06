@@ -829,7 +829,7 @@ const AGENDAEDU_CLIENT_ID     = process.env.AGENDAEDU_CLIENT_ID     || '';
 const AGENDAEDU_CLIENT_SECRET = process.env.AGENDAEDU_CLIENT_SECRET || '';
 const AGENDAEDU_SCHOOL_TOKEN  = process.env.AGENDAEDU_SCHOOL_TOKEN  || '';
 const AGENDAEDU_OAUTH_URL     = process.env.AGENDAEDU_OAUTH_URL     || 'https://api.agendaedu.com/oauth/v2/token';
-const AGENDAEDU_AUTH_URL      = 'https://app.agendaedu.com/oauth/v2/authorize';
+const AGENDAEDU_AUTH_URL      = 'https://escola.agendaedu.com/oauth/v2/authorize';
 const AGENDAEDU_REDIRECT_URI  = process.env.AGENDAEDU_REDIRECT_URI  || 'https://central-operacional-ped-production.up.railway.app/auth/agendaedu/callback';
 
 // Token de app (client_credentials) — escopo school_data
