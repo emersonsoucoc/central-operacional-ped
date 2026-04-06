@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Central Operacional — Grupo PED</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="app.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+</head>
+<body>
+
+<!-- ══ TELA DE LOGIN ══════════════════════════════════════════ -->
+<div class="login-overlay" id="loginOverlay">
+
+  <!-- Painel esquerdo: visual dark -->
+  <div class="login-left">
+    <div class="login-brand">
+      <div class="login-logo">
+        <svg width="36" height="36" viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="8" fill="#3B82F6"/>
+          <path d="M7 14h6M15 10h6M7 18h10" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="login-brand-name">Central Ops</div>
+        <div class="login-brand-sub">Grupo PED</div>
+      </div>
+    </div>
+
+    <div class="login-hero">
+      <h2 class="login-hero-title">Gestão operacional<br/>para todas as escolas</h2>
+      <p class="login-hero-desc">Fluxos padronizados, controle total e visibilidade em tempo real para toda a rede.</p>
+    </div>
+
+    <!-- Pipeline visual -->
+    <div class="login-pipeline">
+      <div class="lp-stage lp-stage--amber">
+        <span class="lp-dot"></span>
+        <span class="lp-label">Solicitado</span>
+      </div>
+      <div class="lp-arrow">→</div>
+      <div class="lp-stage lp-stage--blue">
+        <span class="lp-dot"></span>
+        <span class="lp-label">Em andamento</span>
+      </div>
+      <div class="lp-arrow">→</div>
+      <div class="lp-stage lp-stage--purple">
+        <span class="lp-dot"></span>
+        <span class="lp-label">Aprovação</span>
+      </div>
+      <div class="lp-arrow">→</div>
+      <div class="lp-stage lp-stage--green">
+        <span class="lp-dot"></span>
+        <span class="lp-label">Concluído</span>
+      </div>
+    </div>
+
+    <div class="login-footer-info">
+      <span>Contas a Receber</span>
+      <span>·</span>
+      <span>Contas a Pagar</span>
+      <span>·</span>
+      <span>Compras</span>
+      <span>·</span>
+      <span>Processos</span>
+    </div>
+  </div>
+
+  <!-- Painel direito: formulário -->
+  <div class="login-right">
+    <div class="login-card" id="loginCard">
+      <div class="login-card-header">
+        <h1 class="login-title">Entrar na plataforma</h1>
+        <p class="login-subtitle">Use suas credenciais de acesso</p>
+      </div>
+
+      <form class="login-form" id="loginForm" autocomplete="off">
+        <div class="login-field">
+          <label class="login-label" for="loginEmail">E-mail</label>
+          <div class="login-input-wrap">
+            <svg class="login-input-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M1 6l7 4 7-4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            <input type="email" id="loginEmail" class="login-input" placeholder="seu@email.com.br" required autocomplete="username"/>
+          </div>
+        </div>
+
+        <div class="login-field">
+          <label class="login-label" for="loginPassword">
+            Senha
+            <button type="button" class="login-forgot" id="loginForgotBtn">Esqueceu?</button>
+          </label>
+          <div class="login-input-wrap">
+            <svg class="login-input-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="7" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <input type="password" id="loginPassword" class="login-input" placeholder="••••••••" required autocomplete="current-password"/>
+            <button type="button" class="login-eye" id="loginEyeBtn" title="Mostrar/ocultar senha">
+              <svg id="loginEyeIcon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="login-error" id="loginError"></div>
+
+        <button type="submit" class="login-submit" id="loginSubmitBtn">
+          <span class="login-submit-text">Entrar</span>
+          <svg class="login-submit-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </form>
+
+      <div class="login-divider"><span>Acesso restrito</span></div>
+      <p class="login-contact">Problemas para entrar? Fale com o <strong>administrador do sistema</strong>.</p>
+    </div>
+  </div>
+
+</div>
+<!-- /login-overlay -->
+
+<div class="app-wrapper" id="appWrapper">
+
+  <!-- ══ SIDEBAR ══════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="8" fill="#3B82F6"/>
+          <path d="M7 14h6M15 10h6M7 18h10" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <span class="logo-name">Central Ops</span>
+        <span class="logo-sub">Grupo PED</span>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" title="Recolher menu">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- School badge -->
+    <div class="sidebar-school">
+      <div class="school-selector" id="schoolSelectorBtn">
+        <div class="school-avatar" id="sidebarSchoolAvatar">ALL</div>
+        <div class="school-info">
+          <span class="school-name" id="sidebarSchoolName">Todas as Escolas</span>
+          <span class="school-count" id="sidebarSchoolCount">4 unidades</span>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="color:var(--registro-muted);flex-shrink:0">
+          <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+    <!-- Switch escolas — link estilo Untitled UI -->
+    <div class="school-switch-row">
+      <button class="school-switch-btn" id="schoolSwitchBtn">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+          <path d="M1 4h10M8 2l2 2-2 2M11 8H1M4 6l-2 2 2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Switch escolas
+      </button>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="sidebar-nav">
+
+      <!-- ── FINANCEIRO (colapsável) ── -->
+      <div class="nav-group nav-group--open" data-group="financeiro">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-group-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M1 6h14M5 9h2"/></svg>
+          </span>
+          <span class="nav-group-label">Financeiro</span>
+          <span class="nav-group-badge" id="group-badge-financeiro" style="display:none">0</span>
+          <span class="nav-add-btn" onclick="event.stopPropagation()" title="Adicionar item">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </span>
+          <svg class="nav-group-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4l4 4 4-4"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <a href="#central_pagamentos" class="nav-item nav-item--sub nav-item--highlight" data-module="central_pagamentos">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1 6h14M5 9h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </span>
+            <span class="nav-text">Gerar Pagamento</span>
+            <span class="nav-badge" id="badge-central_pagamentos">0</span>
+          </a>
+          <a href="#contas_pagar" class="nav-item nav-item--sub" data-module="contas_pagar">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4h12v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4z" stroke="currentColor" stroke-width="1.5"/><path d="M2 4l1-2h10l1 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="nav-text">Contas a Pagar</span>
+            <span class="nav-badge" id="badge-contas_pagar">0</span>
+          </a>
+          <a href="#contas_receber" class="nav-item nav-item--sub" data-module="contas_receber">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M3 7l5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="nav-text">Contas a Receber</span>
+            <span class="nav-badge" id="badge-contas_receber">0</span>
+          </a>
+          <a href="#compras" class="nav-item nav-item--sub" data-module="compras">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h2l2.5 7h5.5l2-5H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="12.5" r="1" fill="currentColor"/><circle cx="11.5" cy="12.5" r="1" fill="currentColor"/></svg>
+            </span>
+            <span class="nav-text">Compras</span>
+            <span class="nav-badge" id="badge-compras">0</span>
+          </a>
+          <a href="#chat_financeiro" class="nav-item nav-item--sub" data-module="chat_financeiro">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13 2H3a1 1 0 00-1 1v7a1 1 0 001 1h2v2.5l3-2.5h5a1 1 0 001-1V3a1 1 0 00-1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="nav-text">Chat Financeiro</span>
+            <span class="nav-badge nav-badge--green" id="badge-chat_financeiro" style="display:none">0</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- ── OPERAÇÕES (colapsável) ── -->
+      <div class="nav-group nav-group--open" data-group="operacoes">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-group-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+          </span>
+          <span class="nav-group-label">Operações</span>
+          <span class="nav-group-badge" id="group-badge-operacoes" style="display:none">0</span>
+          <span class="nav-add-btn" onclick="event.stopPropagation()" title="Adicionar item">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </span>
+          <svg class="nav-group-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4l4 4 4-4"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <a href="#solicitacoes" class="nav-item nav-item--sub" data-module="solicitacoes">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+            </span>
+            <span class="nav-text">Solicitações Admin.</span>
+            <span class="nav-badge" id="badge-solicitacoes">0</span>
+          </a>
+          <a href="#processos" class="nav-item nav-item--sub" data-module="processos">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8h8M4 4h8M4 12h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </span>
+            <span class="nav-text">Cumprimento de Proc.</span>
+            <span class="nav-badge" id="badge-processos">0</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- ── PESSOAS (colapsável) ── -->
+      <div class="nav-group nav-group--open" data-group="pessoas">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-group-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="4.5" r="2.5"/><path d="M1 13.5c0-2.5 2-4.5 5-4.5h0c3 0 5 2 5 4.5"/><circle cx="12" cy="5" r="2"/><path d="M14 13c0-1.7-1-3-3-3.5"/></svg>
+          </span>
+          <span class="nav-group-label">Pessoas</span>
+          <span class="nav-group-badge" id="group-badge-pessoas" style="display:none">0</span>
+          <span class="nav-add-btn" onclick="event.stopPropagation()" title="Adicionar item">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </span>
+          <svg class="nav-group-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4l4 4 4-4"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <a href="#recursos_humanos" class="nav-item nav-item--sub" data-module="recursos_humanos">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 13c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </span>
+            <span class="nav-text">Recursos Humanos</span>
+            <span class="nav-badge" id="badge-recursos_humanos">0</span>
+          </a>
+          <a href="#comercial" class="nav-item nav-item--sub" data-module="comercial">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2C5.2 2 3 4 3 6.5c0 1.5.7 2.8 1.8 3.7L4 14l3-1.5c.3.1.7.1 1 .1C10.8 12.6 13 10.6 13 8c0-3.3-2.2-6-5-6z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="nav-text">Comercial — CRM</span>
+            <span class="nav-badge" id="badge-comercial">0</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- ── T.I. (colapsável) ── -->
+      <div class="nav-group nav-group--open" data-group="tecnologia">
+        <button class="nav-group-toggle" aria-expanded="true">
+          <span class="nav-group-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="14" height="9" rx="1.5"/><path d="M5 14h6M8 11v3" stroke-linecap="round"/></svg>
+          </span>
+          <span class="nav-group-label">T.I. & Infra</span>
+          <span class="nav-group-badge" id="group-badge-tecnologia" style="display:none">0</span>
+          <span class="nav-add-btn" onclick="event.stopPropagation()" title="Adicionar item">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </span>
+          <svg class="nav-group-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4l4 4 4-4"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <a href="#ti" class="nav-item nav-item--sub" data-module="ti">
+            <span class="nav-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 14h6M8 11v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </span>
+            <span class="nav-text">T.I</span>
+            <span class="nav-badge" id="badge-ti">0</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- ── GESTÃO (não colapsável) ── -->
+      <div class="nav-section">
+        <span class="nav-label">GESTÃO</span>
+        <a href="#dashboard" class="nav-item" data-module="dashboard">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="8" width="3" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="6.5" y="4" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="11" y="2" width="3" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </span>
+          <span class="nav-text">Dashboard Geral</span>
+        </a>
+        <a href="#relatorios" class="nav-item" data-module="relatorios">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V5l-3-3z" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M10 2v3h3M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="nav-text">Relatórios</span>
+        </a>
+        <a href="#agenda" class="nav-item" data-module="agenda">
+          <span class="nav-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M5 5h2v6H5zM9 7h2v4H9z" fill="currentColor" opacity=".6"/>
+              <path d="M2 5h12" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </span>
+          <span class="nav-text">Agenda Edu</span>
+        </a>
+      </div>
+
+    </nav>
+
+    <!-- Configurações — fixo abaixo do scroll, antes do rodapé -->
+    <div class="sidebar-config-row">
+      <a href="#configuracoes" class="nav-item" data-module="configuracoes">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M8 1.5V3M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="nav-text">Configurações</span>
+      </a>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar" id="sidebarUserAvatar">ES</div>
+      <div class="user-info">
+        <span class="user-name" id="sidebarUserName">Emerson Santos</span>
+        <span class="user-role" id="sidebarUserRole">Administrador</span>
+      </div>
+      <button class="user-menu-btn" id="logoutBtn" title="Sair do sistema">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M5 2H2.5A1.5 1.5 0 001 3.5v7A1.5 1.5 0 002.5 12H5M9 10l3-3-3-3M6 7h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN AREA ══════════════════════════════════════════ -->
+  <div class="main-area">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="page-title-group">
+          <h1 class="page-title" id="pageTitle">Solicitações Administrativas</h1>
+          <div class="breadcrumb">
+            <span>Grupo PED</span>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3 2l4 3-4 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span class="breadcrumb-active" id="breadcrumbActive">Solicitações Admin.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <button class="notif-btn" id="notifBtn" title="Notificações">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        </button>
+
+        <div class="topbar-filter">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M1.5 3h10M3.5 6.5h6M5.5 10h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <select class="school-filter-select" id="schoolFilterSelect">
+            <option value="all">Todas as escolas</option>
+            <!-- Populado dinamicamente por refreshEscolasSelects() -->
+          </select>
+        </div>
+
+        <div class="topbar-search">
+          <svg class="search-icon" width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <circle cx="5.5" cy="5.5" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M9 9l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="searchInput" class="search-input" placeholder="Buscar..." />
+        </div>
+
+        <button class="btn-auto btn-my-tasks" id="myTasksBtn" title="Mostrar apenas meus cards">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <span class="btn-label">Minhas tarefas</span>
+        </button>
+
+        <button class="btn-smart-sort" id="smartSortBtn" title="Ordenar por urgência/SLA">
+          🔴<span class="btn-label"> Prioridade</span>
+        </button>
+
+        <div class="view-toggle">
+          <button class="view-btn active" id="viewKanban" title="Kanban">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="2" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="5.5" y="2" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="10" y="2" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </button>
+          <button class="view-btn" id="viewList" title="Lista">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2 4h10M2 7h10M2 10h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <button class="btn-auto" id="formShareBtn" title="Formulário público do fluxo">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M8.5 1H3.5A1.5 1.5 0 002 2.5v8A1.5 1.5 0 003.5 12h6A1.5 1.5 0 0011 10.5V4L8.5 1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+            <path d="M8.5 1v3H11M4.5 7h4M4.5 9.5h2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <span class="btn-label">Formulário</span>
+        </button>
+
+        <button class="btn-auto" id="automationBtn" title="Automações do fluxo">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M7.5 1L2 7.5h4.5L5 12l6.5-7H7L7.5 1z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="btn-label">Automações</span>
+        </button>
+
+        <button class="btn-primary" id="newCardBtn">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M6.5 1.5v10M1.5 6.5h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span id="newCardBtnLabel">Nova Solicitação</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+      <!-- STATS BAR -->
+      <section class="stats-bar" id="statsBar">
+        <div class="stat-card">
+          <div class="stat-icon stat-icon--total">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <rect x="2" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="10" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="2" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+              <rect x="10" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statTotal">0</span>
+            <span class="stat-label">Total</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon stat-icon--abertas">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M9 5.5V9l2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statAbertas">0</span>
+            <span class="stat-label">Em aberto</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon stat-icon--urgente">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M9 3L2 15h14L9 3z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 8v3M9 13h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statUrgente">0</span>
+            <span class="stat-label">Urgentes</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon stat-icon--concluido">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statConcluidos">0</span>
+            <span class="stat-label">Concluídos</span>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card--sla">
+          <div class="stat-icon stat-icon--sla">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M9 5v4l3 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="statSLA">0</span>
+            <span class="stat-label">SLA em risco</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- KANBAN (dinâmico via JS) -->
+      <section class="kanban-wrapper" id="kanbanView">
+        <div class="kanban-board" id="kanbanBoard"></div>
+      </section>
+
+      <!-- SETTINGS VIEW -->
+      <section class="settings-view hidden" id="settingsView">
+        <div class="settings-layout">
+
+          <!-- Sub-navegação lateral -->
+          <aside class="settings-sidenav">
+            <p class="settings-sidenav-title">Preferências</p>
+
+            <button class="settings-tab-btn active" data-tab="escolas">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <rect x="1" y="4" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M5 4V2.5a1 1 0 011-1h3a1 1 0 011 1V4M1 8h13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+              Escolas
+            </button>
+
+            <button class="settings-tab-btn" data-tab="fluxos">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <rect x="1" y="2" width="3.5" height="11" rx="1" stroke="currentColor" stroke-width="1.4"/>
+                <rect x="5.75" y="2" width="3.5" height="11" rx="1" stroke="currentColor" stroke-width="1.4"/>
+                <rect x="10.5" y="2" width="3.5" height="11" rx="1" stroke="currentColor" stroke-width="1.4"/>
+              </svg>
+              Fluxos
+            </button>
+
+            <button class="settings-tab-btn" data-tab="etiquetas">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <path d="M2 2.5A.5.5 0 012.5 2H8a.5.5 0 01.35.15l4.5 4.5a.5.5 0 010 .7l-5 5a.5.5 0 01-.7 0l-4.5-4.5A.5.5 0 012 7.5V2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                <circle cx="5" cy="5" r="1" fill="currentColor"/>
+              </svg>
+              Etiquetas
+            </button>
+
+            <button class="settings-tab-btn" data-tab="aparencia">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M7.5 2C7.5 2 10.5 5 10.5 7.5C10.5 10 7.5 13 7.5 13C7.5 13 4.5 10 4.5 7.5C4.5 5 7.5 2 7.5 2Z" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M2 7.5h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+              Aparência
+            </button>
+
+            <button class="settings-tab-btn" data-tab="automacoes">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <path d="M8.5 1.5L3 8h5l-1.5 5.5L13 7H8L8.5 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Automações
+            </button>
+
+            <button class="settings-tab-btn" data-tab="usuarios">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <circle cx="5.5" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M1 13c0-2.5 2-4 4.5-4S10 10.5 10 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                <path d="M11 6.5h3M12.5 5v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+              Usuários
+            </button>
+
+            <button class="settings-tab-btn" data-tab="permissoes">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Permissões
+            </button>
+          </aside>
+
+          <!-- Área de conteúdo dos painéis (renderizada via JS) -->
+          <div class="settings-content" id="settingsContent"></div>
+
+        </div>
+      </section>
+
+      <!-- DASHBOARD VIEW -->
+      <section class="dashboard-view hidden" id="dashboardView">
+        <div class="dash-header">
+          <div>
+            <div class="dash-title">Dashboard Geral</div>
+            <div class="dash-subtitle">Visão consolidada de todos os módulos e escolas</div>
+          </div>
+          <button class="dash-refresh-btn" id="dashRefreshBtn">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M12 7A5 5 0 1 1 7 2a5 5 0 0 1 3.54 1.46L12 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M12 2v3h-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Atualizar
+          </button>
+        </div>
+
+        <!-- KPIs -->
+        <div class="dash-kpis" id="dashKpis"></div>
+
+        <!-- Charts -->
+        <div class="dash-charts-grid">
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">Cards por módulo</div>
+            <div class="dash-chart-canvas" style="height:200px">
+              <canvas id="chartPorModulo"></canvas>
+            </div>
+          </div>
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">Cards por escola</div>
+            <div class="dash-chart-canvas" style="height:200px">
+              <canvas id="chartPorEscola"></canvas>
+            </div>
+          </div>
+          <div class="dash-chart-card">
+            <div class="dash-chart-title">Top fases com mais cards</div>
+            <div class="dash-chart-canvas" style="height:200px">
+              <canvas id="chartPorFase"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom: SLA + Activity -->
+        <div class="dash-bottom-grid">
+          <div class="dash-section-card">
+            <div class="dash-section-title">
+              SLA Vencido
+              <span class="dash-section-count" id="dashSlaCount">—</span>
+            </div>
+            <div id="dashSlaList"></div>
+          </div>
+          <div class="dash-section-card">
+            <div class="dash-section-title">
+              Atividade Recente
+              <span class="dash-section-count" id="dashActivityCount">—</span>
+            </div>
+            <div id="dashActivityList"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LIST VIEW -->
+      <section class="list-view hidden" id="listView">
+        <div class="list-table-wrapper">
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Escola</th>
+                <th>Categoria</th>
+                <th>Prioridade</th>
+                <th>Fase</th>
+                <th>Responsável</th>
+                <th>Prazo</th>
+                <th>Anexos</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="listTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ══ AGENDA ESCOLAR (iframe) ══ -->
+      <section class="agenda-view hidden" id="agendaView">
+        <iframe id="agendaFrame" src="" class="agenda-iframe" title="Agenda Edu"></iframe>
+      </section>
+
+      <!-- ══ CHAT FINANCEIRO — AgendaEdu ══ -->
+      <section class="chat-fin-view hidden" id="chatFinanceiroView">
+
+        <!-- Topbar do Chat -->
+        <div class="chat-fin-topbar">
+          <div class="chat-fin-topbar-left">
+            <div class="chat-fin-icon">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M15 2H3a1 1 0 00-1 1v9a1 1 0 001 1h3v2.5l3.5-2.5H15a1 1 0 001-1V3a1 1 0 00-1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="chat-fin-title">Chat Financeiro</h2>
+              <p class="chat-fin-subtitle">Atendimentos via AgendaEdu · Canal Financeiro</p>
+            </div>
+          </div>
+          <div class="chat-fin-topbar-right">
+            <select id="chatFinChannelSelect" class="chat-fin-channel-select">
+              <option value="financeiro">Canal Financeiro</option>
+            </select>
+            <select id="chatFinStatusFilter" class="chat-fin-status-filter">
+              <option value="">Todos os status</option>
+              <option value="waiting">Aguardando</option>
+              <option value="in_attendance">Em Atendimento</option>
+              <option value="done">Encerrado</option>
+            </select>
+            <button class="chat-fin-refresh-btn" id="chatFinRefreshBtn" title="Atualizar tickets">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <path d="M12.5 7.5A5 5 0 112.5 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M12.5 3v4.5H8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="chat-fin-btn chat-fin-btn--novo" id="chatFinNovoBtn">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                <path d="M6.5 1.5v10M1.5 6.5h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              Novo Ticket
+            </button>
+          </div>
+        </div>
+
+        <!-- Layout de duas colunas -->
+        <div class="chat-fin-body">
+
+          <!-- Coluna esquerda: lista de tickets -->
+          <div class="chat-fin-list-col" id="chatFinListCol">
+            <div class="chat-fin-search-wrap">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="chat-fin-search-icon">
+                <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M9.5 9.5l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+              <input type="text" id="chatFinSearch" class="chat-fin-search" placeholder="Buscar por nome ou assunto...">
+            </div>
+            <div class="chat-fin-tickets" id="chatFinTickets">
+              <div class="chat-fin-empty" id="chatFinEmptyList">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <path d="M33 7H7a2 2 0 00-2 2v18a2 2 0 002 2h7v6l8-6h11a2 2 0 002-2V9a2 2 0 00-2-2z" stroke="#94A3B8" stroke-width="1.5" stroke-linejoin="round"/>
+                </svg>
+                <span>Nenhum ticket encontrado</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Coluna direita: detalhe do ticket -->
+          <div class="chat-fin-detail-col" id="chatFinDetailCol">
+            <div class="chat-fin-detail-empty" id="chatFinDetailEmpty">
+              <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+                <path d="M42 8H10a2 2 0 00-2 2v24a2 2 0 002 2h9v8l10-8h13a2 2 0 002-2V10a2 2 0 00-2-2z" stroke="#CBD5E1" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M18 22h16M18 28h10" stroke="#CBD5E1" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <p>Selecione um ticket para ver o detalhe</p>
+            </div>
+            <div class="chat-fin-detail-content hidden" id="chatFinDetailContent">
+              <!-- Header do ticket -->
+              <div class="chat-fin-detail-header">
+                <div class="chat-fin-detail-meta">
+                  <span class="chat-fin-detail-status" id="chatFinDetailStatus">—</span>
+                  <span class="chat-fin-detail-date" id="chatFinDetailDate">—</span>
+                </div>
+                <h3 class="chat-fin-detail-title" id="chatFinDetailTitle">—</h3>
+                <div class="chat-fin-detail-info">
+                  <span class="chat-fin-detail-requester" id="chatFinDetailRequester">—</span>
+                  <span class="chat-fin-detail-attendant" id="chatFinDetailAttendant"></span>
+                </div>
+              </div>
+
+              <!-- Mensagem (descrição do ticket) -->
+              <div class="chat-fin-messages" id="chatFinMessages">
+                <!-- Preenchido por JS -->
+              </div>
+
+              <!-- Rodapé: ações -->
+              <div class="chat-fin-actions" id="chatFinActions">
+                <button class="chat-fin-btn chat-fin-btn--start hidden" id="chatFinBtnStart">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M5 2.5l6 4.5-6 4.5V2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                  </svg>
+                  Iniciar Atendimento
+                </button>
+                <button class="chat-fin-btn chat-fin-btn--close hidden" id="chatFinBtnClose">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+                    <path d="M4.5 7l2 2 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Encerrar Atendimento
+                </button>
+                <a class="chat-fin-btn chat-fin-btn--external" id="chatFinBtnExternal" href="https://app.agendaedu.com" target="_blank" rel="noopener">
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                    <path d="M7.5 1.5h4v4M11.5 1.5l-5 5M5.5 3H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Abrir no AgendaEdu
+                </a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Banner de configuração (oculto no modo standalone) -->
+        <div class="chat-fin-config-banner hidden" id="chatFinConfigBanner"></div>
+
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══ CARD DRAWER — ESTILO PIPEFY ═════════════════════════ -->
+<div class="pf-drawer-overlay" id="modalOverlay" style="display:none">
+  <div class="pf-drawer" id="modal" role="dialog" aria-modal="true">
+
+    <!-- ── COLUNA ESQUERDA: Dados do card ── -->
+    <div class="pf-drawer-left" id="pf-drawer-left">
+
+      <!-- Header do drawer -->
+      <div class="pf-drawer-header">
+        <div class="pf-drawer-header-meta">
+          <span class="pf-drawer-module-badge" id="modalModuleBadge">Módulo</span>
+          <span class="pf-drawer-id" id="modalSubtitle"></span>
+        </div>
+        <button class="pf-drawer-close" id="modalClose" aria-label="Fechar">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Título do card -->
+      <div class="pf-drawer-title-wrap">
+        <h2 class="pf-drawer-title" id="modalTitle">Novo Card</h2>
+      </div>
+
+      <!-- Quick actions: responsável, vencimento, etiquetas -->
+      <div class="pf-quick-actions">
+        <div class="pf-quick-action" id="qa-responsavel">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <span id="qa-resp-label">Adicionar responsável</span>
+        </div>
+        <div class="pf-quick-action" id="qa-vencimento">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="qa-prazo-label">Vencimento</span>
+        </div>
+        <div class="pf-quick-action" id="qa-prioridade">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h18v13H3zM9 21h6M12 17v4"/></svg>
+          <span id="qa-prio-label">Prioridade</span>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="pf-drawer-tabs">
+        <button class="pf-drawer-tab active" data-tab="form">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Formulário
+        </button>
+        <button class="pf-drawer-tab" data-tab="comentarios">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Comentários
+        </button>
+        <button class="pf-drawer-tab" data-tab="atividades">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Atividades
+        </button>
+        <button class="pf-drawer-tab" data-tab="checklists">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Checklists
+        </button>
+        <button class="pf-drawer-tab" data-tab="anexos">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          Anexos
+        </button>
+      </div>
+
+      <!-- Tab content -->
+      <div class="pf-drawer-tab-content" id="pf-tab-form">
+      <form id="cardForm" autocomplete="off">
+        <input type="hidden" id="formCardId" />
+
+        <!-- Título -->
+        <div class="form-group form-group--full" data-campo="titulo">
+          <label class="form-label" for="formTitulo" id="label-titulo">Título <span class="required">*</span></label>
+          <input type="text" class="form-input" id="formTitulo" placeholder="Descreva brevemente..." required />
+        </div>
+
+        <!-- Descrição -->
+        <div class="form-group form-group--full" data-campo="descricao">
+          <label class="form-label" for="formDescricao" id="label-descricao">Descrição</label>
+          <textarea class="form-textarea" id="formDescricao" rows="2" placeholder="Detalhes, contexto ou instruções..."></textarea>
+        </div>
+
+        <!-- Row: Escola + Categoria -->
+        <div class="form-row" id="row-escola-categoria">
+          <div class="form-group" data-campo="escola">
+            <label class="form-label" for="formEscola" id="label-escola">Escola / Unidade <span class="required">*</span></label>
+            <select class="form-select" id="formEscola" required>
+              <option value="">Selecionar escola</option>
+              <!-- Populado dinamicamente por refreshEscolasSelects() -->
+            </select>
+          </div>
+          <div class="form-group" data-campo="categoria">
+            <label class="form-label" for="formCategoria" id="label-categoria">Categoria <span class="required">*</span></label>
+            <select class="form-select" id="formCategoria" required>
+              <!-- Populated dynamically by JS based on module -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Row: Prioridade + Fase -->
+        <div class="form-row" id="row-prioridade-fase">
+          <div class="form-group" data-campo="prioridade">
+            <label class="form-label" for="formPrioridade" id="label-prioridade">Prioridade <span class="required">*</span></label>
+            <select class="form-select" id="formPrioridade" required>
+              <option value="baixa">🟢 Baixa</option>
+              <option value="media" selected>🟡 Média</option>
+              <option value="alta">🔴 Alta</option>
+              <option value="urgente">🚨 Urgente</option>
+            </select>
+          </div>
+          <div class="form-group" data-campo="fase">
+            <label class="form-label" for="formFase" id="label-fase">Fase</label>
+            <select class="form-select" id="formFase">
+              <!-- Populated dynamically by JS based on module -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Row: Responsável + Prazo -->
+        <div class="form-row" id="row-responsavel-prazo">
+          <div class="form-group" data-campo="responsavel">
+            <label class="form-label" for="formResponsavel" id="label-responsavel">Responsável</label>
+            <select class="form-select" id="formResponsavel">
+              <option value="">Não atribuído</option>
+              <option value="Maria Silva">Maria Silva</option>
+              <option value="João Costa">João Costa</option>
+              <option value="Ana Oliveira">Ana Oliveira</option>
+              <option value="Pedro Alves">Pedro Alves</option>
+              <option value="Carla Mendes">Carla Mendes</option>
+              <option value="Roberto Lima">Roberto Lima</option>
+            </select>
+          </div>
+          <div class="form-group" data-campo="prazo">
+            <label class="form-label" for="formPrazo" id="label-prazo">Prazo</label>
+            <input type="date" class="form-input" id="formPrazo" />
+          </div>
+        </div>
+
+        <!-- Campos financeiros (visível para Contas a Pagar/Receber/Compras) -->
+        <div class="form-row" id="financialFields" style="display:none">
+          <div class="form-group" data-campo="valor">
+            <label class="form-label" for="formValor" id="label-valor">Valor (R$)</label>
+            <input type="number" class="form-input" id="formValor" placeholder="0,00" step="0.01" min="0" />
+          </div>
+          <div class="form-group" data-campo="fornecedor">
+            <label class="form-label" for="formFornecedor" id="fornecedorLabel">Fornecedor / Cliente</label>
+            <input type="text" class="form-input" id="formFornecedor" placeholder="Nome ou razão social" />
+          </div>
+        </div>
+
+        <div class="form-row" id="documentFields" style="display:none">
+          <div class="form-group" data-campo="num_doc">
+            <label class="form-label" for="formNumeroDoc" id="numDocLabel">Nº NF / Pedido</label>
+            <input type="text" class="form-input" id="formNumeroDoc" placeholder="Ex: NF-001234" />
+          </div>
+          <div class="form-group" data-campo="vencimento">
+            <label class="form-label" for="formVencimento" id="label-vencimento">Vencimento</label>
+            <input type="date" class="form-input" id="formVencimento" />
+          </div>
+        </div>
+
+        <!-- ══ CAMPOS DE LEAD — Comercial / CRM ══ -->
+        <!-- Contato: Telefone + E-mail -->
+        <div class="form-row" id="leadContactFields" style="display:none">
+          <div class="form-group" data-campo="telefone">
+            <label class="form-label" for="formTelefone">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="display:inline-block;vertical-align:-1px;margin-right:3px">
+                <path d="M3 1.5C3 1.5 2 3.5 2.5 5c.3.8 1 1.5 2 2.5 1 1 1.7 1.7 2.5 2 1.5.5 3.5-.5 3.5-.5L9 7.5 7.5 7l-.5 1S5.5 7.5 4.5 6.5 3.5 5 3.5 5L4.5 4.5 4 3 3 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Telefone / WhatsApp
+            </label>
+            <input type="tel" class="form-input" id="formTelefone" placeholder="(71) 99999-9999" />
+          </div>
+          <div class="form-group" data-campo="emailLead">
+            <label class="form-label" for="formEmailLead">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="display:inline-block;vertical-align:-1px;margin-right:3px">
+                <rect x="1" y="2.5" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+                <path d="M1 5l5 3 5-3" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+              </svg>
+              E-mail do Lead
+            </label>
+            <input type="email" class="form-input" id="formEmailLead" placeholder="contato@email.com" />
+          </div>
+        </div>
+
+        <!-- Origem + Interesse -->
+        <div class="form-row" id="leadOriginFields" style="display:none">
+          <div class="form-group" data-campo="origem">
+            <label class="form-label" for="formOrigem">Origem do Lead</label>
+            <select class="form-select" id="formOrigem">
+              <option value="">Selecionar origem...</option>
+              <option value="Indicação">📣 Indicação</option>
+              <option value="Site / SEO">🌐 Site / SEO</option>
+              <option value="Redes Sociais">📱 Redes Sociais</option>
+              <option value="Instagram">📸 Instagram</option>
+              <option value="Facebook">👍 Facebook</option>
+              <option value="WhatsApp">💬 WhatsApp</option>
+              <option value="Evento">🎉 Evento</option>
+              <option value="Captação Ativa">🎯 Captação Ativa</option>
+              <option value="Parceria">🤝 Parceria</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+          <div class="form-group" data-campo="interesse">
+            <label class="form-label" for="formInteresse">Interesse / Série</label>
+            <input type="text" class="form-input" id="formInteresse" placeholder="Ex: Ed. Infantil — Maternal 2" />
+          </div>
+        </div>
+
+        <!-- Campos personalizados do fluxo (renderizados via JS) -->
+        <div id="customFieldsArea"></div>
+
+        <!-- ══ LINK DE PAGAMENTO (Contas a Receber) ══ -->
+        <div class="form-group form-group--full form-divider" id="paymentLinkSection" style="display:none">
+          <label class="form-label">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="display:inline-block;vertical-align:-2px;margin-right:4px">
+              <path d="M7 1h4a1 1 0 011 1v4M6 12H2a1 1 0 01-1-1V7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              <path d="M11.5 1.5L5.5 7.5M8 1h4v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            Link de Pagamento
+          </label>
+
+          <!-- Tipo de pagamento + botão gerar (visível quando não há link) -->
+          <div id="genLinkRow">
+            <div class="form-row" style="margin-bottom:10px">
+              <div class="form-group">
+                <label class="form-label" for="formTipoPagamento">Tipo de Pagamento</label>
+                <select class="form-select" id="formTipoPagamento">
+                  <option value="pix">⚡ PIX</option>
+                  <option value="boleto">📄 Boleto</option>
+                  <option value="credito">💳 Cartão de Crédito</option>
+                  <option value="debito">💳 Cartão de Débito</option>
+                </select>
+              </div>
+              <div class="form-group" id="parcelasGroup" style="display:none">
+                <label class="form-label" for="formParcelas">Parcelas</label>
+                <select class="form-select" id="formParcelas">
+                  <option value="1">1x (à vista)</option>
+                  <option value="2">2x</option>
+                  <option value="3">3x</option>
+                  <option value="4">4x</option>
+                  <option value="5">5x</option>
+                  <option value="6">6x</option>
+                  <option value="7">7x</option>
+                  <option value="8">8x</option>
+                  <option value="9">9x</option>
+                  <option value="10">10x</option>
+                  <option value="11">11x</option>
+                  <option value="12">12x</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="btn-gen-link" id="genLinkBtn">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-2px">
+                <path d="M7 1l1.5 3.5H13L9.5 7l1.5 3.5L7 8.5 3 10.5 4.5 7 1 4.5h4.5L7 1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+              </svg>
+              Gerar Link de Pagamento
+            </button>
+          </div>
+
+          <!-- Link gerado (visível quando já existe link) -->
+          <div id="linkDisplayBox" class="payment-link-box" style="display:none">
+            <div class="link-box-header">
+              <div class="link-box-code-row">
+                <span class="link-box-label">Código</span>
+                <span class="link-box-code" id="linkCode">—</span>
+              </div>
+              <span class="link-status-badge" id="linkStatusBadge">Ativo</span>
+            </div>
+            <div class="link-box-url-row">
+              <code class="link-box-url" id="linkUrl">—</code>
+              <button type="button" class="btn-copy-link" id="copyLinkBtn" title="Copiar link">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                  <rect x="1" y="4" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                  <path d="M4 4V2.5A1.5 1.5 0 015.5 1H10a1.5 1.5 0 011.5 1.5V7A1.5 1.5 0 0110 8.5H9" stroke="currentColor" stroke-width="1.3"/>
+                </svg>
+                Copiar
+              </button>
+            </div>
+            <div class="link-box-tipo-row" id="linkTipoRow">
+              <span class="link-tipo-badge" id="linkTipoBadge">PIX</span>
+            </div>
+            <div id="confirmPaymentRow" style="display:none;margin-top:12px">
+              <button type="button" class="btn-confirm-payment" id="confirmPaymentBtn">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-2px">
+                  <path d="M2 7l3.5 3.5 6.5-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Confirmar Pagamento Recebido
+              </button>
+            </div>
+            <div id="paidBadgeRow" style="display:none;margin-top:10px">
+              <span class="paid-confirmed-badge">✅ Pagamento Confirmado</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ ANEXOS ══ -->
+        <div class="form-group form-group--full form-divider">
+          <label class="form-label">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="display:inline-block;vertical-align:-2px;margin-right:4px">
+              <path d="M7.5 1.5L11 5 5.5 10.5a3 3 0 01-4.25-4.25L7.5 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              <path d="M4 8.5l1.5 1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            Anexos
+            <span class="attach-count-badge" id="attachCountBadge" style="display:none">0</span>
+          </label>
+
+          <div class="attachments-area" id="attachmentsArea">
+
+            <!-- File list -->
+            <div class="attachments-list" id="attachmentsList"></div>
+
+            <!-- Drop zone -->
+            <label class="attach-drop-zone" for="fileInput" id="attachDropZone">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <path d="M14 18V8M14 8l-4 4M14 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M5 20a3 3 0 000 6h18a3 3 0 000-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <span class="attach-drop-text">Clique para selecionar ou arraste arquivos aqui</span>
+              <span class="attach-drop-hint">PDF, Word, Excel, imagens · Máx. 10 MB por arquivo</span>
+            </label>
+            <input type="file" id="fileInput" multiple style="display:none" accept="*/*" />
+          </div>
+        </div>
+
+        <!-- ══ COMENTÁRIOS (apenas no edit) ══ -->
+        <div class="form-group form-group--full form-divider" id="commentSectionLegacy" style="display:none">
+          <label class="form-label">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="display:inline-block;vertical-align:-2px;margin-right:4px">
+              <path d="M2 2h9a1 1 0 011 1v5a1 1 0 01-1 1H5L2 11.5V3a1 1 0 010 0z" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+            Comentários internos
+          </label>
+          <div class="comments-list" id="commentsList"></div>
+          <div class="comment-input-row">
+            <div class="comment-avatar">ES</div>
+            <input type="text" class="form-input" id="commentInputLegacy" placeholder="Adicionar comentário interno..." />
+            <button type="button" class="btn-comment" id="addCommentBtnLegacy">Enviar</button>
+          </div>
+        </div>
+
+        <!-- ══ HISTÓRICO (apenas no edit) ══ -->
+        <div class="form-group form-group--full form-divider" id="historySection" style="display:none">
+          <label class="form-label">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="display:inline-block;vertical-align:-2px;margin-right:4px">
+              <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M6.5 4v3l2 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            Histórico de movimentação
+          </label>
+          <div class="history-list" id="historyList"></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="pf-form-actions">
+          <button type="submit" class="pf-btn-save" id="saveCardBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Salvar
+          </button>
+          <button type="button" class="pf-btn-cancel" id="cancelModalBtn">Cancelar</button>
+        </div>
+
+        <!-- Delete area -->
+        <div id="deleteCardArea" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #F1F5F9;">
+          <button type="button" class="pf-btn-delete" id="deleteCardBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            Excluir este card
+          </button>
+        </div>
+      </form>
+
+      <!-- Tab: Comentários — CHAT SYSTEM -->
+      <div class="pf-drawer-tab-content hidden" id="pf-tab-comentarios">
+        <div class="chat-wrap">
+          <!-- @mention picker (shown above input) -->
+          <div class="chat-mention-picker" id="chatMentionPicker" style="display:none">
+            <div class="chat-mention-list" id="chatMentionList"></div>
+          </div>
+
+          <!-- Chat feed (scrollable) -->
+          <div class="chat-feed" id="chatFeed">
+            <div class="chat-empty">Nenhuma mensagem ainda. Seja o primeiro a comentar.</div>
+          </div>
+
+          <!-- Input area -->
+          <div class="chat-input-wrap">
+            <div class="chat-input-row">
+              <div class="chat-input-avatar" id="chatInputAvatar">ES</div>
+              <div class="chat-input-box">
+                <div class="chat-input-field"
+                     id="chatInput"
+                     contenteditable="true"
+                     data-placeholder="Comentar... use @nome para mencionar"
+                     role="textbox"
+                     aria-multiline="true"
+                     aria-label="Campo de comentário"></div>
+              </div>
+              <button class="chat-send-btn" id="chatSendBtn" title="Enviar (Enter)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
+            <div class="chat-input-hint">Enter para enviar · Shift+Enter para nova linha</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Atividades (feed unificado de histórico) -->
+      <div class="pf-drawer-tab-content hidden" id="pf-tab-atividades">
+        <div class="ativ-feed" id="atividadeFeed"></div>
+      </div>
+
+      <!-- Tab: Checklists -->
+      <div class="pf-drawer-tab-content hidden" id="pf-tab-checklists">
+        <div class="cl-wrap">
+          <div class="cl-lists" id="clLists"></div>
+          <button class="cl-add-list-btn" id="clAddListBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Adicionar checklist
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab: Anexos -->
+      <div class="pf-drawer-tab-content hidden" id="pf-tab-anexos">
+        <div class="attach-zone" id="attachZone">
+          <input type="file" id="attachInput" multiple style="display:none">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          <span>Arraste arquivos ou <label for="attachInput" style="color:var(--accent);cursor:pointer;font-weight:600">clique aqui</label></span>
+        </div>
+        <div id="attachList" class="attach-list"></div>
+      </div>
+
+    </div>
+
+    <!-- ── PAINEL DIREITO: Fase atual + Movimentação ── -->
+    <div class="pf-drawer-right">
+
+      <!-- Fase atual -->
+      <div class="pf-phase-section">
+        <div class="pf-phase-label">Fase atual</div>
+        <div class="pf-phase-current" id="pf-phase-current">
+          <span class="pf-phase-badge" id="pf-phase-badge">—</span>
+        </div>
+        <div class="pf-phase-info" id="pf-phase-info"></div>
+      </div>
+
+      <!-- Mover para fase -->
+      <div class="pf-move-section">
+        <div class="pf-move-title">Mover para fase</div>
+        <div class="pf-move-list" id="pf-move-list"></div>
+
+        <div class="pf-move-divider"></div>
+
+        <button class="pf-move-config-btn" id="pf-config-move-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41M2 12h2M20 12h2"/>
+          </svg>
+          Configurar movimentações
+        </button>
+
+        <div class="pf-move-config-panel hidden" id="pf-move-config-panel">
+          <div class="pf-move-config-title">Configurar movimentações</div>
+          <p class="pf-move-config-desc">Defina para quais fases este card pode ser movido diretamente.</p>
+          <div id="pf-config-phases-list"></div>
+          <button class="pf-move-config-save" id="pf-config-save-btn">Salvar configuração</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ MODAL EDITAR FASE ════════════════════════════════════ -->
+<div class="phase-editor-overlay" id="phaseEditorOverlay">
+  <div class="phase-editor-panel">
+
+    <div class="phase-editor-header">
+      <div class="phase-editor-title">
+        <span class="phase-editor-dot" id="phaseEditorDot"></span>
+        <span id="phaseEditorTitle">Editar fase</span>
+      </div>
+      <button class="btn-icon-sm" id="phaseEditorClose">&#x2715;</button>
+    </div>
+
+    <div class="phase-editor-body">
+
+      <!-- Nome -->
+      <div class="form-group">
+        <label class="form-label">Nome da fase *</label>
+        <input type="text" class="form-input" id="phaseInputLabel" maxlength="40" placeholder="Ex: Em análise"/>
+      </div>
+
+      <!-- Cor -->
+      <div class="form-group">
+        <label class="form-label">Cor de identificação</label>
+        <div class="phase-color-row">
+          <div class="phase-color-palette" id="phaseColorPalette"></div>
+          <input type="color" class="phase-custom-color" id="phaseColorCustom" title="Cor personalizada"/>
+        </div>
+        <div class="phase-color-preview-row">
+          <span class="phase-preview-dot" id="phasePreviewDot"></span>
+          <span class="phase-preview-label" id="phasePreviewLabel">Prévia do nome</span>
+        </div>
+      </div>
+
+      <!-- Cor de fundo (bg) -->
+      <div class="form-group">
+        <label class="form-label">Cor de fundo do card</label>
+        <div class="phase-color-row">
+          <div class="phase-bg-palette" id="phaseBgPalette"></div>
+          <input type="color" class="phase-custom-color" id="phaseBgCustom" title="Fundo personalizado"/>
+        </div>
+      </div>
+
+      <!-- SLA -->
+      <div class="form-group">
+        <label class="form-label">SLA — prazo de alerta (dias)</label>
+        <div class="phase-sla-row">
+          <input type="number" class="form-input" id="phaseInputSLA" min="0" max="365" placeholder="Ex: 3" style="width:100px"/>
+          <span class="phase-sla-hint">Alertar quando o card estiver nesta fase por mais de X dias</span>
+        </div>
+      </div>
+
+      <!-- Fase final -->
+      <div class="form-group">
+        <label class="phase-final-toggle-label">
+          <input type="checkbox" id="phaseIsFinal"/>
+          <span class="phase-final-toggle-text">
+            <strong>Marcar como fase final</strong>
+            <small>Cards nesta fase serão contados como "Concluídos"</small>
+          </span>
+        </label>
+      </div>
+
+    </div>
+
+    <div class="phase-editor-footer">
+      <button class="btn-secondary" id="phaseEditorCancel">Cancelar</button>
+      <button class="btn-primary" id="phaseEditorSave">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Salvar fase
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ MODAL FORMULÁRIO PÚBLICO ════════════════════════════ -->
+<div class="pf-share-overlay" id="formShareOverlay" style="display:none">
+  <div class="pf-share-modal">
+    <div class="pf-share-header">
+      <div>
+        <h3 class="pf-share-title">Formulário Público</h3>
+        <p class="pf-share-subtitle" id="formShareModuleName">Compartilhe este link com quem não tem acesso ao sistema</p>
+      </div>
+      <button class="pf-drawer-close" id="formShareClose">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <div class="pf-share-body">
+      <label class="pf-share-label">Link do formulário</label>
+      <div class="pf-share-link-row">
+        <input type="text" class="pf-share-link-input" id="formShareLink" readonly>
+        <button class="pf-share-copy-btn" id="formShareCopyBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copiar
+        </button>
+      </div>
+      <div class="pf-share-qr" id="formShareQr">
+        <img id="formShareQrImg" src="" alt="QR Code" style="width:120px;height:120px;border-radius:8px">
+      </div>
+      <p class="pf-share-hint">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        As submissões entram automaticamente na primeira fase do fluxo <strong id="formSharePhaseName"></strong>.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL CONVIDAR PESSOAS ══════════════════════════════ -->
+<div class="pf-share-overlay" id="inviteModalOverlay" style="display:none">
+  <div class="pf-share-modal" style="max-width:520px">
+    <div class="pf-share-header">
+      <div>
+        <h3 class="pf-share-title">Convidar Pessoas</h3>
+        <p class="pf-share-subtitle">O convidado receberá um link para se cadastrar e acessar o sistema</p>
+      </div>
+      <button class="pf-drawer-close" id="inviteModalClose">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="pf-share-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
+        <div style="margin-bottom:10px">
+          <label class="pf-share-label">E-mail *</label>
+          <input type="email" id="inviteEmail" style="width:100%;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;outline:none" placeholder="email@escola.com.br">
+        </div>
+        <div style="margin-bottom:10px">
+          <label class="pf-share-label">Nome (opcional)</label>
+          <input type="text" id="inviteNome" style="width:100%;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;outline:none" placeholder="Nome do convidado">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label class="pf-share-label">Perfil de acesso</label>
+        <select id="invitePerfil" style="width:100%;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;outline:none">
+          <option value="operador">Operador — pode criar e editar cards</option>
+          <option value="gestor">Gestor — pode criar, editar e gerenciar</option>
+          <option value="visualizador">Somente leitura — apenas visualiza</option>
+          <option value="admin">Admin — acesso total</option>
+        </select>
+      </div>
+      <div style="margin-bottom:14px">
+        <label class="pf-share-label">Acesso aos módulos (deixe vazio para todos)</label>
+        <div id="inviteModulosCheck" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:4px"></div>
+      </div>
+
+      <div id="inviteLinkResult" style="display:none;margin-bottom:14px">
+        <label class="pf-share-label">Link de convite gerado</label>
+        <div class="pf-share-link-row">
+          <input type="text" id="inviteLinkInput" class="pf-share-link-input" readonly>
+          <button class="pf-share-copy-btn" id="inviteLinkCopyBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copiar
+          </button>
+        </div>
+        <p style="font-size:11px;color:#10B981;margin-top:6px">✓ Convite criado! Compartilhe o link acima com o convidado. Expira em 7 dias.</p>
+      </div>
+
+      <div id="inviteError" style="display:none;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;color:#DC2626;font-size:12px;font-weight:500;padding:8px 12px;margin-bottom:10px"></div>
+
+      <div style="display:flex;gap:8px">
+        <button id="inviteSubmitBtn" style="
+          display:inline-flex;align-items:center;gap:6px;
+          padding:8px 18px;background:#4F46E5;color:#fff;
+          border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
+        ">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Gerar Link de Convite
+        </button>
+        <button id="inviteCancelBtn" style="padding:8px 14px;background:#F1F5F9;color:#475569;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ QUICK CREATE — Ação rápida ══════════════════════════ -->
+<!-- ══ MODAL NOVO TICKET — CHAT FINANCEIRO ════════════════ -->
+<div class="quick-create-overlay" id="chatFinNovoOverlay" style="display:none">
+  <div class="quick-create-modal" style="max-width:480px">
+    <div class="quick-create-header">
+      <div>
+        <h3 class="quick-create-title">Novo Ticket</h3>
+        <p class="quick-create-subtitle">Registre uma nova solicitação financeira</p>
+      </div>
+      <button class="pf-drawer-close" id="chatFinNovoClose">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="quick-create-body" style="display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="chatFinNovoCanal">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px">Assunto *</label>
+        <input type="text" id="chatFinNovoAssunto" style="width:100%;border:1.5px solid #E2E8F0;border-radius:8px;padding:8px 11px;font-size:13px;color:#1E293B;outline:none;box-sizing:border-box" placeholder="Ex: Dúvida sobre mensalidade de abril">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px">Solicitante *</label>
+        <input type="text" id="chatFinNovoSolicitante" style="width:100%;border:1.5px solid #E2E8F0;border-radius:8px;padding:8px 11px;font-size:13px;color:#1E293B;outline:none;box-sizing:border-box" placeholder="Nome do responsável ou secretaria">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px">Escola</label>
+        <select id="chatFinNovoEscola" style="width:100%;border:1.5px solid #E2E8F0;border-radius:8px;padding:8px 11px;font-size:13px;color:#1E293B;outline:none;box-sizing:border-box;background:#fff">
+          <option value="">Selecione a escola</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px">Descrição</label>
+        <textarea id="chatFinNovoDescricao" rows="3" style="width:100%;border:1.5px solid #E2E8F0;border-radius:8px;padding:8px 11px;font-size:13px;color:#1E293B;outline:none;resize:vertical;box-sizing:border-box;font-family:inherit" placeholder="Descreva a dúvida ou solicitação…"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:14px 20px;border-top:1px solid #F1F5F9">
+      <button id="chatFinNovoCancelar" style="padding:7px 16px;border-radius:8px;border:1.5px solid #E2E8F0;background:#fff;color:#64748B;font-size:13px;font-weight:500;cursor:pointer">Cancelar</button>
+      <button id="chatFinNovoSalvar" style="padding:7px 18px;border-radius:8px;border:none;background:#3B82F6;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Criar Ticket</button>
+    </div>
+  </div>
+</div>
+
+<div class="quick-create-overlay" id="quickCreateOverlay" style="display:none">
+  <div class="quick-create-modal">
+    <div class="quick-create-header">
+      <div>
+        <h3 class="quick-create-title">⚡ Criar solicitação rápida</h3>
+        <p class="quick-create-subtitle">Escolha um template ou crie do zero</p>
+      </div>
+      <button class="pf-drawer-close" id="quickCreateClose">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="quick-create-body">
+      <div class="quick-templates-grid" id="quickTemplatesGrid">
+        <!-- Renderizado por JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Botão fixo Quick Create -->
+<button class="quick-create-fab" id="quickCreateFab" title="Criar solicitação rápida">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+</button>
+
+<!-- ══ NOTIFICAÇÕES ════════════════════════════════════════ -->
+<div class="notif-panel" id="notifPanel" style="display:none">
+  <div class="notif-panel-header">
+    <span class="notif-panel-title">Notificações</span>
+    <button class="notif-clear-btn" id="notifClearBtn">Marcar todas como lidas</button>
+  </div>
+  <div class="notif-list" id="notifList">
+    <div class="notif-empty">Nenhuma notificação</div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ══ PAINEL DE AUTOMAÇÕES ══════════════════════════════════ -->
+<div class="auto-overlay" id="autoOverlay">
+  <div class="auto-panel">
+
+    <!-- Header -->
+    <div class="auto-panel-header">
+      <div class="auto-panel-title">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M10 2L3 10h5.5L7 16l8-9h-5.5L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Automações — <strong id="autoPanelModule">Fluxo</strong></span>
+      </div>
+      <button class="btn-icon-sm" id="autoCloseBtn" title="Fechar">&#x2715;</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="auto-tabs">
+      <button class="auto-tab active" id="autoTabList" data-view="list">Minhas Automações</button>
+      <button class="auto-tab" id="autoTabNew" data-view="builder">+ Nova Automação</button>
+    </div>
+
+    <!-- ── LISTA DE AUTOMAÇÕES ── -->
+    <div class="auto-list-view" id="autoListView">
+      <div id="autoListItems"></div>
+      <div class="auto-empty" id="autoEmpty" style="display:none">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <path d="M22 5L8 21h10L16 35l16-20H22L22 5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".35"/>
+        </svg>
+        <p>Nenhuma automação configurada para este fluxo.</p>
+        <button class="btn-primary" id="autoEmptyNew">Criar primeira automação</button>
+      </div>
+    </div>
+
+    <!-- ── BUILDER: Picker ── -->
+    <div class="auto-builder-view hidden" id="autoBuilderView">
+      <p class="auto-builder-hint">Escolha um gatilho e uma ação para criar a automação</p>
+
+      <div class="auto-builder-cols">
+
+        <!-- Sempre que... -->
+        <div class="auto-col">
+          <div class="auto-col-header">
+            <span class="auto-col-dot auto-col-dot--trigger"></span>
+            <span class="auto-col-title">Sempre que...</span>
+          </div>
+          <div class="auto-picker-list" id="triggerPicker"></div>
+        </div>
+
+        <!-- Conector -->
+        <div class="auto-connector">
+          <div class="auto-connector-line"></div>
+          <svg class="auto-connector-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <!-- Faça isso... -->
+        <div class="auto-col">
+          <div class="auto-col-header">
+            <span class="auto-col-dot auto-col-dot--action"></span>
+            <span class="auto-col-title">Faça isso...</span>
+          </div>
+          <div class="auto-picker-list" id="actionPicker"></div>
+        </div>
+      </div>
+
+      <!-- Formulário de configuração (aparece após selecionar trigger + action) -->
+      <div class="auto-config-form hidden" id="autoConfigForm">
+        <div class="auto-config-inner">
+          <h3 class="auto-config-title">Configurar automação</h3>
+
+          <div class="auto-config-summary" id="autoConfigSummary"></div>
+
+          <div class="auto-config-fields" id="autoTriggerFields"></div>
+          <div class="auto-config-divider">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M6 1v10M2 7l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="auto-config-fields" id="autoActionFields"></div>
+
+          <div class="form-group" style="margin-top:16px">
+            <label class="form-label">Nome da automação</label>
+            <input type="text" class="form-input" id="autoNomeInput" placeholder="Ex: Mover ao aprovar..." maxlength="60"/>
+          </div>
+
+          <div class="auto-config-footer">
+            <button class="btn-secondary" id="cancelAutoBtn">Cancelar</button>
+            <button class="btn-primary" id="saveAutoBtn">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Salvar Automação
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
