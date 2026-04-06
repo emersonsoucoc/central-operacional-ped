@@ -2763,6 +2763,57 @@ form { display:flex; flex-direction:column; gap:14px; }
 .chat-fin-btn--external { background: var(--quadro-card); color: var(--quadro-muted); border: 1px solid var(--quadro-border); }
 .chat-fin-btn--external:hover { border-color: var(--accent); color: var(--accent); }
 
+.chat-fin-btn--novo { background: #3B82F6; color: #fff; border: none; gap: 5px; font-weight: 600; }
+.chat-fin-btn--novo:hover { background: #2563EB; }
+
+.chat-fin-btn--send { background: #3B82F6; color: #fff; border: none; gap: 5px; }
+.chat-fin-btn--send:hover { background: #2563EB; }
+
+/* Bolha de resposta do atendente */
+.chat-fin-bubble--mine {
+  align-self: flex-end;
+  background: #3B82F6;
+  color: #fff;
+  border-radius: 14px 14px 2px 14px;
+}
+.chat-fin-bubble--mine .chat-fin-bubble-name { color: rgba(255,255,255,.8); }
+.chat-fin-bubble--mine .chat-fin-bubble-time { color: rgba(255,255,255,.6); }
+
+/* Área de resposta */
+.chat-fin-reply-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: .75rem 1rem;
+  border-top: 1px solid var(--quadro-border);
+  background: var(--quadro-surface);
+}
+.chat-fin-reply-input {
+  flex: 1;
+  border: 1.5px solid var(--quadro-border);
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: .82rem;
+  font-family: inherit;
+  color: var(--quadro-text);
+  background: var(--quadro-bg);
+  resize: none;
+  outline: none;
+  line-height: 1.4;
+}
+.chat-fin-reply-input:focus { border-color: var(--accent); }
+
+/* Badge escola na lista de tickets */
+.chat-fin-ticket-school {
+  font-size: .67rem;
+  background: #EFF6FF;
+  color: #3B82F6;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 /* Banner de config */
 .chat-fin-config-banner {
   display: flex;
