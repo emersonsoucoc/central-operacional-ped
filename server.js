@@ -878,6 +878,80 @@ function agendaNotConfigured(res) {
   return false;
 }
 
+// GET /api/agendaedu/debug — diagnóstico sem autenticação JWT (somente em não-produção)
+app.get('/api/agendaedu/debug', async (req, res) => {
+  const result = { env: {}, tests: {} };
+  result.env = {
+    hasClientId    : !!AGENDAEDU_CLIENT_ID,
+    hasClientSecret: !!AGENDAEDU_CLIENT_SECRET,
+    hasSchoolToken : !!AGENDAEDU_SCHOOL_TOKEN,
+    schoolTokenLen : AGENDAEDU_SCHOOL_TOKEN.length,
+    oauthUrl       : AGENDAEDU_OAUTH_URL,
+    baseUrl        : AGENDAEDU_BASE,
+  };
+
+  // Teste 1: obter OAuth token
+  try {
+    const oauthRes = await fetch(AGENDAEDU_OAUTH_URL, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body   : new URLSearchParams({
+        grant_type   : 'client_credentials',
+        client_id    : AGENDAEDU_CLIENT_ID,
+        client_secret: AGENDAEDU_CLIENT_SECRET,
+      }),
+    });
+    const oauthBody = await oauthRes.json();
+    result.tests.oauth = { status: oauthRes.status, body: oauthBody };
+    const bearerToken = oauthBody.access_token || null;
+
+    // Teste 2: tickets com Bearer + x-school-token
+    if (bearerToken) {
+      const r2 = await fetch(`${AGENDAEDU_BASE}/tickets?channelId=85662`, {
+        headers: {
+          'Authorization' : `Bearer ${bearerToken}`,
+          'x-school-token': AGENDAEDU_SCHOOL_TOKEN,
+          'Content-Type'  : 'application/json',
+        },
+      });
+      const b2 = await r2.json().catch(() => r2.text());
+      result.tests.ticketsWithBearer = { status: r2.status, body: b2 };
+    }
+  } catch (e) {
+    result.tests.oauthError = e.message;
+  }
+
+  // Teste 3: tickets com x-school-token como Bearer (sem OAuth)
+  try {
+    const r3 = await fetch(`${AGENDAEDU_BASE}/tickets?channelId=85662`, {
+      headers: {
+        'Authorization' : `Bearer ${AGENDAEDU_SCHOOL_TOKEN}`,
+        'Content-Type'  : 'application/json',
+      },
+    });
+    const b3 = await r3.json().catch(() => r3.text());
+    result.tests.ticketsSchoolTokenAsBearer = { status: r3.status, body: b3 };
+  } catch (e) {
+    result.tests.ticketsSchoolTokenAsBearerError = e.message;
+  }
+
+  // Teste 4: tickets com x-school-token somente no header customizado
+  try {
+    const r4 = await fetch(`${AGENDAEDU_BASE}/tickets?channelId=85662`, {
+      headers: {
+        'x-school-token': AGENDAEDU_SCHOOL_TOKEN,
+        'Content-Type'  : 'application/json',
+      },
+    });
+    const b4 = await r4.json().catch(() => r4.text());
+    result.tests.ticketsOnlySchoolToken = { status: r4.status, body: b4 };
+  } catch (e) {
+    result.tests.ticketsOnlySchoolTokenError = e.message;
+  }
+
+  res.json(result);
+});
+
 // GET /api/agendaedu/channels — lista canais de atendimento
 app.get('/api/agendaedu/channels', verificarToken, async (req, res) => {
   try {
