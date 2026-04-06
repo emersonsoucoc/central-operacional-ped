@@ -2822,7 +2822,7 @@ form { display:flex; flex-direction:column; gap:14px; }
 .pf-drawer-left {
   flex: 1; display: flex; flex-direction: column;
   background: #fff; border-right: 1px solid #E2E8F0;
-  overflow-y: auto; min-width: 0;
+  overflow: hidden; min-width: 0;
 }
 
 /* HEADER */

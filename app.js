@@ -1677,6 +1677,12 @@ function openModal(cardId) {
 
     // Clear attachment list for new card (temp id)
     document.getElementById('attachmentsList').innerHTML = '';
+
+    // Clear chat and atividades for new card
+    const chatFeed = document.getElementById('chatFeed');
+    if (chatFeed) chatFeed.innerHTML = '<div class="chat-empty">Salve o card primeiro para adicionar comentários.</div>';
+    const atividadeFeed = document.getElementById('atividadeFeed');
+    if (atividadeFeed) atividadeFeed.innerHTML = '<div class="ativ-empty">Nenhuma atividade ainda. As movimentações aparecerão aqui.</div>';
     document.getElementById('attachCountBadge').style.display = 'none';
   }
 
@@ -2235,7 +2241,7 @@ function renderAtividades(card) {
     <div class="ativ-item ativ-item--${item.tipo}">
       <div class="ativ-icon">${iconMap[item.tipo] || iconMap.historico}</div>
       <div class="ativ-body">
-        <div class="ativ-texto">${escHtml(item.texto)}</div>
+        <div class="ativ-texto">${item.texto}</div>
         <div class="ativ-meta">${escHtml(item.data)} · ${escHtml(item.usuario)}</div>
       </div>
     </div>`).join('');
@@ -3827,50 +3833,87 @@ const DEFAULT_PERM_MATRIX = {
 
 let _editingUserId = null;
 
+/* ══════════════════════════════════════════════════════════
+   PERMISSÕES GRANULARES — catálogo e defaults por papel
+══════════════════════════════════════════════════════════ */
+const GRANULAR_PERMS = [
+  { key:'pode_excluir_tarefas',  label:'Pode excluir tarefas',               desc:'Permite deletar cards de qualquer fase' },
+  { key:'pode_convidar',         label:'Pode convidar outros usuários',       desc:'Permite enviar convites para novos membros' },
+  { key:'pode_ver_financeiro',   label:'Pode ver relatórios financeiros',     desc:'Acesso aos dashboards e relatórios com valores' },
+  { key:'pode_exportar',         label:'Pode exportar dados',                 desc:'Permite baixar listas e relatórios em CSV/PDF' },
+  { key:'pode_editar_fluxos',    label:'Pode editar configurações de fluxos', desc:'Alterar fases, categorias e campos dos módulos' },
+  { key:'pode_gerenciar_equipe', label:'Pode gerenciar equipe',               desc:'Adicionar, editar e remover usuários' },
+];
+
+const GRANULAR_DEFAULTS = {
+  admin:        ['pode_excluir_tarefas','pode_convidar','pode_ver_financeiro','pode_exportar','pode_editar_fluxos','pode_gerenciar_equipe'],
+  gestor:       ['pode_excluir_tarefas','pode_convidar','pode_ver_financeiro','pode_exportar'],
+  financeiro:   ['pode_ver_financeiro','pode_exportar'],
+  pedagogico:   ['pode_exportar'],
+  ti:           ['pode_excluir_tarefas','pode_editar_fluxos'],
+  operador:     [],
+  visualizador: [],
+};
+
+function applyGranularDefaults(perfil) {
+  const defaults = GRANULAR_DEFAULTS[perfil] || [];
+  document.querySelectorAll('.granular-cb').forEach(cb => {
+    cb.checked = defaults.includes(cb.value);
+  });
+}
+
 function buildPanelUsuarios() {
   const total  = settingsData.usuarios.length;
   const ativos = settingsData.usuarios.filter(u => u.ativo).length;
 
+  /* ── Linhas da tabela ── */
   const rows = settingsData.usuarios.map(u => {
     const perfil   = PERFIS[u.perfil] || PERFIS.visualizador;
     const initials = u.nome.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase();
     const escolasNome = (u.escolas || [])
       .map(id => { const e = settingsData.escolas.find(s => s.id === id); return e ? e.sigla : id; })
       .join(', ') || '—';
+    const statusClass = u.ativo ? 'team-status-badge--active' : 'team-status-badge--inactive';
+    const statusLabel = u.ativo ? 'Ativo' : 'Inativo';
 
     return `
-    <div class="user-item ${u.ativo ? '' : 'user-item--inactive'}" data-id="${escHtml(u.id)}">
-      <div class="user-avatar" style="background:${perfil.cor}">${escHtml(initials)}</div>
-      <div class="user-info">
-        <div class="user-info-nome">${escHtml(u.nome)}</div>
-        <div class="user-info-email">${escHtml(u.email)}</div>
-        <div class="user-info-meta">
-          <span class="user-perfil-badge" style="background:${perfil.cor}20;color:${perfil.cor}">${perfil.label}</span>
-          <span class="user-escolas-tag">${escHtml(escolasNome)}</span>
+    <tr class="team-tr ${u.ativo ? '' : 'team-tr--inactive'}" data-id="${escHtml(u.id)}">
+      <td class="team-td">
+        <div class="team-user-cell">
+          <div class="team-avatar" style="background:${escHtml(perfil.cor)}">${escHtml(initials)}</div>
+          <div class="team-user-info">
+            <span class="team-user-nome">${escHtml(u.nome)}</span>
+            <span class="team-user-email">${escHtml(u.email)}</span>
+          </div>
         </div>
-      </div>
-      <div class="user-status-toggle">
-        <label class="toggle-switch" title="${u.ativo ? 'Ativo' : 'Inativo'}">
-          <input type="checkbox" data-action="toggle-usuario" data-id="${escHtml(u.id)}" ${u.ativo ? 'checked' : ''}>
-          <span class="toggle-slider"></span>
-        </label>
-        <span style="font-size:11px;color:var(--quadro-muted)">${u.ativo ? 'Ativo' : 'Inativo'}</span>
-      </div>
-      <div class="user-actions">
-        <button class="btn-icon-sm" data-action="edit-usuario" data-id="${escHtml(u.id)}" title="Editar usuário">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <path d="M9.5 1.5l2 2-7 7H2.5v-2l7-7z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <button class="btn-icon-sm btn-icon-danger" data-action="del-usuario" data-id="${escHtml(u.id)}" title="Remover usuário">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <path d="M2 3.5h9M5 3.5V2h3v1.5M3 3.5l.8 7h5.4l.8-7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-          </svg>
-        </button>
-      </div>
-    </div>`;
+      </td>
+      <td class="team-td">
+        <span class="team-role-badge" style="background:${escHtml(perfil.cor)}18;color:${escHtml(perfil.cor)};border:1px solid ${escHtml(perfil.cor)}35">${escHtml(perfil.label)}</span>
+      </td>
+      <td class="team-td">
+        <span class="team-status-badge ${statusClass}">
+          <span class="team-status-dot"></span>${statusLabel}
+        </span>
+      </td>
+      <td class="team-td">
+        <span class="team-schools-chip">${escHtml(escolasNome)}</span>
+      </td>
+      <td class="team-td team-td--actions">
+        <div class="team-actions">
+          <button class="team-action-btn" data-action="edit-usuario" data-id="${escHtml(u.id)}" title="Editar">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M9.5 1.5l2 2-7 7H2.5v-2l7-7z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Editar
+          </button>
+          <button class="team-action-btn team-action-btn--danger" data-action="del-usuario" data-id="${escHtml(u.id)}" title="Excluir">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 3.5h9M5 3.5V2h3v1.5M3 3.5l.8 7h5.4l.8-7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            Excluir
+          </button>
+        </div>
+      </td>
+    </tr>`;
   }).join('');
 
+  /* ── Checkboxes de escolas ── */
   const escolaCheckboxes = settingsData.escolas.map(e => `
     <label class="user-escola-check">
       <input type="checkbox" name="usr-escola" value="${escHtml(e.id)}">
@@ -3878,87 +3921,182 @@ function buildPanelUsuarios() {
       ${escHtml(e.nome)}
     </label>`).join('');
 
+  /* ── Options do select de perfil ── */
   const perfilOptions = Object.entries(PERFIS).map(([key, p]) =>
     `<option value="${key}">${p.label} — ${p.desc}</option>`
   ).join('');
 
+  /* ── Checkboxes granulares ── */
+  const granularCheckboxes = GRANULAR_PERMS.map(gp => `
+    <label class="granular-perm-item">
+      <div class="granular-perm-check-wrap">
+        <input type="checkbox" class="granular-cb" name="granular-perm" value="${escHtml(gp.key)}">
+        <span class="granular-cb-custom"></span>
+      </div>
+      <div class="granular-perm-text">
+        <span class="granular-perm-label">${escHtml(gp.label)}</span>
+        <span class="granular-perm-desc">${escHtml(gp.desc)}</span>
+      </div>
+    </label>`).join('');
+
   return `
     <div class="settings-panel-header">
       <div>
-        <h2>Usuários</h2>
-        <p>Gerencie quem tem acesso ao sistema (${ativos} ativos de ${total})</p>
+        <h2>Equipe &amp; Permissões</h2>
+        <p>Gerencie membros e níveis de acesso — ${ativos} ativo${ativos !== 1 ? 's' : ''} de ${total}</p>
       </div>
       <button class="btn-primary" id="addUsuarioBtn">
         <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
           <path d="M6.5 1.5v10M1.5 6.5h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        Adicionar Usuário
+        Convidar Usuário
       </button>
     </div>
 
-    <div class="user-filter-row">
-      <input type="text" id="userSearchInput" class="user-search-input" placeholder="Buscar por nome ou e-mail…" autocomplete="new-password" name="ped-user-search">
-      <select id="userPerfilFilter" class="user-perfil-filter">
-        <option value="">Todos os perfis</option>
+    <!-- Filtros -->
+    <div class="team-filter-row">
+      <div class="team-search-wrap">
+        <svg class="team-search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M10 10l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        <input type="text" id="userSearchInput" class="team-search-input" placeholder="Buscar por nome ou e-mail…" autocomplete="new-password" name="ped-user-search">
+      </div>
+      <select id="userPerfilFilter" class="team-perfil-filter">
+        <option value="">Todos os papéis</option>
         ${Object.entries(PERFIS).map(([k,p]) => `<option value="${k}">${p.label}</option>`).join('')}
       </select>
     </div>
 
-    <div class="settings-card" id="userListCard">
-      ${rows || '<p style="padding:24px;color:var(--quadro-muted);text-align:center">Nenhum usuário cadastrado.</p>'}
+    <!-- Tabela de usuários -->
+    <div class="settings-card team-table-wrap">
+      <table class="team-table">
+        <thead>
+          <tr>
+            <th class="team-th">Usuário</th>
+            <th class="team-th">Papel</th>
+            <th class="team-th">Status</th>
+            <th class="team-th">Escolas</th>
+            <th class="team-th" style="text-align:right">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="teamTableBody">
+          ${rows || `<tr><td colspan="5" class="team-empty-row">Nenhum usuário cadastrado.</td></tr>`}
+        </tbody>
+      </table>
     </div>
 
+    <!-- ── Modal: Convidar / Editar Usuário ── -->
     <div class="escola-modal-overlay" id="userModalOverlay">
-      <div class="escola-modal" style="max-width:500px">
-        <div class="escola-modal-header">
-          <h3 id="userModalTitle">Adicionar Usuário</h3>
+      <div class="invite-modal">
+
+        <div class="invite-modal-header">
+          <div>
+            <h3 id="userModalTitle">Convidar Usuário</h3>
+            <p class="invite-modal-subtitle" id="userModalSubtitle">Preencha os dados e escolha o nível de acesso</p>
+          </div>
           <button class="escola-modal-close" id="userModalClose">&times;</button>
         </div>
-        <div class="escola-modal-body" style="display:flex;flex-direction:column;gap:16px">
-          <div class="form-group">
-            <label class="form-label">Nome completo *</label>
-            <input type="text" id="userNomeInput" class="form-input" placeholder="Ex: Maria Silva" autocomplete="off">
+
+        <div class="invite-modal-body">
+
+          <!-- Dados pessoais -->
+          <div class="invite-section">
+            <h4 class="invite-section-title">Dados do usuário</h4>
+            <div class="invite-fields-grid">
+              <div class="form-group">
+                <label class="form-label">Nome completo *</label>
+                <input type="text" id="userNomeInput" class="form-input" placeholder="Ex: Maria Silva" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label class="form-label">E-mail corporativo *</label>
+                <input type="text" id="userEmailInput" class="form-input" placeholder="maria@grupoped.com.br" autocomplete="off">
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">E-mail *</label>
-            <input type="text" id="userEmailInput" class="form-input" placeholder="Ex: maria@grupoped.com.br" autocomplete="off">
+
+          <!-- Papel / Role -->
+          <div class="invite-section">
+            <h4 class="invite-section-title">Nível de acesso</h4>
+            <div class="form-group">
+              <label class="form-label">Papel no sistema *</label>
+              <select id="userPerfilInput" class="form-input">${perfilOptions}</select>
+              <p class="invite-role-hint" id="userPerfilHint"></p>
+            </div>
+            <!-- Role cards visuais -->
+            <div class="role-cards-row">
+              <div class="role-card" data-role="admin">
+                <div class="role-card-icon" style="background:#8B5CF620">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="2.5" stroke="#8B5CF6" stroke-width="1.4"/><path d="M3 13c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="#8B5CF6" stroke-width="1.4" stroke-linecap="round"/><path d="M11 8l1.5 1.5M11 11l1.5-1.5" stroke="#8B5CF6" stroke-width="1.2" stroke-linecap="round"/></svg>
+                </div>
+                <div class="role-card-label">Administrador</div>
+                <div class="role-card-desc">Acesso total ao sistema</div>
+              </div>
+              <div class="role-card" data-role="gestor">
+                <div class="role-card-icon" style="background:#3B82F620">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke="#3B82F6" stroke-width="1.4"/><path d="M5 7h6M5 10h4" stroke="#3B82F6" stroke-width="1.4" stroke-linecap="round"/></svg>
+                </div>
+                <div class="role-card-label">Gestor / Membro</div>
+                <div class="role-card-desc">Cria, edita e aprova</div>
+              </div>
+              <div class="role-card" data-role="visualizador">
+                <div class="role-card-icon" style="background:#64748B20">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1.5 8s2.5-5 6.5-5 6.5 5 6.5 5-2.5 5-6.5 5-6.5-5-6.5-5z" stroke="#64748B" stroke-width="1.4"/><circle cx="8" cy="8" r="2" stroke="#64748B" stroke-width="1.4"/></svg>
+                </div>
+                <div class="role-card-label">Visualizador</div>
+                <div class="role-card-desc">Somente leitura</div>
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Perfil de acesso *</label>
-            <select id="userPerfilInput" class="form-input">${perfilOptions}</select>
-            <p class="form-hint" id="userPerfilHint"></p>
+
+          <!-- Permissões Granulares -->
+          <div class="invite-section">
+            <h4 class="invite-section-title">
+              Permissões granulares
+              <span class="invite-section-badge">Personalizar</span>
+            </h4>
+            <p class="invite-section-desc">Ative ou desative permissões independente do papel — sobrescrevem o padrão do role.</p>
+            <div class="granular-perms-grid">
+              ${granularCheckboxes}
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Escolas com acesso *</label>
+
+          <!-- Escolas -->
+          <div class="invite-section">
+            <h4 class="invite-section-title">Escolas com acesso *</h4>
             <div class="user-escolas-checks">${escolaCheckboxes}</div>
           </div>
-          <div class="form-group" id="userSenhaGroup">
-            <label class="form-label" id="userSenhaLabel">Senha de acesso *</label>
-            <div style="display:flex;gap:8px;align-items:center">
-              <input type="password" id="userSenhaInput" class="form-input" placeholder="Mínimo 6 caracteres" style="flex:1" autocomplete="new-password">
-              <button type="button" id="userSenhaToggle" class="btn-icon-sm" title="Mostrar/ocultar senha" style="flex-shrink:0;width:32px;height:32px">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <ellipse cx="7" cy="7" rx="5" ry="3.5" stroke="currentColor" stroke-width="1.3"/>
-                  <circle cx="7" cy="7" r="1.5" fill="currentColor"/>
-                </svg>
+
+          <!-- Senha -->
+          <div class="invite-section" id="userSenhaGroup">
+            <h4 class="invite-section-title" id="userSenhaLabel">Senha de acesso *</h4>
+            <div class="invite-password-row">
+              <input type="password" id="userSenhaInput" class="form-input" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+              <button type="button" id="userSenhaToggle" class="team-action-btn" title="Mostrar/ocultar senha" style="flex-shrink:0">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><ellipse cx="7" cy="7" rx="5" ry="3.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>
               </button>
             </div>
             <p class="form-hint" id="userSenhaHint"></p>
           </div>
-        </div>
-        <div class="escola-modal-footer">
+
+        </div><!-- /invite-modal-body -->
+
+        <div class="invite-modal-footer">
           <button class="btn-secondary" id="userModalCancel">Cancelar</button>
-          <button class="btn-primary" id="userModalSave">Salvar Usuário</button>
+          <button class="btn-primary" id="userModalSave">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 7l3.5 3.5 5.5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span id="userModalSaveLabel">Convidar Usuário</span>
+          </button>
         </div>
-      </div>
-    </div>`;
+
+      </div><!-- /invite-modal -->
+    </div><!-- /userModalOverlay -->`;
 }
 
 function bindUsuariosEvents() {
-  /* Garante campo vazio — Chrome às vezes ignora autocomplete e preenche o campo */
+  /* Limpa busca — Chrome às vezes autofill */
   const _srch = document.getElementById('userSearchInput');
   if (_srch) { _srch.value = ''; }
-  /* Atraso extra: limpa novamente 300 ms após render (cobre o autofill tardio do Chrome) */
   setTimeout(() => { const s = document.getElementById('userSearchInput'); if (s) { s.value = ''; filterUserList(); } }, 300);
 
   document.getElementById('addUsuarioBtn').addEventListener('click', () => openUserModal(null));
@@ -3967,16 +4105,35 @@ function bindUsuariosEvents() {
   document.getElementById('userModalClose').addEventListener('click', closeUserModal);
   document.getElementById('userModalCancel').addEventListener('click', closeUserModal);
   document.getElementById('userModalSave').addEventListener('click', saveUsuario);
+
+  /* Select de perfil — atualiza hint e role cards */
   document.getElementById('userPerfilInput').addEventListener('change', function() {
     const perfil = PERFIS[this.value];
     document.getElementById('userPerfilHint').textContent = perfil ? perfil.desc : '';
+    _syncRoleCard(this.value);
+    applyGranularDefaults(this.value);
   });
+
+  /* Role cards — clique seleciona o perfil correspondente */
+  document.querySelectorAll('.role-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const role = card.dataset.role;
+      const sel  = document.getElementById('userPerfilInput');
+      if (sel) sel.value = role;
+      _syncRoleCard(role);
+      const p = PERFIS[role];
+      document.getElementById('userPerfilHint').textContent = p ? p.desc : '';
+      applyGranularDefaults(role);
+    });
+  });
+
   /* Toggle visibilidade da senha */
   document.getElementById('userSenhaToggle').addEventListener('click', function() {
     const inp = document.getElementById('userSenhaInput');
     inp.type = inp.type === 'password' ? 'text' : 'password';
   });
-  /* Validação em tempo real */
+
+  /* Validação em tempo real da senha */
   document.getElementById('userSenhaInput').addEventListener('input', function() {
     const hint = document.getElementById('userSenhaHint');
     const v = this.value;
@@ -3984,71 +4141,93 @@ function bindUsuariosEvents() {
     if (v.length < 6) { hint.textContent = 'Mínimo de 6 caracteres'; hint.style.color = '#EF4444'; }
     else              { hint.textContent = '✓ Senha válida';          hint.style.color = '#10B981'; }
   });
-  document.getElementById('userListCard').addEventListener('click', e => {
-    const btn = e.target.closest('[data-action]');
-    if (!btn) return;
-    const id = btn.dataset.id;
-    if (btn.dataset.action === 'edit-usuario') {
-      openUserModal(id);
-    } else if (btn.dataset.action === 'del-usuario') {
-      const u = settingsData.usuarios.find(u => u.id === id);
-      if (!u) return;
-      if (!confirm(`Remover o usuário "${u.nome}"? Esta ação não pode ser desfeita.`)) return;
-      settingsData.usuarios = settingsData.usuarios.filter(u => u.id !== id);
-      removeFromLoginUsers(id);
-      saveUsuariosData();
-      renderSettingsPanel('usuarios');
-      showToast('Usuário removido.', 'success');
-    } else if (btn.dataset.action === 'toggle-usuario') {
-      const u = settingsData.usuarios.find(u => u.id === id);
-      if (u) {
-        u.ativo = !u.ativo;
-        syncToLoginUsers(u); // Atualiza no backend
+
+  /* Ações da tabela (edit / delete) via delegação */
+  const tbody = document.getElementById('teamTableBody');
+  if (tbody) {
+    tbody.addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      if (btn.dataset.action === 'edit-usuario') {
+        openUserModal(id);
+      } else if (btn.dataset.action === 'del-usuario') {
+        const u = settingsData.usuarios.find(u => u.id === id);
+        if (!u) return;
+        if (!confirm(`Remover o usuário "${u.nome}"? Esta ação não pode ser desfeita.`)) return;
+        settingsData.usuarios = settingsData.usuarios.filter(u => u.id !== id);
+        removeFromLoginUsers(id);
         saveUsuariosData();
-        const item = btn.closest('.user-item');
-        if (item) {
-          item.classList.toggle('user-item--inactive', !u.ativo);
-          const statusText = item.querySelector('.user-status-toggle span');
-          if (statusText) statusText.textContent = u.ativo ? 'Ativo' : 'Inativo';
-        }
-        showToast(u.ativo ? `${u.nome} ativado.` : `${u.nome} desativado.`, 'success');
+        renderSettingsPanel('usuarios');
+        showToast('Usuário removido.', 'success');
       }
-    }
+    });
+  }
+
+  /* Fechar modal ao clicar no backdrop */
+  document.getElementById('userModalOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('userModalOverlay')) closeUserModal();
   });
+}
+
+/* Sincroniza destaque visual dos role cards com o valor selecionado */
+function _syncRoleCard(role) {
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('role-card--selected'));
+  const match = document.querySelector(`.role-card[data-role="${role}"]`);
+  if (match) match.classList.add('role-card--selected');
 }
 
 function openUserModal(id) {
   _editingUserId = id;
   const overlay = document.getElementById('userModalOverlay');
-  document.getElementById('userNomeInput').value  = '';
-  document.getElementById('userEmailInput').value = '';
-  document.getElementById('userSenhaInput').value = '';
-  document.getElementById('userSenhaInput').type  = 'password';
+
+  /* Reset geral */
+  document.getElementById('userNomeInput').value   = '';
+  document.getElementById('userEmailInput').value  = '';
+  document.getElementById('userSenhaInput').value  = '';
+  document.getElementById('userSenhaInput').type   = 'password';
   document.getElementById('userSenhaHint').textContent = '';
   document.getElementById('userSenhaHint').style.color = '';
   document.getElementById('userPerfilInput').value = 'operador';
-  document.getElementById('userPerfilHint').textContent = PERFIS.operador.desc;
+  document.getElementById('userPerfilHint').textContent = PERFIS.operador?.desc || '';
   document.querySelectorAll('input[name="usr-escola"]').forEach(cb => cb.checked = false);
+  _syncRoleCard('operador');
+  applyGranularDefaults('operador');
+
   if (id) {
+    /* ── Modo edição ── */
     const u = settingsData.usuarios.find(u => u.id === id);
     if (!u) return;
-    document.getElementById('userModalTitle').textContent    = 'Editar Usuário';
-    document.getElementById('userSenhaLabel').textContent    = 'Nova senha (deixe em branco para manter)';
-    document.getElementById('userSenhaInput').placeholder   = 'Somente se quiser alterar';
-    document.getElementById('userNomeInput').value    = u.nome;
-    document.getElementById('userEmailInput').value   = u.email;
-    document.getElementById('userPerfilInput').value  = u.perfil;
+    document.getElementById('userModalTitle').textContent      = 'Editar Usuário';
+    document.getElementById('userModalSubtitle').textContent   = 'Atualize os dados e permissões do membro';
+    document.getElementById('userModalSaveLabel').textContent  = 'Salvar Alterações';
+    document.getElementById('userSenhaLabel').textContent      = 'Nova senha (deixe em branco para manter)';
+    document.getElementById('userSenhaInput').placeholder      = 'Somente se quiser alterar';
+    document.getElementById('userNomeInput').value   = u.nome;
+    document.getElementById('userEmailInput').value  = u.email;
+    document.getElementById('userPerfilInput').value = u.perfil;
     document.getElementById('userPerfilHint').textContent = PERFIS[u.perfil]?.desc || '';
+    _syncRoleCard(u.perfil);
+    /* Escolas */
     (u.escolas || []).forEach(eid => {
       const cb = document.querySelector(`input[name="usr-escola"][value="${eid}"]`);
       if (cb) cb.checked = true;
     });
+    /* Permissões granulares salvas ou defaults do perfil */
+    const granular = u.permissoesGranulares || GRANULAR_DEFAULTS[u.perfil] || [];
+    document.querySelectorAll('.granular-cb').forEach(cb => {
+      cb.checked = granular.includes(cb.value);
+    });
   } else {
-    document.getElementById('userModalTitle').textContent   = 'Adicionar Usuário';
-    document.getElementById('userSenhaLabel').textContent   = 'Senha de acesso *';
-    document.getElementById('userSenhaInput').placeholder  = 'Mínimo 6 caracteres';
+    /* ── Modo convite ── */
+    document.getElementById('userModalTitle').textContent      = 'Convidar Usuário';
+    document.getElementById('userModalSubtitle').textContent   = 'Preencha os dados e escolha o nível de acesso';
+    document.getElementById('userModalSaveLabel').textContent  = 'Convidar Usuário';
+    document.getElementById('userSenhaLabel').textContent      = 'Senha de acesso *';
+    document.getElementById('userSenhaInput').placeholder      = 'Mínimo 6 caracteres';
     document.querySelectorAll('input[name="usr-escola"]').forEach(cb => cb.checked = true);
   }
+
   overlay.classList.add('active');
   document.getElementById('userNomeInput').focus();
 }
@@ -4223,10 +4402,14 @@ function saveUsuario() {
   const perfil = document.getElementById('userPerfilInput').value;
   const senha  = document.getElementById('userSenhaInput').value.trim();
   const escolas = [...document.querySelectorAll('input[name="usr-escola"]:checked')].map(cb => cb.value);
+  /* Coleta permissões granulares marcadas */
+  const permissoesGranulares = [...document.querySelectorAll('.granular-cb:checked')].map(cb => cb.value);
+
   if (!nome)    { showToast('Informe o nome do usuário.', 'error');   return; }
   if (!email)   { showToast('Informe o e-mail do usuário.', 'error'); return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('E-mail inválido.', 'error'); return; }
   if (!escolas.length) { showToast('Selecione ao menos uma escola.', 'error'); return; }
+
   if (_editingUserId) {
     const dup = settingsData.usuarios.find(u => u.email === email && u.id !== _editingUserId);
     if (dup) { showToast('Já existe um usuário com este e-mail.', 'error'); return; }
@@ -4234,6 +4417,7 @@ function saveUsuario() {
     const u = settingsData.usuarios.find(u => u.id === _editingUserId);
     if (!u) return;
     u.nome = nome; u.email = email; u.perfil = perfil; u.escolas = escolas;
+    u.permissoesGranulares = permissoesGranulares;
     syncToLoginUsers(u, senha || null);
     saveUsuariosData();
     showToast('Usuário atualizado!', 'success');
@@ -4242,11 +4426,15 @@ function saveUsuario() {
     if (senha.length < 6) { showToast('A senha deve ter ao menos 6 caracteres.', 'error'); return; }
     const dup = settingsData.usuarios.find(u => u.email === email);
     if (dup) { showToast('Já existe um usuário com este e-mail.', 'error'); return; }
-    const novoUsuario = { id:'usr'+uid(), nome, email, perfil, escolas, ativo:true, criadoEm:new Date().toISOString().slice(0,10) };
+    const novoUsuario = {
+      id: 'usr'+uid(), nome, email, perfil, escolas,
+      permissoesGranulares, ativo:true,
+      criadoEm: new Date().toISOString().slice(0,10),
+    };
     settingsData.usuarios.push(novoUsuario);
     syncToLoginUsers(novoUsuario, senha);
     saveUsuariosData();
-    showToast(`Usuário criado! Login: ${email}`, 'success');
+    showToast(`Convite enviado! Login: ${email}`, 'success');
   }
   closeUserModal();
   renderSettingsPanel('usuarios');
@@ -4255,10 +4443,13 @@ function saveUsuario() {
 function filterUserList() {
   const search = (document.getElementById('userSearchInput')?.value || '').toLowerCase();
   const pf     = document.getElementById('userPerfilFilter')?.value || '';
-  document.querySelectorAll('.user-item').forEach(item => {
+  /* Suporte à nova tabela (.team-tr) e ao antigo formato (.user-item) */
+  const items  = document.querySelectorAll('#teamTableBody .team-tr, .user-item');
+  items.forEach(item => {
     const u = settingsData.usuarios.find(u => u.id === item.dataset.id);
     if (!u) return;
-    const ok = (!search || u.nome.toLowerCase().includes(search) || u.email.toLowerCase().includes(search)) && (!pf || u.perfil === pf);
+    const ok = (!search || u.nome.toLowerCase().includes(search) || u.email.toLowerCase().includes(search))
+            && (!pf || u.perfil === pf);
     item.style.display = ok ? '' : 'none';
   });
 }
