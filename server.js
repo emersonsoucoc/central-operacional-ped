@@ -1252,6 +1252,48 @@ app.post('/api/agendaedu/estrutura/responsible-profiles', verificarToken, async 
     const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+app.put('/api/agendaedu/estrutura/responsible-profiles/:id', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('PUT', `/responsible_profiles/${req.params.id}`, req.body);
+    const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Alunos (student_profiles)
+app.get('/api/agendaedu/estrutura/student-profiles', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const qs = new URLSearchParams(req.query).toString();
+    const r  = await agendaProxy('GET', `/student_profiles${qs ? '?' + qs : ''}`);
+    const d  = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/agendaedu/estrutura/student-profiles', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', '/student_profiles', req.body);
+    const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+// PUT/PATCH edição — todos os recursos
+// Tenta PATCH (atualização parcial); se a API retornar 405 cai no PUT
+const _agendaUpdate = (endpoint) => async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    let r = await agendaProxy('PATCH', `/${endpoint}/${req.params.id}`, req.body);
+    if (r.status === 405) r = await agendaProxy('PUT', `/${endpoint}/${req.params.id}`, req.body);
+    const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+};
+['put','patch'].forEach(m => {
+  app[m]('/api/agendaedu/estrutura/headquarters/:id',        verificarToken, _agendaUpdate('headquarters'));
+  app[m]('/api/agendaedu/estrutura/classrooms/:id',          verificarToken, _agendaUpdate('classrooms'));
+  app[m]('/api/agendaedu/estrutura/disciplines/:id',         verificarToken, _agendaUpdate('disciplines'));
+  app[m]('/api/agendaedu/estrutura/school-users/:id',        verificarToken, _agendaUpdate('school_users'));
+  app[m]('/api/agendaedu/estrutura/student-profiles/:id',    verificarToken, _agendaUpdate('student_profiles'));
+  app[m]('/api/agendaedu/estrutura/responsible-profiles/:id',verificarToken, _agendaUpdate('responsible_profiles'));
+});
 
 /* ══════════════════════════════════════════════════════════
    TICKETS — Sistema interno de atendimento (substitui AgendaEdu)

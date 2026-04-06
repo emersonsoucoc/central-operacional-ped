@@ -807,8 +807,19 @@ async function apiRequest(method, path, body) {
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new Error(err.error || `Erro ${res.status}`);
+    let errMsg = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      // JSONAPI format: { errors: [{title, detail}] }
+      if (Array.isArray(body.errors) && body.errors.length > 0) {
+        errMsg = body.errors.map(e => e.detail || e.title || JSON.stringify(e)).join('; ');
+      } else if (body.error) {
+        errMsg = body.error;
+      } else if (body.message) {
+        errMsg = body.message;
+      }
+    } catch(_) {}
+    throw new Error(errMsg);
   }
   return res.json();
 }
@@ -5661,8 +5672,22 @@ function _estErrorHTML(msg) {
   return `<div class="est-empty"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5"/><path d="M12 12l8 8M20 12l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Erro: ${escHtml(msg||'Tente novamente')}</div>`;
 }
 
-async function _estFetch(ep) { return apiRequest('GET', `/api/agendaedu/estrutura/${ep}?per_page=100`); }
+async function _estFetch(ep) {
+  /* Busca TODAS as páginas automaticamente (máx 20 páginas = 4000 registros) */
+  let all = [], page = 1;
+  const PER = 200;
+  for (let i = 0; i < 20; i++) {
+    const data = await apiRequest('GET', `/api/agendaedu/estrutura/${ep}?per_page=${PER}&page=${page}`);
+    const items = data.data || [];
+    all = all.concat(items);
+    /* Última página: menos itens que o limite ou sem link next */
+    if (items.length < PER || !data.links?.next) break;
+    page++;
+  }
+  return { data: all };
+}
 async function _estPost(ep, body) { return apiRequest('POST', `/api/agendaedu/estrutura/${ep}`, body); }
+async function _estPatch(ep, id, body) { return apiRequest('PATCH', `/api/agendaedu/estrutura/${ep}/${encodeURIComponent(id)}`, body); }
 function _estToggleForm(id) { document.getElementById(id)?.classList.toggle('open'); }
 
 /* ── UNIDADES ── */
@@ -5684,7 +5709,7 @@ async function estSalvarUnidade(id) {
   const nome=document.getElementById(`estEditHqNome-${id}`)?.value.trim(), extId=document.getElementById(`estEditHqExt-${id}`)?.value.trim();
   if(!nome){showToast('Nome obrigatório','warn');return;}
   const p={headquarter:{name:nome}}; if(extId) p.headquarter.external_id=extId;
-  try { await _estPut('headquarters',id,p); _estCache.unidades=null; showToast('Unidade atualizada!','success'); estRenderUnidades(); } catch(err){showToast('Erro: '+err.message,'error');}
+  try { await _estPatch('headquarters',id,p); _estCache.unidades=null; showToast('Unidade atualizada!','success'); estRenderUnidades(); } catch(err){showToast('Erro: '+err.message,'error');}
 }
 
 /* ── helper busca client-side ── */
@@ -5777,7 +5802,7 @@ async function estSalvarTurma(id) {
   if(!nome){showToast('Nome obrigatório','warn');return;}
   const p={classroom:{name:nome,headquarter_id:unidade,educational_stage_name:stage}};
   if(sala) p.classroom.room=sala;
-  try { await _estPut('classrooms',id,p); _estCache.turmas=null; showToast('Turma atualizada!','success'); estRenderTurmas(); } catch(err){showToast('Erro: '+err.message,'error');}
+  try { await _estPatch('classrooms',id,p); _estCache.turmas=null; showToast('Turma atualizada!','success'); estRenderTurmas(); } catch(err){showToast('Erro: '+err.message,'error');}
 }
 
 /* ── DISCIPLINAS ── */
@@ -5799,7 +5824,7 @@ async function estSalvarDisciplina(id) {
   const nome=document.getElementById(`estEditDiscNome-${id}`)?.value.trim(),slug=document.getElementById(`estEditDiscSlug-${id}`)?.value.trim();
   if(!nome){showToast('Nome obrigatório','warn');return;}
   const p={discipline:{name:nome}}; if(slug) p.discipline.slug=slug;
-  try { await _estPut('disciplines',id,p); _estCache.disciplinas=null; showToast('Disciplina atualizada!','success'); estRenderDisciplinas(); } catch(err){showToast('Erro: '+err.message,'error');}
+  try { await _estPatch('disciplines',id,p); _estCache.disciplinas=null; showToast('Disciplina atualizada!','success'); estRenderDisciplinas(); } catch(err){showToast('Erro: '+err.message,'error');}
 }
 
 /* ── PROFISSIONAIS ── */
@@ -5820,9 +5845,28 @@ async function estCriarProfissional() {
   try { await _estPost('school-users',{school_user:{external_id:extId,email,username,status:'active',confirm,role,profile_attributes:{name:nome}}}); _estCache.profissionais=null; showToast('Profissional criado!','success'); estRenderProfissionais(); } catch(err){showToast('Erro: '+err.message,'error');}
 }
 async function estSalvarProfissional(id) {
-  const nome=document.getElementById(`estEditSuNome-${id}`)?.value.trim(),role=document.getElementById(`estEditSuRole-${id}`)?.value;
-  if(!nome){showToast('Nome obrigatório','warn');return;}
-  try { await _estPut('school-users',id,{school_user:{profile_attributes:{name:nome},role}}); _estCache.profissionais=null; showToast('Profissional atualizado!','success'); estRenderProfissionais(); } catch(err){showToast('Erro: '+err.message,'error');}
+  const nome = document.getElementById(`estEditSuNome-${id}`)?.value.trim();
+  const role = document.getElementById(`estEditSuRole-${id}`)?.value;
+  if (!nome) { showToast('Nome obrigatório', 'warn'); return; }
+  /* Agenda Edu usa PATCH para atualizações parciais em school_users */
+  const payload = { school_user: { profile_attributes: { name: nome } } };
+  if (role) payload.school_user.role = role;
+  try {
+    await _estPatch('school-users', id, payload);
+    _estCache.profissionais = null;
+    showToast('Profissional atualizado!', 'success');
+    estRenderProfissionais();
+  } catch(err) {
+    /* Se PATCH falhar, tenta via PUT (compatibilidade) */
+    try {
+      await _estPut('school-users', id, payload);
+      _estCache.profissionais = null;
+      showToast('Profissional atualizado!', 'success');
+      estRenderProfissionais();
+    } catch(err2) {
+      showToast('Erro ao salvar: ' + err2.message, 'error');
+    }
+  }
 }
 
 /* ── ALUNOS ── */
@@ -5864,7 +5908,7 @@ async function estSalvarAluno(id) {
   if(!nome){showToast('Nome obrigatório','warn');return;}
   const p={student_profile:{name:nome,period:periodo}};
   if(email) p.student_profile.email=email;
-  try { await _estPut('student-profiles',id,p); _estCache.alunos=null; showToast('Aluno atualizado!','success'); estRenderAlunos(); } catch(err){showToast('Erro: '+err.message,'error');}
+  try { await _estPatch('student-profiles',id,p); _estCache.alunos=null; showToast('Aluno atualizado!','success'); estRenderAlunos(); } catch(err){showToast('Erro: '+err.message,'error');}
 }
 
 /* ── RESPONSÁVEIS ── */
@@ -5924,7 +5968,7 @@ async function estSalvarResponsavel(id) {
   const p = { responsible_profile: { name: nome, student_profile_ids: studentIds } };
   if (kinship) p.responsible_profile.kinship = kinship;
   if (email)   p.responsible_profile.email   = email;
-  try { await _estPut('responsible-profiles',id,p); _estCache.responsaveis=null; showToast('Responsável atualizado!','success'); estRenderResponsaveis(); } catch(err){showToast('Erro: '+err.message,'error');}
+  try { await _estPatch('responsible-profiles',id,p); _estCache.responsaveis=null; showToast('Responsável atualizado!','success'); estRenderResponsaveis(); } catch(err){showToast('Erro ao salvar: '+err.message,'error');}
 }
 
 async function estCriarResponsavel() {
