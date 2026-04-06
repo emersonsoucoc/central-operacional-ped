@@ -815,6 +815,160 @@ app.get('/api/diagnostico', verificarToken, exigirRole('Super Admin'), async (_,
   res.json(info);
 });
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// AGENDAEDU — Gestão de Atendimento (proxy seguro via backend)
+// Variáveis de ambiente necessárias no Railway:
+//   AGENDAEDU_CLIENT_ID      → uid gerado no AgendaEdu (OAuth2 client_id)
+//   AGENDAEDU_CLIENT_SECRET  → secret key gerado no AgendaEdu
+//   AGENDAEDU_SCHOOL_TOKEN   → x-school-token da escola (header obrigatório)
+// ════════════════════════════════════════════════════════════════════════════
+const AGENDAEDU_BASE          = 'https://api.agendaedu.com/v2';
+const AGENDAEDU_CLIENT_ID     = process.env.AGENDAEDU_CLIENT_ID     || '';
+const AGENDAEDU_CLIENT_SECRET = process.env.AGENDAEDU_CLIENT_SECRET || '';
+const AGENDAEDU_SCHOOL_TOKEN  = process.env.AGENDAEDU_SCHOOL_TOKEN  || '';
+const AGENDAEDU_OAUTH_URL     = process.env.AGENDAEDU_OAUTH_URL     || 'https://api.agendaedu.com/oauth/v2/token';
+
+let _agendaAccessToken = null;
+let _agendaTokenExpiry = 0;
+
+async function getAgendaEduToken() {
+  if (_agendaAccessToken && Date.now() < _agendaTokenExpiry) return _agendaAccessToken;
+  if (!AGENDAEDU_CLIENT_ID || !AGENDAEDU_CLIENT_SECRET) {
+    throw new Error('AGENDAEDU_CLIENT_ID / AGENDAEDU_CLIENT_SECRET não configurados no Railway.');
+  }
+  const res = await fetch(AGENDAEDU_OAUTH_URL, {
+    method : 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body   : new URLSearchParams({
+      grant_type   : 'client_credentials',
+      client_id    : AGENDAEDU_CLIENT_ID,
+      client_secret: AGENDAEDU_CLIENT_SECRET,
+    }),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`AgendaEdu OAuth2 error ${res.status}: ${txt}`);
+  }
+  const json = await res.json();
+  _agendaAccessToken = json.access_token;
+  _agendaTokenExpiry = Date.now() + ((json.expires_in || 3600) - 60) * 1000;
+  return _agendaAccessToken;
+}
+
+async function agendaProxy(method, path, body = null) {
+  const token = await getAgendaEduToken();
+  const opts  = {
+    method,
+    headers: {
+      'Authorization' : `Bearer ${token}`,
+      'x-school-token': AGENDAEDU_SCHOOL_TOKEN,
+      'Content-Type'  : 'application/json',
+    },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(`${AGENDAEDU_BASE}${path}`, opts);
+}
+
+function agendaNotConfigured(res) {
+  if (!AGENDAEDU_CLIENT_ID || !AGENDAEDU_CLIENT_SECRET) {
+    res.status(503).json({ error: 'Integração AgendaEdu não configurada. Adicione AGENDAEDU_CLIENT_ID e AGENDAEDU_CLIENT_SECRET no Railway.' });
+    return true;
+  }
+  return false;
+}
+
+// GET /api/agendaedu/channels — lista canais de atendimento
+app.get('/api/agendaedu/channels', authRequired, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('GET', '/channels');
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json(d);
+    res.json(d);
+  } catch (err) { console.error('[AgendaEdu] channels:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/agendaedu/tickets — lista tickets de um canal
+app.get('/api/agendaedu/tickets', authRequired, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const qs = new URLSearchParams(req.query).toString();
+    const r  = await agendaProxy('GET', `/tickets${qs ? '?' + qs : ''}`);
+    const d  = await r.json();
+    if (!r.ok) return res.status(r.status).json(d);
+    res.json(d);
+  } catch (err) { console.error('[AgendaEdu] tickets:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/agendaedu/tickets — criar novo ticket
+app.post('/api/agendaedu/tickets', authRequired, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', '/tickets', req.body);
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json(d);
+    res.json(d);
+  } catch (err) { console.error('[AgendaEdu] create ticket:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/agendaedu/tickets/:id — detalhe do ticket
+app.get('/api/agendaedu/tickets/:id', authRequired, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('GET', `/tickets/${req.params.id}?include=requester,currentAttendant`);
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json(d);
+    res.json(d);
+  } catch (err) { console.error('[AgendaEdu] ticket detail:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/agendaedu/tickets/:id/start — iniciar atendimento
+app.post('/api/agendaedu/tickets/:id/start', authRequired, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', `/tickets/${req.params.id}/start`, req.body);
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json(d);
+    res.json(d);
+  } catch (err) { console.error('[AgendaEdu] start:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/agendaedu/tickets/:id/close — encerrar atendimento
+app.post('/api/agendaedu/tickets/:id/close', authRequired, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', `/tickets/${req.params.id}/close`, req.body);
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json(d);
+    res.json(d);
+  } catch (err) { console.error('[AgendaEdu] close:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/agendaedu/tickets/:id/transfer — transferir atendimento
+app.post('/api/agendaedu/tickets/:id/transfer', authRequired, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', `/tickets/${req.params.id}/transfer`, req.body);
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json(d);
+    res.json(d);
+  } catch (err) { console.error('[AgendaEdu] transfer:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/agendaedu/channels/:channelId/chats/:chatId/messages
+app.get('/api/agendaedu/channels/:channelId/chats/:chatId/messages', authRequired, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const { channelId, chatId } = req.params;
+    const qs = new URLSearchParams(req.query).toString();
+    const r  = await agendaProxy('GET', `/channels/${channelId}/chats/${chatId}/messages${qs ? '?' + qs : ''}`);
+    const d  = await r.json();
+    if (!r.ok) return res.status(r.status).json(d);
+    res.json(d);
+  } catch (err) { console.error('[AgendaEdu] messages:', err.message); res.status(500).json({ error: err.message }); }
+});
+
 /* ══════════════════════════════════════════════════════════
    TRATAMENTO DE ERROS + INICIALIZAÇÃO
 ══════════════════════════════════════════════════════════ */

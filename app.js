@@ -5501,40 +5501,20 @@ function renderDashboard() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   CHAT FINANCEIRO — Sistema interno de atendimento
-   Tickets persistidos em localStorage('ped_chat_tickets').
-   Independente de API externa — funciona 100% offline.
+   CHAT FINANCEIRO — Gestão de Atendimento via AgendaEdu API
+   Dados carregados em tempo real do AgendaEdu via proxy Railway.
 ══════════════════════════════════════════════════════════ */
 
-/* ── Canais estáticos ── */
-const CHAT_FIN_CHANNELS = [
-  { id: 'financeiro',   name: 'Canal Financeiro'  },
-  { id: 'mensalidades', name: 'Mensalidades'       },
-  { id: 'cobrancas',   name: 'Cobranças'           },
-  { id: 'negociacao',  name: 'Negociação'          },
-];
-
 const CHAT_FIN = {
-  tickets       : [],   // todos os tickets (localStorage)
-  filtered      : [],   // tickets do canal/status atual
+  channels      : [],   // canais carregados da API
+  tickets       : [],   // tickets do canal atual
+  filtered      : [],   // tickets filtrados
   selectedTicket: null,
-  currentChannel: 'financeiro',
+  currentChannel: null,
   searchQuery   : '',
   statusFilter  : '',
+  loading       : false,
 };
-
-/* ── Persistência localStorage ── */
-function chatFinLoadStorage() {
-  try {
-    const raw = localStorage.getItem('ped_chat_tickets');
-    CHAT_FIN.tickets = raw ? JSON.parse(raw) : [];
-  } catch { CHAT_FIN.tickets = []; }
-}
-
-function chatFinSaveStorage() {
-  try { localStorage.setItem('ped_chat_tickets', JSON.stringify(CHAT_FIN.tickets)); }
-  catch { /* quota exceeded */ }
-}
 
 /* ── Labels de status ── */
 function chatFinStatusLabel(status) {
@@ -5553,6 +5533,33 @@ function chatFinStatusClass(status) {
     done          : 'status--done',
   };
   return map[status] || '';
+}
+
+/* ── Normalizar ticket da API AgendaEdu (JSON:API) ── */
+function chatFinNormalizeTicket(item) {
+  const a = item.attributes || item;
+  return {
+    id          : String(item.id),
+    canalId     : String(a.channelId || a.channel_id || (a.sourceChannel?.id) || CHAT_FIN.currentChannel || ''),
+    assunto     : a.title || a.assunto || '(sem assunto)',
+    descricao   : a.description || a.descricao || '',
+    solicitante : (a.requester?.name) || a.requester_name || a.solicitante || '—',
+    atendente   : (a.currentAttendant?.name) || a.attendant_name || a.atendente || '',
+    status      : a.status || 'waiting',
+    criadoEm    : chatFinFmtDate(a.createdAt || a.created_at || a.criadoEm),
+    atualizadoEm: chatFinFmtDate(a.updatedAt  || a.updated_at  || a.atualizadoEm),
+    mensagens   : [],
+    _raw        : item,
+  };
+}
+
+function chatFinFmtDate(str) {
+  if (!str) return '';
+  try {
+    const d = new Date(str);
+    if (isNaN(d)) return str;
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  } catch { return str; }
 }
 
 /* ── Abrir / Fechar view ── */
@@ -5578,35 +5585,69 @@ function closeChatFinanceiro() {
   document.getElementById('chatFinanceiroView')?.classList.add('hidden');
 }
 
-/* ── Carregar canais (estáticos) ── */
-function chatFinLoadChannels() {
+/* ── Carregar canais da API AgendaEdu ── */
+async function chatFinLoadChannels() {
   const select = document.getElementById('chatFinChannelSelect');
+  const banner = document.getElementById('chatFinConfigBanner');
   if (!select) return;
 
-  select.innerHTML = CHAT_FIN_CHANNELS.map(ch =>
-    `<option value="${escHtml(ch.id)}">${escHtml(ch.name)}</option>`
-  ).join('');
+  select.innerHTML = '<option value="">Carregando canais…</option>';
+  if (banner) banner.classList.add('hidden');
 
-  if (!CHAT_FIN.currentChannel) CHAT_FIN.currentChannel = CHAT_FIN_CHANNELS[0].id;
-  select.value = CHAT_FIN.currentChannel;
+  try {
+    const data = await apiRequest('GET', '/api/agendaedu/channels');
+    // JSON:API → array de { id, name }
+    const items = (data.data || []);
+    CHAT_FIN.channels = items.map(ch => ({
+      id  : String(ch.id),
+      name: ch.attributes?.name || ch.name || `Canal ${ch.id}`,
+    }));
 
-  // Oculta banner de erro (não é mais necessário)
-  document.getElementById('chatFinConfigBanner')?.classList.add('hidden');
+    if (CHAT_FIN.channels.length === 0) {
+      select.innerHTML = '<option value="">Nenhum canal encontrado</option>';
+      return;
+    }
 
-  chatFinLoadTickets();
+    select.innerHTML = CHAT_FIN.channels.map(ch =>
+      `<option value="${escHtml(ch.id)}">${escHtml(ch.name)}</option>`
+    ).join('');
+
+    if (!CHAT_FIN.currentChannel || !CHAT_FIN.channels.find(c => c.id === CHAT_FIN.currentChannel)) {
+      CHAT_FIN.currentChannel = CHAT_FIN.channels[0].id;
+    }
+    select.value = CHAT_FIN.currentChannel;
+
+    chatFinLoadTickets();
+  } catch (err) {
+    console.error('[ChatFin] canais:', err.message);
+    select.innerHTML = '<option value="">Erro ao carregar canais</option>';
+    if (banner) {
+      banner.textContent = `Erro ao conectar com AgendaEdu: ${err.message}`;
+      banner.classList.remove('hidden');
+    }
+  }
 }
 
-/* ── Filtrar e renderizar lista de tickets ── */
-function chatFinLoadTickets() {
-  chatFinLoadStorage();
+/* ── Carregar tickets do canal atual ── */
+async function chatFinLoadTickets() {
+  if (!CHAT_FIN.currentChannel) return;
+  const container = document.getElementById('chatFinTickets');
+  if (container) container.innerHTML = '<div class="chat-fin-empty"><span>Carregando tickets…</span></div>';
 
-  CHAT_FIN.filtered = CHAT_FIN.tickets.filter(t => {
-    if (t.canalId !== CHAT_FIN.currentChannel) return false;
-    if (CHAT_FIN.statusFilter && t.status !== CHAT_FIN.statusFilter) return false;
-    return true;
-  });
+  try {
+    const qs = new URLSearchParams({ channelId: CHAT_FIN.currentChannel });
+    if (CHAT_FIN.statusFilter) qs.set('status', CHAT_FIN.statusFilter);
+    const data = await apiRequest('GET', `/api/agendaedu/tickets?${qs}`);
 
-  chatFinRenderTicketList();
+    const items = data.data || [];
+    CHAT_FIN.tickets  = items.map(chatFinNormalizeTicket);
+    CHAT_FIN.filtered = CHAT_FIN.tickets;
+
+    chatFinRenderTicketList();
+  } catch (err) {
+    console.error('[ChatFin] tickets:', err.message);
+    if (container) container.innerHTML = `<div class="chat-fin-empty"><span>Erro ao carregar tickets: ${escHtml(err.message)}</span></div>`;
+  }
 }
 
 /* ── Renderizar lista de tickets ── */
@@ -5669,7 +5710,7 @@ function chatFinRenderTicketList() {
 }
 
 /* ── Selecionar ticket ── */
-function chatFinSelectTicket(ticketId) {
+async function chatFinSelectTicket(ticketId) {
   const detailEmpty   = document.getElementById('chatFinDetailEmpty');
   const detailContent = document.getElementById('chatFinDetailContent');
   if (!detailEmpty || !detailContent) return;
@@ -5678,13 +5719,39 @@ function chatFinSelectTicket(ticketId) {
     el.classList.toggle('active', el.dataset.ticketId === ticketId);
   });
 
-  const ticket = CHAT_FIN.tickets.find(t => t.id === ticketId);
-  if (!ticket) return;
-
-  CHAT_FIN.selectedTicket = ticket;
   detailEmpty.classList.add('hidden');
   detailContent.classList.remove('hidden');
-  chatFinRenderTicketDetail(ticket);
+  detailContent.innerHTML = '<div style="padding:2rem;text-align:center;color:#64748B">Carregando ticket…</div>';
+
+  try {
+    const data   = await apiRequest('GET', `/api/agendaedu/tickets/${ticketId}`);
+    const ticket = chatFinNormalizeTicket(data.data || data);
+
+    // Preencher mensagens do chat se incluídas no response
+    const inc = data.included || [];
+    const chatData = inc.find(i => i.type === 'chat');
+    if (chatData && chatData.id) {
+      try {
+        const msgs = await apiRequest('GET', `/api/agendaedu/channels/${ticket.canalId}/chats/${chatData.id}/messages`);
+        ticket.mensagens = (msgs.data || []).map(m => ({
+          id   : String(m.id),
+          tipo : 'message',
+          texto: m.attributes?.body || m.attributes?.content || m.attributes?.text || '',
+          autor: m.attributes?.author?.name || m.attributes?.senderName || 'Usuário',
+          data : chatFinFmtDate(m.attributes?.createdAt || m.attributes?.created_at),
+        }));
+      } catch (_) { /* mensagens opcionais */ }
+    }
+
+    CHAT_FIN.selectedTicket = ticket;
+    // Atualizar na lista local
+    const idx = CHAT_FIN.tickets.findIndex(t => t.id === ticketId);
+    if (idx >= 0) CHAT_FIN.tickets[idx] = ticket;
+
+    chatFinRenderTicketDetail(ticket);
+  } catch (err) {
+    detailContent.innerHTML = `<div style="padding:2rem;color:#EF4444">Erro ao carregar ticket: ${escHtml(err.message)}</div>`;
+  }
 }
 
 /* ── Renderizar detalhe do ticket ── */
@@ -5792,58 +5859,48 @@ function chatFinRenderTicketDetail(ticket) {
   });
 }
 
-/* ── Enviar mensagem no ticket ── */
+/* ── Enviar mensagem — abre no AgendaEdu (mensagens são gerenciadas lá) ── */
 function chatFinSendMessage(ticketId) {
   const input = document.getElementById('chatFinReplyInput');
   if (!input) return;
   const texto = input.value.trim();
   if (!texto) return;
-
-  const ticket = CHAT_FIN.tickets.find(t => t.id === ticketId);
-  if (!ticket) return;
-
-  const meName = currentUser?.nome || 'Atendente';
-  if (!ticket.mensagens) ticket.mensagens = [];
-  ticket.mensagens.push({ id: uid(), tipo: 'message', texto, autor: meName, data: now() });
-  ticket.atualizadoEm = now();
-  chatFinSaveStorage();
-  CHAT_FIN.selectedTicket = ticket;
-  chatFinRenderTicketDetail(ticket);
-  chatFinRenderTicketList();
+  // Mensagens são gerenciadas diretamente no AgendaEdu
+  showToast('Para enviar mensagens, acesse o ticket no AgendaEdu.', 'info');
+  input.value = '';
 }
 
 /* ── Iniciar atendimento ── */
-function chatFinStartTicket(ticketId) {
-  const ticket = CHAT_FIN.tickets.find(t => t.id === ticketId);
-  if (!ticket) return;
-  const meName = currentUser?.nome || 'Atendente';
-  ticket.status      = 'in_attendance';
-  ticket.atendente   = meName;
-  ticket.atualizadoEm = now();
-  if (!ticket.mensagens) ticket.mensagens = [];
-  ticket.mensagens.push({ id: uid(), tipo: 'system', texto: `Atendimento iniciado por ${meName}`, data: now() });
-  chatFinSaveStorage();
-  CHAT_FIN.selectedTicket = ticket;
-  chatFinLoadTickets();
-  chatFinRenderTicketDetail(ticket);
-  showToast('Atendimento iniciado!', 'success');
+async function chatFinStartTicket(ticketId) {
+  const btn = document.getElementById('chatFinBtnStart');
+  if (btn) btn.disabled = true;
+  try {
+    await apiRequest('POST', `/api/agendaedu/tickets/${ticketId}/start`, {});
+    showToast('Atendimento iniciado!', 'success');
+    await chatFinSelectTicket(ticketId);
+    chatFinLoadTickets();
+  } catch (err) {
+    showToast(`Erro ao iniciar atendimento: ${err.message}`, 'error');
+    if (btn) btn.disabled = false;
+  }
 }
 
 /* ── Encerrar atendimento ── */
-function chatFinCloseTicket(ticketId) {
+async function chatFinCloseTicket(ticketId) {
   if (!confirm('Encerrar este atendimento?')) return;
-  const ticket = CHAT_FIN.tickets.find(t => t.id === ticketId);
-  if (!ticket) return;
-  const meName = currentUser?.nome || 'Atendente';
-  ticket.status      = 'done';
-  ticket.atualizadoEm = now();
-  if (!ticket.mensagens) ticket.mensagens = [];
-  ticket.mensagens.push({ id: uid(), tipo: 'system', texto: `Atendimento encerrado por ${meName}`, data: now() });
-  chatFinSaveStorage();
-  CHAT_FIN.selectedTicket = ticket;
-  chatFinLoadTickets();
-  chatFinRenderTicketDetail(ticket);
-  showToast('Atendimento encerrado.', 'success');
+  const btn = document.getElementById('chatFinBtnClose');
+  if (btn) btn.disabled = true;
+  try {
+    await apiRequest('POST', `/api/agendaedu/tickets/${ticketId}/close`, {});
+    showToast('Atendimento encerrado.', 'success');
+    CHAT_FIN.selectedTicket = null;
+    document.getElementById('chatFinDetailEmpty')?.classList.remove('hidden');
+    document.getElementById('chatFinDetailContent')?.classList.add('hidden');
+    chatFinLoadTickets();
+  } catch (err) {
+    showToast(`Erro ao encerrar atendimento: ${err.message}`, 'error');
+    if (btn) btn.disabled = false;
+  }
 }
 
 /* ── Novo Ticket ── */
@@ -5851,16 +5908,7 @@ function openChatFinNovoTicket() {
   const overlay = document.getElementById('chatFinNovoOverlay');
   if (!overlay) return;
   overlay.style.display = 'flex';
-
-  // Preenche escolas
-  const sel = document.getElementById('chatFinNovoEscola');
-  if (sel) {
-    sel.innerHTML = `<option value="">Selecione a escola</option>` +
-      (settingsData.escolas || []).map(e =>
-        `<option value="${escHtml(e.id)}">${escHtml(e.nome)}</option>`
-      ).join('');
-  }
-  // Preenche canal atual
+  // Preenche canal atual no campo hidden
   const canalHidden = document.getElementById('chatFinNovoCanal');
   if (canalHidden) canalHidden.value = CHAT_FIN.currentChannel;
 }
@@ -5875,59 +5923,59 @@ function closeChatFinNovoTicket() {
   });
 }
 
-function chatFinSalvarNovoTicket() {
+async function chatFinSalvarNovoTicket() {
   const assunto     = (document.getElementById('chatFinNovoAssunto')?.value     || '').trim();
-  const solicitante = (document.getElementById('chatFinNovoSolicitante')?.value || '').trim();
   const descricao   = (document.getElementById('chatFinNovoDescricao')?.value   || '').trim();
-  const escola      = document.getElementById('chatFinNovoEscola')?.value || '';
   const canalId     = document.getElementById('chatFinNovoCanal')?.value || CHAT_FIN.currentChannel;
 
-  if (!assunto)     { showToast('Informe o assunto do ticket', 'warn'); return; }
-  if (!solicitante) { showToast('Informe o nome do solicitante', 'warn'); return; }
+  if (!assunto) { showToast('Informe o assunto do ticket', 'warn'); return; }
+  if (!canalId) { showToast('Selecione um canal', 'warn'); return; }
 
-  const ticket = {
-    id          : uid(),
-    canalId,
-    assunto,
-    descricao,
-    solicitante,
-    escola,
-    status      : 'waiting',
-    atendente   : '',
-    criadoEm    : now(),
-    atualizadoEm: now(),
-    mensagens   : [{ id: uid(), tipo: 'system', texto: 'Ticket criado', data: now() }],
-  };
+  const btnSalvar = document.getElementById('chatFinNovoSalvar');
+  if (btnSalvar) btnSalvar.disabled = true;
 
-  chatFinLoadStorage();
-  CHAT_FIN.tickets.unshift(ticket);
-  chatFinSaveStorage();
-  closeChatFinNovoTicket();
-  chatFinLoadTickets();
-  showToast('Ticket criado com sucesso!', 'success');
-  setTimeout(() => chatFinSelectTicket(ticket.id), 80);
+  try {
+    // AgendaEdu requer channelId como array
+    const payload = {
+      title      : assunto,
+      description: descricao,
+      channelId  : [canalId],
+    };
+
+    const resp   = await apiRequest('POST', '/api/agendaedu/tickets', payload);
+    const newId  = (resp.data || resp)?.id;
+
+    closeChatFinNovoTicket();
+    showToast('Ticket criado com sucesso!', 'success');
+    await chatFinLoadTickets();
+    if (newId) setTimeout(() => chatFinSelectTicket(String(newId)), 200);
+  } catch (err) {
+    showToast(`Erro ao criar ticket: ${err.message}`, 'error');
+  } finally {
+    if (btnSalvar) btnSalvar.disabled = false;
+  }
 }
 
 /* ── Inicializar módulo Chat ── */
 function initChatFinanceiro() {
   // Troca de canal
-  document.getElementById('chatFinChannelSelect')?.addEventListener('change', e => {
+  document.getElementById('chatFinChannelSelect')?.addEventListener('change', async e => {
     CHAT_FIN.currentChannel = e.target.value;
     CHAT_FIN.selectedTicket = null;
     document.getElementById('chatFinDetailEmpty')?.classList.remove('hidden');
     document.getElementById('chatFinDetailContent')?.classList.add('hidden');
-    chatFinLoadTickets();
+    await chatFinLoadTickets();
   });
 
   // Filtro de status
-  document.getElementById('chatFinStatusFilter')?.addEventListener('change', e => {
+  document.getElementById('chatFinStatusFilter')?.addEventListener('change', async e => {
     CHAT_FIN.statusFilter = e.target.value;
-    chatFinLoadTickets();
+    await chatFinLoadTickets();
   });
 
   // Botão Refresh
-  document.getElementById('chatFinRefreshBtn')?.addEventListener('click', () => {
-    chatFinLoadTickets();
+  document.getElementById('chatFinRefreshBtn')?.addEventListener('click', async () => {
+    await chatFinLoadTickets();
     showToast('Atualizado', 'success');
   });
 
