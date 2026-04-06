@@ -202,6 +202,39 @@ async function initDB() {
   `);
   console.log('[DB] Tabela automacoes pronta.');
 
+  /* Tabela tickets (atendimento interno) */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tickets (
+      id           TEXT        PRIMARY KEY,
+      escola       TEXT        NOT NULL DEFAULT '',
+      assunto      TEXT        NOT NULL DEFAULT '',
+      descricao    TEXT                 DEFAULT '',
+      solicitante  TEXT        NOT NULL DEFAULT '',
+      atendente    TEXT                 DEFAULT '',
+      status       TEXT        NOT NULL DEFAULT 'waiting',
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_tickets_escola ON tickets (escola);
+    CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets (status);
+
+    DROP TRIGGER IF EXISTS trg_tickets_updated_at ON tickets;
+    CREATE TRIGGER trg_tickets_updated_at
+      BEFORE UPDATE ON tickets FOR EACH ROW
+      EXECUTE FUNCTION set_updated_at();
+
+    CREATE TABLE IF NOT EXISTS ticket_mensagens (
+      id         TEXT        PRIMARY KEY,
+      ticket_id  TEXT        NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+      autor      TEXT        NOT NULL DEFAULT '',
+      texto      TEXT        NOT NULL DEFAULT '',
+      tipo       TEXT        NOT NULL DEFAULT 'message',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_ticket_msgs_ticket ON ticket_mensagens (ticket_id, created_at);
+  `);
+  console.log('[DB] Tabelas tickets e ticket_mensagens prontas.');
+
   /* Seed: admin default (se nao existir nenhum) */
   const { rowCount } = await pool.query('SELECT 1 FROM usuarios LIMIT 1');
   if (rowCount === 0) {
@@ -1111,6 +1144,123 @@ app.get('/api/agendaedu/channels/:channelId/chats/:chatId/messages', verificarTo
     if (!r.ok) return res.status(r.status).json(d);
     res.json(d);
   } catch (err) { console.error('[AgendaEdu] messages:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+/* ══════════════════════════════════════════════════════════
+   TICKETS — Sistema interno de atendimento (substitui AgendaEdu)
+══════════════════════════════════════════════════════════ */
+
+// GET /api/tickets — lista tickets com filtros opcionais
+app.get('/api/tickets', verificarToken, async (req, res) => {
+  try {
+    const { escola, status } = req.query;
+    const params = [];
+    let q = 'SELECT * FROM tickets WHERE 1=1';
+    if (escola) { params.push(escola); q += ` AND escola = $${params.length}`; }
+    if (status) { params.push(status); q += ` AND status = $${params.length}`; }
+    q += ' ORDER BY updated_at DESC';
+    const { rows } = await pool.query(q, params);
+    res.json({ data: rows });
+  } catch (err) { console.error('[Tickets] list:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/tickets — criar novo ticket
+app.post('/api/tickets', verificarToken, async (req, res) => {
+  try {
+    const { assunto, descricao, escola, solicitante } = req.body;
+    if (!assunto?.trim()) return res.status(400).json({ error: 'Assunto é obrigatório.' });
+    const id = uid();
+    const autor = solicitante?.trim() || req.user.nome || 'Usuário';
+    const { rows: [ticket] } = await pool.query(
+      `INSERT INTO tickets (id, escola, assunto, descricao, solicitante, status)
+       VALUES ($1,$2,$3,$4,$5,'waiting') RETURNING *`,
+      [id, escola || '', assunto.trim(), (descricao || '').trim(), autor]
+    );
+    if (descricao?.trim()) {
+      await pool.query(
+        `INSERT INTO ticket_mensagens (id, ticket_id, autor, texto, tipo)
+         VALUES ($1,$2,$3,$4,'message')`,
+        [uid(), id, autor, descricao.trim()]
+      );
+    }
+    res.status(201).json({ data: ticket });
+  } catch (err) { console.error('[Tickets] create:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/tickets/:id — detalhe do ticket com mensagens
+app.get('/api/tickets/:id', verificarToken, async (req, res) => {
+  try {
+    const { rows: [ticket] } = await pool.query('SELECT * FROM tickets WHERE id = $1', [req.params.id]);
+    if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado.' });
+    const { rows: mensagens } = await pool.query(
+      'SELECT * FROM ticket_mensagens WHERE ticket_id = $1 ORDER BY created_at',
+      [req.params.id]
+    );
+    res.json({ data: { ...ticket, mensagens } });
+  } catch (err) { console.error('[Tickets] get:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/tickets/:id/mensagens — adicionar mensagem ao ticket
+app.post('/api/tickets/:id/mensagens', verificarToken, async (req, res) => {
+  try {
+    const { texto } = req.body;
+    if (!texto?.trim()) return res.status(400).json({ error: 'Texto é obrigatório.' });
+    const { rowCount } = await pool.query('SELECT 1 FROM tickets WHERE id = $1', [req.params.id]);
+    if (!rowCount) return res.status(404).json({ error: 'Ticket não encontrado.' });
+    const msgId = uid();
+    await pool.query(
+      `INSERT INTO ticket_mensagens (id, ticket_id, autor, texto, tipo)
+       VALUES ($1,$2,$3,$4,'message')`,
+      [msgId, req.params.id, req.user.nome || 'Atendente', texto.trim()]
+    );
+    await pool.query('UPDATE tickets SET updated_at = NOW() WHERE id = $1', [req.params.id]);
+    const { rows: [msg] } = await pool.query('SELECT * FROM ticket_mensagens WHERE id = $1', [msgId]);
+    res.json({ data: msg });
+  } catch (err) { console.error('[Tickets] msg:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// PATCH /api/tickets/:id/status — mudar status do ticket
+app.patch('/api/tickets/:id/status', verificarToken, async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['waiting', 'in_attendance', 'done'].includes(status)) {
+      return res.status(400).json({ error: 'Status inválido.' });
+    }
+    const nome = req.user.nome || 'Atendente';
+    let updRow;
+    if (status === 'in_attendance') {
+      const { rows: [t] } = await pool.query(
+        `UPDATE tickets SET status=$1, atendente=$2, updated_at=NOW() WHERE id=$3 RETURNING *`,
+        [status, nome, req.params.id]
+      );
+      updRow = t;
+    } else {
+      const { rows: [t] } = await pool.query(
+        `UPDATE tickets SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *`,
+        [status, req.params.id]
+      );
+      updRow = t;
+    }
+    if (!updRow) return res.status(404).json({ error: 'Ticket não encontrado.' });
+    const sysMsg = status === 'in_attendance'
+      ? `Atendimento iniciado por ${nome}`
+      : status === 'done' ? 'Atendimento encerrado' : `Status alterado para ${status}`;
+    await pool.query(
+      `INSERT INTO ticket_mensagens (id, ticket_id, autor, texto, tipo)
+       VALUES ($1,$2,'Sistema',$3,'system')`,
+      [uid(), req.params.id, sysMsg]
+    );
+    res.json({ data: updRow });
+  } catch (err) { console.error('[Tickets] status:', err.message); res.status(500).json({ error: err.message }); }
+});
+
+// DELETE /api/tickets/:id — remover ticket (Super Admin only)
+app.delete('/api/tickets/:id', verificarToken, exigirRole('Super Admin'), async (req, res) => {
+  try {
+    const { rowCount } = await pool.query('DELETE FROM tickets WHERE id = $1', [req.params.id]);
+    if (!rowCount) return res.status(404).json({ error: 'Ticket não encontrado.' });
+    res.json({ ok: true });
+  } catch (err) { console.error('[Tickets] delete:', err.message); res.status(500).json({ error: err.message }); }
 });
 
 /* ══════════════════════════════════════════════════════════
