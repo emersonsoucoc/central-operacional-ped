@@ -1271,8 +1271,10 @@
 
     </div>
 
-    <!-- ── COLUNA CENTRAL: Fase atual ── -->
-    <div class="pf-drawer-center">
+    <!-- ── PAINEL DIREITO: Fase atual + Movimentação ── -->
+    <div class="pf-drawer-right">
+
+      <!-- Fase atual -->
       <div class="pf-phase-section">
         <div class="pf-phase-label">Fase atual</div>
         <div class="pf-phase-current" id="pf-phase-current">
@@ -1280,28 +1282,29 @@
         </div>
         <div class="pf-phase-info" id="pf-phase-info"></div>
       </div>
-    </div>
 
-    <!-- ── COLUNA DIREITA: Mover para fase ── -->
-    <div class="pf-drawer-right">
-      <div class="pf-move-title">Mover card para fase</div>
-      <div class="pf-move-list" id="pf-move-list"></div>
+      <!-- Mover para fase -->
+      <div class="pf-move-section">
+        <div class="pf-move-title">Mover para fase</div>
+        <div class="pf-move-list" id="pf-move-list"></div>
 
-      <div class="pf-move-divider"></div>
+        <div class="pf-move-divider"></div>
 
-      <button class="pf-move-config-btn" id="pf-config-move-btn">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41M2 12h2M20 12h2"/>
-        </svg>
-        Configurar movimentações
-      </button>
+        <button class="pf-move-config-btn" id="pf-config-move-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41M2 12h2M20 12h2"/>
+          </svg>
+          Configurar movimentações
+        </button>
 
-      <div class="pf-move-config-panel hidden" id="pf-move-config-panel">
-        <div class="pf-move-config-title">Configurar movimentações</div>
-        <p class="pf-move-config-desc">Defina para quais fases este card pode ser movido diretamente.</p>
-        <div id="pf-config-phases-list"></div>
-        <button class="pf-move-config-save" id="pf-config-save-btn">Salvar configuração</button>
+        <div class="pf-move-config-panel hidden" id="pf-move-config-panel">
+          <div class="pf-move-config-title">Configurar movimentações</div>
+          <p class="pf-move-config-desc">Defina para quais fases este card pode ser movido diretamente.</p>
+          <div id="pf-config-phases-list"></div>
+          <button class="pf-move-config-save" id="pf-config-save-btn">Salvar configuração</button>
+        </div>
       </div>
+
     </div>
 
   </div>
