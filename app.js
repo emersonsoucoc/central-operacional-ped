@@ -5901,9 +5901,15 @@ function openChatFinNovoTicket() {
   const overlay = document.getElementById('chatFinNovoOverlay');
   if (!overlay) return;
   overlay.style.display = 'flex';
-  // Preenche canal atual no campo hidden
-  const canalHidden = document.getElementById('chatFinNovoCanal');
-  if (canalHidden) canalHidden.value = CHAT_FIN.currentChannel;
+  // Popula select de escola
+  const sel = document.getElementById('chatFinNovoCanal');
+  if (sel) {
+    const escolas = settingsData.escolas || [];
+    sel.innerHTML = '<option value="">Selecione a escola...</option>' +
+      escolas.map(e => `<option value="${escHtml(e.id)}"${e.id === CHAT_FIN.currentChannel ? ' selected' : ''}>${escHtml(e.nome || e.name || e.id)}</option>`).join('');
+    if (CHAT_FIN.currentChannel) sel.value = CHAT_FIN.currentChannel;
+  }
+  setTimeout(() => document.getElementById('chatFinNovoAssunto')?.focus(), 50);
 }
 
 function closeChatFinNovoTicket() {
