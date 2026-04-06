@@ -1283,9 +1283,23 @@ const _agendaUpdate = (endpoint) => async (req, res) => {
     if (agendaNotConfigured(res)) return;
     let r = await agendaProxy('PATCH', `/${endpoint}/${req.params.id}`, req.body);
     if (r.status === 405) r = await agendaProxy('PUT', `/${endpoint}/${req.params.id}`, req.body);
-    const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+    const d = await r.json();
+    // Log Railway para debug de updates
+    console.log(`[AgendaEdu PATCH] ${endpoint}/${req.params.id} → status:${r.status} payload:${JSON.stringify(req.body).substring(0,300)} resp:${JSON.stringify(d).substring(0,300)}`);
+    if (!r.ok) return res.status(r.status).json(d);
+    res.json(d);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
+
+// Rota debug — GET de um único school_user para ver estrutura real da API
+app.get('/api/agendaedu/estrutura/school-users/:id/debug', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('GET', `/school_users/${req.params.id}`);
+    const d = await r.json();
+    res.json(d); // Retorna dados brutos da Agenda Edu
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 ['put','patch'].forEach(m => {
   app[m]('/api/agendaedu/estrutura/headquarters/:id',        verificarToken, _agendaUpdate('headquarters'));
   app[m]('/api/agendaedu/estrutura/classrooms/:id',          verificarToken, _agendaUpdate('classrooms'));

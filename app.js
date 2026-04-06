@@ -5834,9 +5834,15 @@ async function estRenderProfissionais() {
   const items=_estCache.profissionais.data||[];
   const roleOpts=Object.entries(EST_ROLES).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
   const listHTML=items.length===0?'<div class="est-empty">Nenhum profissional cadastrado.</div>'
-    :items.map(item=>{const a=item.attributes||{},prf=a.profile||{},id=String(item.id),role=EST_ROLES[a.role]||a.role||'—',ativo=a.status==='active';
+    :items.map(item=>{
+      const a=item.attributes||{},id=String(item.id),ativo=a.status==='active';
+      /* A Agenda Edu pode retornar o nome em vários campos */
+      const prf=a.profile||{};
+      const displayName = prf.name||a.full_name||a.name||a.username||'—';
+      const editName    = prf.name||a.full_name||a.name||''; // pré-preenche com o que tiver
+      const role=EST_ROLES[a.role]||a.role||'—';
       const roleSel=Object.entries(EST_ROLES).map(([v,l])=>`<option value="${v}" ${a.role===v?'selected':''}>${l}</option>`).join('');
-      return `<div class="est-list-item" id="est-row-su-${id}"><div class="est-item-icon" style="background:#F0FDF4;color:#16A34A"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(prf.name||a.name||a.username||'—')}</div><div class="est-item-meta">${escHtml(role)} · ${escHtml(a.email||a.username||'')} · ID ${id}</div></div><span class="est-item-badge ${ativo?'est-badge-active':'est-badge-inactive'}">${ativo?'Ativo':'Bloqueado'}</span>${_estEditBtn('su',id,prf.name||a.username||'')}</div><div class="est-inline-edit hidden" id="est-edit-su-${id}"><div class="est-form-row"><div class="est-form-group"><label>Nome</label><input type="text" id="estEditSuNome-${id}" value="${escHtml(prf.name||'')}"/></div><div class="est-form-group"><label>Cargo</label><select id="estEditSuRole-${id}">${roleSel}</select></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="estCloseEdit('su','${id}')">Cancelar</button><button class="btn-primary" onclick="estSalvarProfissional('${id}')">Salvar</button></div></div>`;}).join('');
+      return `<div class="est-list-item" id="est-row-su-${id}"><div class="est-item-icon" style="background:#F0FDF4;color:#16A34A"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(displayName)}</div><div class="est-item-meta">${escHtml(role)} · ${escHtml(a.email||a.username||'')} · ID ${id}</div></div><span class="est-item-badge ${ativo?'est-badge-active':'est-badge-inactive'}">${ativo?'Ativo':'Bloqueado'}</span>${_estEditBtn('su',id,displayName)}</div><div class="est-inline-edit hidden" id="est-edit-su-${id}"><div class="est-form-row"><div class="est-form-group"><label>Nome completo</label><input type="text" id="estEditSuNome-${id}" value="${escHtml(editName)}" placeholder="Ex: Maria Silva"/></div><div class="est-form-group"><label>Cargo</label><select id="estEditSuRole-${id}">${roleSel}</select></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="estCloseEdit('su','${id}')">Cancelar</button><button class="btn-primary" onclick="estSalvarProfissional('${id}')">Salvar</button></div></div>`;}).join('');
   _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Profissionais<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formProfissional')">+ Novo Profissional</button></div><div class="est-create-form" id="formProfissional"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estProfNome" placeholder="Ex: Maria Silva"/></div><div class="est-form-group"><label>E-mail *</label><input type="email" id="estProfEmail" placeholder="Ex: maria@escola.com"/></div><div class="est-form-group"><label>Username *</label><input type="text" id="estProfUsername" placeholder="Ex: maria.silva"/></div></div><div class="est-form-row"><div class="est-form-group"><label>Cargo *</label><select id="estProfRole">${roleOpts}</select></div><div class="est-form-group"><label>External ID *</label><input type="text" id="estProfExtId" placeholder="Ex: PROF001"/></div><div class="est-form-group"><label>Confirmar conta</label><select id="estProfConfirm"><option value="true">Sim</option><option value="false">Não</option></select></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formProfissional')">Cancelar</button><button class="btn-primary" onclick="estCriarProfissional()">Cadastrar</button></div></div>${_estSearchBar('Buscar profissional…','_estFilterList')}<div class="est-list" id="estListaProfissionais">${listHTML}</div></div>`);
 }
 async function estCriarProfissional() {
@@ -5848,24 +5854,25 @@ async function estSalvarProfissional(id) {
   const nome = document.getElementById(`estEditSuNome-${id}`)?.value.trim();
   const role = document.getElementById(`estEditSuRole-${id}`)?.value;
   if (!nome) { showToast('Nome obrigatório', 'warn'); return; }
-  /* Agenda Edu usa PATCH para atualizações parciais em school_users */
-  const payload = { school_user: { profile_attributes: { name: nome } } };
+  /*
+   * Agenda Edu school_users: tentamos vários formatos pois a API pode
+   * aceitar name em profile_attributes, profile, ou diretamente em school_user.
+   * O servidor loga o payload + resposta no Railway para debug.
+   */
+  const payload = {
+    school_user: {
+      name                : nome,   // formato direto
+      profile_attributes  : { name: nome }, // Rails nested attributes
+    }
+  };
   if (role) payload.school_user.role = role;
   try {
-    await _estPatch('school-users', id, payload);
+    const resp = await _estPatch('school-users', id, payload);
     _estCache.profissionais = null;
-    showToast('Profissional atualizado!', 'success');
+    showToast('Profissional atualizado! (verifique o nome na lista)', 'success');
     estRenderProfissionais();
   } catch(err) {
-    /* Se PATCH falhar, tenta via PUT (compatibilidade) */
-    try {
-      await _estPut('school-users', id, payload);
-      _estCache.profissionais = null;
-      showToast('Profissional atualizado!', 'success');
-      estRenderProfissionais();
-    } catch(err2) {
-      showToast('Erro ao salvar: ' + err2.message, 'error');
-    }
+    showToast('Erro ao salvar: ' + err.message, 'error');
   }
 }
 
