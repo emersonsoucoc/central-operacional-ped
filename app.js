@@ -4228,12 +4228,12 @@ function openUserModal(id) {
     document.querySelectorAll('input[name="usr-escola"]').forEach(cb => cb.checked = true);
   }
 
-  overlay.classList.add('active');
+  overlay.classList.add('open');
   document.getElementById('userNomeInput').focus();
 }
 
 function closeUserModal() {
-  document.getElementById('userModalOverlay').classList.remove('active');
+  document.getElementById('userModalOverlay').classList.remove('open');
   _editingUserId = null;
 }
 
