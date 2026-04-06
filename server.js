@@ -879,7 +879,7 @@ function agendaNotConfigured(res) {
 }
 
 // GET /api/agendaedu/channels — lista canais de atendimento
-app.get('/api/agendaedu/channels', authRequired, async (req, res) => {
+app.get('/api/agendaedu/channels', verificarToken, async (req, res) => {
   try {
     if (agendaNotConfigured(res)) return;
     const r = await agendaProxy('GET', '/channels');
@@ -890,7 +890,7 @@ app.get('/api/agendaedu/channels', authRequired, async (req, res) => {
 });
 
 // GET /api/agendaedu/tickets — lista tickets de um canal
-app.get('/api/agendaedu/tickets', authRequired, async (req, res) => {
+app.get('/api/agendaedu/tickets', verificarToken, async (req, res) => {
   try {
     if (agendaNotConfigured(res)) return;
     const qs = new URLSearchParams(req.query).toString();
@@ -902,7 +902,7 @@ app.get('/api/agendaedu/tickets', authRequired, async (req, res) => {
 });
 
 // POST /api/agendaedu/tickets — criar novo ticket
-app.post('/api/agendaedu/tickets', authRequired, async (req, res) => {
+app.post('/api/agendaedu/tickets', verificarToken, async (req, res) => {
   try {
     if (agendaNotConfigured(res)) return;
     const r = await agendaProxy('POST', '/tickets', req.body);
@@ -913,7 +913,7 @@ app.post('/api/agendaedu/tickets', authRequired, async (req, res) => {
 });
 
 // GET /api/agendaedu/tickets/:id — detalhe do ticket
-app.get('/api/agendaedu/tickets/:id', authRequired, async (req, res) => {
+app.get('/api/agendaedu/tickets/:id', verificarToken, async (req, res) => {
   try {
     if (agendaNotConfigured(res)) return;
     const r = await agendaProxy('GET', `/tickets/${req.params.id}?include=requester,currentAttendant`);
@@ -924,7 +924,7 @@ app.get('/api/agendaedu/tickets/:id', authRequired, async (req, res) => {
 });
 
 // POST /api/agendaedu/tickets/:id/start — iniciar atendimento
-app.post('/api/agendaedu/tickets/:id/start', authRequired, async (req, res) => {
+app.post('/api/agendaedu/tickets/:id/start', verificarToken, async (req, res) => {
   try {
     if (agendaNotConfigured(res)) return;
     const r = await agendaProxy('POST', `/tickets/${req.params.id}/start`, req.body);
@@ -935,7 +935,7 @@ app.post('/api/agendaedu/tickets/:id/start', authRequired, async (req, res) => {
 });
 
 // POST /api/agendaedu/tickets/:id/close — encerrar atendimento
-app.post('/api/agendaedu/tickets/:id/close', authRequired, async (req, res) => {
+app.post('/api/agendaedu/tickets/:id/close', verificarToken, async (req, res) => {
   try {
     if (agendaNotConfigured(res)) return;
     const r = await agendaProxy('POST', `/tickets/${req.params.id}/close`, req.body);
@@ -946,7 +946,7 @@ app.post('/api/agendaedu/tickets/:id/close', authRequired, async (req, res) => {
 });
 
 // POST /api/agendaedu/tickets/:id/transfer — transferir atendimento
-app.post('/api/agendaedu/tickets/:id/transfer', authRequired, async (req, res) => {
+app.post('/api/agendaedu/tickets/:id/transfer', verificarToken, async (req, res) => {
   try {
     if (agendaNotConfigured(res)) return;
     const r = await agendaProxy('POST', `/tickets/${req.params.id}/transfer`, req.body);
@@ -957,7 +957,7 @@ app.post('/api/agendaedu/tickets/:id/transfer', authRequired, async (req, res) =
 });
 
 // GET /api/agendaedu/channels/:channelId/chats/:chatId/messages
-app.get('/api/agendaedu/channels/:channelId/chats/:chatId/messages', authRequired, async (req, res) => {
+app.get('/api/agendaedu/channels/:channelId/chats/:chatId/messages', verificarToken, async (req, res) => {
   try {
     if (agendaNotConfigured(res)) return;
     const { channelId, chatId } = req.params;
