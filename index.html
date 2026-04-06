@@ -705,7 +705,7 @@
         <iframe id="agendaFrame" src="" class="agenda-iframe" title="Agenda Edu"></iframe>
       </section>
 
-      <!-- ══ CHAT FINANCEIRO — AgendaEdu ══ -->
+      <!-- ══ CHAT FINANCEIRO — Sistema interno de atendimento ══ -->
       <section class="chat-fin-view hidden" id="chatFinanceiroView">
 
         <!-- Topbar do Chat -->
@@ -718,25 +718,30 @@
             </div>
             <div>
               <h2 class="chat-fin-title">Chat Financeiro</h2>
-              <p class="chat-fin-subtitle">Atendimentos via AgendaEdu · Canal Financeiro</p>
+              <p class="chat-fin-subtitle">Central de atendimento interno · Grupo PED</p>
             </div>
           </div>
           <div class="chat-fin-topbar-right">
             <select id="chatFinChannelSelect" class="chat-fin-channel-select">
-              <option value="">Carregando canais...</option>
+              <option value="">Todas as Escolas</option>
             </select>
             <select id="chatFinStatusFilter" class="chat-fin-status-filter">
               <option value="">Todos os status</option>
               <option value="waiting">Aguardando</option>
               <option value="in_attendance">Em Atendimento</option>
               <option value="done">Encerrado</option>
-              <option value="pending_ratings">Pend. Avaliação</option>
             </select>
             <button class="chat-fin-refresh-btn" id="chatFinRefreshBtn" title="Atualizar tickets">
               <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
                 <path d="M12.5 7.5A5 5 0 112.5 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                 <path d="M12.5 3v4.5H8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
+            </button>
+            <button class="chat-fin-novo-btn" id="chatFinNovoBtn" title="Novo Ticket">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Novo Ticket
             </button>
           </div>
         </div>
@@ -806,27 +811,52 @@
                   </svg>
                   Encerrar Atendimento
                 </button>
-                <a class="chat-fin-btn chat-fin-btn--external" id="chatFinBtnExternal" href="https://app.agendaedu.com" target="_blank" rel="noopener">
-                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                    <path d="M7.5 1.5h4v4M11.5 1.5l-5 5M5.5 3H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                  Abrir no AgendaEdu
-                </a>
               </div>
             </div>
           </div>
 
         </div>
 
-        <!-- Banner de configuração (se API não estiver configurada) -->
-        <div class="chat-fin-config-banner hidden" id="chatFinConfigBanner">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <circle cx="10" cy="10" r="8.5" stroke="#F59E0B" stroke-width="1.5"/>
-            <path d="M10 6v4M10 13v.5" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <div>
-            <strong>Integração não configurada</strong>
-            <span>Adicione <code>AGENDAEDU_CLIENT_ID</code>, <code>AGENDAEDU_CLIENT_SECRET</code> e <code>AGENDAEDU_SCHOOL_TOKEN</code> nas variáveis de ambiente do Railway.</span>
+        <!-- Modal: Novo Ticket -->
+        <div class="chat-fin-novo-overlay" id="chatFinNovoOverlay" style="display:none">
+          <div class="chat-fin-novo-modal">
+            <div class="chat-fin-novo-header">
+              <h3>Novo Ticket</h3>
+              <button class="chat-fin-novo-close" id="chatFinNovoClose" aria-label="Fechar">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="chat-fin-novo-body">
+              <label class="chat-fin-novo-label">
+                Assunto <span style="color:#EF4444">*</span>
+                <input type="text" id="chatFinNovoAssunto" class="chat-fin-novo-input" placeholder="Ex: Dúvida sobre mensalidade de março"/>
+              </label>
+              <label class="chat-fin-novo-label">
+                Solicitante
+                <input type="text" id="chatFinNovoSolicitante" class="chat-fin-novo-input" placeholder="Nome do responsável ou aluno"/>
+              </label>
+              <label class="chat-fin-novo-label">
+                Escola
+                <select id="chatFinNovoCanal" class="chat-fin-novo-input">
+                  <option value="">Selecione a escola...</option>
+                </select>
+              </label>
+              <label class="chat-fin-novo-label">
+                Descrição
+                <textarea id="chatFinNovoDescricao" class="chat-fin-novo-input" rows="4" placeholder="Descreva o atendimento..."></textarea>
+              </label>
+            </div>
+            <div class="chat-fin-novo-footer">
+              <button class="chat-fin-btn" id="chatFinNovoCancelar" style="background:transparent;color:#64748B;border:1px solid #E2E8F0">Cancelar</button>
+              <button class="chat-fin-btn chat-fin-btn--start" id="chatFinNovoSalvar">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Criar Ticket
+              </button>
+            </div>
           </div>
         </div>
 
