@@ -5596,7 +5596,6 @@ async function chatFinLoadChannels() {
 
   try {
     const data = await apiRequest('GET', '/api/agendaedu/channels');
-    // JSON:API → array de { id, name }
     const items = (data.data || []);
     CHAT_FIN.channels = items.map(ch => ({
       id  : String(ch.id),
@@ -5604,7 +5603,10 @@ async function chatFinLoadChannels() {
     }));
 
     if (CHAT_FIN.channels.length === 0) {
-      select.innerHTML = '<option value="">Nenhum canal encontrado</option>';
+      // Sem canais: carrega todos os tickets sem filtro de canal
+      select.innerHTML = '<option value="">Todos os Atendimentos</option>';
+      CHAT_FIN.currentChannel = '';
+      chatFinLoadTickets();
       return;
     }
 
@@ -5616,28 +5618,27 @@ async function chatFinLoadChannels() {
       CHAT_FIN.currentChannel = CHAT_FIN.channels[0].id;
     }
     select.value = CHAT_FIN.currentChannel;
-
     chatFinLoadTickets();
   } catch (err) {
-    console.error('[ChatFin] canais:', err.message);
-    select.innerHTML = '<option value="">Erro ao carregar canais</option>';
-    if (banner) {
-      banner.textContent = `Erro ao conectar com AgendaEdu: ${err.message}`;
-      banner.classList.remove('hidden');
-    }
+    // 403 ou outro erro: ignora canais e carrega todos os tickets
+    console.warn('[ChatFin] canais indisponíveis, carregando tickets sem filtro:', err.message);
+    select.innerHTML = '<option value="">Todos os Atendimentos</option>';
+    CHAT_FIN.currentChannel = '';
+    if (banner) banner.classList.add('hidden');
+    chatFinLoadTickets();
   }
 }
 
 /* ── Carregar tickets do canal atual ── */
 async function chatFinLoadTickets() {
-  if (!CHAT_FIN.currentChannel) return;
   const container = document.getElementById('chatFinTickets');
   if (container) container.innerHTML = '<div class="chat-fin-empty"><span>Carregando tickets…</span></div>';
 
   try {
-    const qs = new URLSearchParams({ channelId: CHAT_FIN.currentChannel });
+    const qs = new URLSearchParams();
+    if (CHAT_FIN.currentChannel) qs.set('channelId', CHAT_FIN.currentChannel);
     if (CHAT_FIN.statusFilter) qs.set('status', CHAT_FIN.statusFilter);
-    const data = await apiRequest('GET', `/api/agendaedu/tickets?${qs}`);
+    const data = await apiRequest('GET', `/api/agendaedu/tickets${qs.toString() ? '?' + qs : ''}`);
 
     const items = data.data || [];
     CHAT_FIN.tickets  = items.map(chatFinNormalizeTicket);
