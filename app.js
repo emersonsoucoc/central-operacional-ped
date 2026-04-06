@@ -1004,6 +1004,7 @@ function switchModule(modulo) {
   closeDashboard();
   closeAgenda();
   closeChatFinanceiro();
+  closeEstruturaEscolar();
 
   // Update URL hash without creating a browser history entry
   if (location.hash.slice(1) !== modulo) {
@@ -5589,6 +5590,149 @@ function closeChatFinanceiro() {
   document.getElementById('chatFinanceiroView')?.classList.add('hidden');
 }
 
+/* ══════════════════════════════════════════════════════════
+   ESTRUTURA ESCOLAR — Cadastro via API AgendaEdu
+══════════════════════════════════════════════════════════ */
+
+const _estCache = { unidades:null, periodos:null, turmas:null, disciplinas:null, profissionais:null };
+let _estActiveTab = 'unidades';
+
+const EST_ROLES = { manager:'Gestor / Diretor', coordinator:'Coordenador', secretariat:'Secretário', teacher:'Professor', assistant:'Assistente', financial:'Financeiro', financial_assistant:'Assist. Financeiro', master:'Master' };
+const EST_STAGES = { pre_child:'Pré-Infantil', child:'Infantil', fundamental_one:'Fund. I', fundamental_two:'Fund. II', high_school:'Ensino Médio', preparatory_course:'Pré-Vestibular', free_courses:'Cursos Livres', others:'Outros' };
+
+function _estHideAll() {
+  ['newCardBtn'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+  document.querySelector('.view-toggle')?.classList.add('hidden');
+  document.querySelector('.topbar-search')?.classList.add('hidden');
+  ['statsBar','kanbanView','listView','settingsView','dashboardView','agendaView','chatFinanceiroView'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+}
+
+function openEstruturaEscolar() {
+  exitSettings(); closeDashboard(); closeAgenda(); closeChatFinanceiro(); _estHideAll();
+  document.getElementById('estruturaView').classList.remove('hidden');
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelector('.nav-item[data-module="estrutura_escolar"]')?.classList.add('active');
+  _renderEstTabs(); estLoadTab(_estActiveTab);
+}
+
+function closeEstruturaEscolar() { document.getElementById('estruturaView')?.classList.add('hidden'); }
+
+function _renderEstTabs() {
+  document.querySelectorAll('.est-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === _estActiveTab);
+    btn.onclick = () => { _estActiveTab = btn.dataset.tab; document.querySelectorAll('.est-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); estLoadTab(_estActiveTab); };
+  });
+  document.getElementById('estRefreshBtn').onclick = () => { _estCache[_estActiveTab] = null; estLoadTab(_estActiveTab); };
+}
+
+async function estLoadTab(tab) {
+  switch(tab) {
+    case 'unidades': return estRenderUnidades();
+    case 'periodos': return estRenderPeriodos();
+    case 'turmas': return estRenderTurmas();
+    case 'disciplinas': return estRenderDisciplinas();
+    case 'profissionais': return estRenderProfissionais();
+  }
+}
+
+function _estBodyHTML(html) { document.getElementById('estBody').innerHTML = html; }
+
+function _estErrorHTML(msg) {
+  const isNotConfig = msg && (msg.includes('não configurad') || msg.includes('503'));
+  if (isNotConfig) return `<div class="est-not-configured"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;margin-top:1px"><path d="M9 2L1.5 15h15L9 2z" stroke="#D97706" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 7v4M9 13v.5" stroke="#D97706" stroke-width="1.5" stroke-linecap="round"/></svg><div><strong>Integração não configurada</strong><br>Adicione <code>AGENDAEDU_CLIENT_ID</code> e <code>AGENDAEDU_CLIENT_SECRET</code> no Railway.</div></div>`;
+  return `<div class="est-empty"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5"/><path d="M12 12l8 8M20 12l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Erro: ${escHtml(msg||'Tente novamente')}</div>`;
+}
+
+async function _estFetch(ep) { return apiRequest('GET', `/api/agendaedu/estrutura/${ep}?per_page=100`); }
+async function _estPost(ep, body) { return apiRequest('POST', `/api/agendaedu/estrutura/${ep}`, body); }
+function _estToggleForm(id) { document.getElementById(id)?.classList.toggle('open'); }
+
+/* ── UNIDADES ── */
+async function estRenderUnidades() {
+  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando unidades…</div></div>');
+  if (!_estCache.unidades) { try { _estCache.unidades = await _estFetch('headquarters'); } catch(err) { _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; } }
+  const items = _estCache.unidades.data || [];
+  const listHTML = items.length === 0 ? '<div class="est-empty"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M4 28V12l12-8 12 8v16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Nenhuma unidade cadastrada.</div>'
+    : items.map(item => { const a=item.attributes||{}; return `<div class="est-list-item"><div class="est-item-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 14V6l6-4 6 4v8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(a.name||'—')}</div><div class="est-item-meta">ID: ${escHtml(String(item.id))}${a.external_id?' · Ext: '+escHtml(a.external_id):''}</div></div><span class="est-item-badge est-badge-active">Ativa</span></div>`; }).join('');
+  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 14V6l6-4 6 4v8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Unidades cadastradas<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formUnidade')">+ Nova Unidade</button></div><div class="est-create-form" id="formUnidade"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estUnidadeNome" placeholder="Ex: PED Pituba"/></div><div class="est-form-group"><label>External ID</label><input type="text" id="estUnidadeExtId" placeholder="Ex: UN001"/></div><div class="est-form-group"><label>Custom ID</label><input type="text" id="estUnidadeCustomId" placeholder="Ex: AgendaEdu:101"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formUnidade')">Cancelar</button><button class="btn-primary" onclick="estCriarUnidade()">Cadastrar</button></div></div><div class="est-list">${listHTML}</div></div>`);
+}
+async function estCriarUnidade() {
+  const nome=document.getElementById('estUnidadeNome')?.value.trim(), extId=document.getElementById('estUnidadeExtId')?.value.trim(), customId=document.getElementById('estUnidadeCustomId')?.value.trim();
+  if(!nome){showToast('Nome obrigatório','warn');return;}
+  const p={headquarter:{name:nome}}; if(extId) p.headquarter.external_id=extId; if(customId) p.headquarter.custom_id=customId;
+  try { await _estPost('headquarters',p); _estCache.unidades=null; showToast('Unidade criada!','success'); estRenderUnidades(); } catch(err){showToast('Erro: '+err.message,'error');}
+}
+
+/* ── PERÍODO LETIVO ── */
+async function estRenderPeriodos() {
+  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando períodos…</div></div>');
+  if (!_estCache.periodos) { try { _estCache.periodos = await _estFetch('school-terms'); } catch(err) { _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; } }
+  const items = _estCache.periodos.data || [];
+  const listHTML = items.length === 0 ? '<div class="est-empty">Nenhum período letivo cadastrado.</div>'
+    : items.map(item => { const a=item.attributes||{}, ativo=a.status===true; return `<div class="est-list-item"><div class="est-item-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h2v6H5zM9 7h2v4H9z" fill="currentColor" opacity=".6"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(a.name||'—')}</div><div class="est-item-meta">ID: ${escHtml(String(item.id))}</div></div>${ativo?'<span class="est-item-badge est-badge-active">Ativo</span>':`<button class="btn-secondary" style="font-size:11px;padding:4px 10px" onclick="estAtivarPeriodo('${escHtml(String(item.id))}')">Ativar</button>`}</div>`; }).join('');
+  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h2v6H5zM9 7h2v4H9z" fill="currentColor" opacity=".6"/></svg>Períodos Letivos<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formPeriodo')">+ Novo Período</button></div><div class="est-create-form" id="formPeriodo"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estPeriodoNome" placeholder="Ex: 2026"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formPeriodo')">Cancelar</button><button class="btn-primary" onclick="estCriarPeriodo()">Cadastrar</button></div></div><div class="est-list">${listHTML}</div></div>`);
+}
+async function estCriarPeriodo() {
+  const nome=document.getElementById('estPeriodoNome')?.value.trim(); if(!nome){showToast('Nome obrigatório','warn');return;}
+  try { await _estPost('school-terms',{school_term:{name:nome}}); _estCache.periodos=null; showToast('Período criado!','success'); estRenderPeriodos(); } catch(err){showToast('Erro: '+err.message,'error');}
+}
+async function estAtivarPeriodo(id) {
+  try { await apiRequest('POST',`/api/agendaedu/estrutura/school-terms/${encodeURIComponent(id)}/activate`); _estCache.periodos=null; showToast('Período ativado!','success'); estRenderPeriodos(); } catch(err){showToast('Erro: '+err.message,'error');}
+}
+
+/* ── TURMAS ── */
+async function estRenderTurmas() {
+  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando turmas…</div></div>');
+  let dataT=_estCache.turmas, dataU=_estCache.unidades, dataD=_estCache.disciplinas;
+  try { [dataT,dataU,dataD] = await Promise.all([dataT?Promise.resolve(dataT):_estFetch('classrooms'), dataU?Promise.resolve(dataU):_estFetch('headquarters'), dataD?Promise.resolve(dataD):_estFetch('disciplines')]); _estCache.turmas=dataT; _estCache.unidades=dataU; _estCache.disciplinas=dataD; } catch(err){ _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; }
+  const items=dataT.data||[], unidades=dataU.data||[];
+  const unidadeOpts=unidades.map(u=>`<option value="${escHtml(String(u.id))}">${escHtml(u.attributes?.name||u.id)}</option>`).join('');
+  const stageOpts=Object.entries(EST_STAGES).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  const listHTML=items.length===0?'<div class="est-empty">Nenhuma turma cadastrada.</div>'
+    :items.map(item=>{const a=item.attributes||{},hq=item.relationships?.headquarter?.data,hqName=hq?(unidades.find(u=>String(u.id)===String(hq.id))?.attributes?.name||hq.id):'—',stage=EST_STAGES[a.educational_stage]||a.educational_stage||'—'; return `<div class="est-list-item"><div class="est-item-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 4V3a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.3"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(a.name||'—')}</div><div class="est-item-meta">${escHtml(stage)} · ${escHtml(String(hqName))}</div></div><span class="est-item-badge" style="background:#F5F3FF;color:#7C3AED">${escHtml(stage)}</span></div>`;}).join('');
+  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 4V3a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.3"/></svg>Turmas<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formTurma')">+ Nova Turma</button></div><div class="est-create-form" id="formTurma"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estTurmaNome" placeholder="Ex: 1º Ano A"/></div><div class="est-form-group"><label>Unidade *</label><select id="estTurmaUnidade"><option value="">Selecione…</option>${unidadeOpts}</select></div><div class="est-form-group"><label>Segmento *</label><select id="estTurmaStage">${stageOpts}</select></div></div><div class="est-form-row"><div class="est-form-group"><label>Sala</label><input type="text" id="estTurmaSala" placeholder="Ex: Sala 102"/></div><div class="est-form-group"><label>External ID</label><input type="text" id="estTurmaExtId" placeholder="Ex: T001"/></div><div class="est-form-group"><label>IDs das Disciplinas (vírgula)</label><input type="text" id="estTurmaDiscs" placeholder="Ex: 3867, 3868"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formTurma')">Cancelar</button><button class="btn-primary" onclick="estCriarTurma()">Cadastrar</button></div></div><div class="est-list">${listHTML}</div></div>`);
+}
+async function estCriarTurma() {
+  const nome=document.getElementById('estTurmaNome')?.value.trim(),unidade=document.getElementById('estTurmaUnidade')?.value,stage=document.getElementById('estTurmaStage')?.value,sala=document.getElementById('estTurmaSala')?.value.trim(),extId=document.getElementById('estTurmaExtId')?.value.trim(),discStr=document.getElementById('estTurmaDiscs')?.value.trim();
+  if(!nome){showToast('Nome obrigatório','warn');return;} if(!unidade){showToast('Selecione a unidade','warn');return;}
+  const discIds=discStr?discStr.split(',').map(s=>s.trim()).filter(Boolean).map(s=>isNaN(s)?s:Number(s)):[];
+  const p={classroom:{name:nome,headquarter_id:unidade,educational_stage_name:stage,discipline_ids:discIds}};
+  if(sala) p.classroom.room=sala; if(extId) p.classroom.external_id=extId;
+  try { await _estPost('classrooms',p); _estCache.turmas=null; showToast('Turma criada!','success'); estRenderTurmas(); } catch(err){showToast('Erro: '+err.message,'error');}
+}
+
+/* ── DISCIPLINAS ── */
+async function estRenderDisciplinas() {
+  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando disciplinas…</div></div>');
+  if (!_estCache.disciplinas) { try { _estCache.disciplinas = await _estFetch('disciplines'); } catch(err) { _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; } }
+  const items=_estCache.disciplinas.data||[];
+  const listHTML=items.length===0?'<div class="est-empty">Nenhuma disciplina cadastrada.</div>'
+    :items.map(item=>{const a=item.attributes||{},nT=(a.classroom_ids||[]).length; return `<div class="est-list-item"><div class="est-item-icon" style="background:#FFF7ED;color:#EA580C"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h8l2 2v10H3V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6 7h4M6 10h4M6 4h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(a.name||'—')}</div><div class="est-item-meta">${a.slug?'Sigla: '+escHtml(a.slug)+' · ':''}${nT} turma${nT!==1?'s':''}</div></div><span class="est-item-badge" style="background:#FFF7ED;color:#EA580C">ID ${escHtml(String(item.id))}</span></div>`;}).join('');
+  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 2h8l2 2v10H3V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Disciplinas<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formDisciplina')">+ Nova Disciplina</button></div><div class="est-create-form" id="formDisciplina"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estDiscNome" placeholder="Ex: Matemática"/></div><div class="est-form-group"><label>Sigla</label><input type="text" id="estDiscSlug" placeholder="Ex: MAT_01"/></div><div class="est-form-group"><label>External ID</label><input type="text" id="estDiscExtId" placeholder="Ex: DI001"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formDisciplina')">Cancelar</button><button class="btn-primary" onclick="estCriarDisciplina()">Cadastrar</button></div></div><div class="est-list">${listHTML}</div></div>`);
+}
+async function estCriarDisciplina() {
+  const nome=document.getElementById('estDiscNome')?.value.trim(),slug=document.getElementById('estDiscSlug')?.value.trim(),extId=document.getElementById('estDiscExtId')?.value.trim();
+  if(!nome){showToast('Nome obrigatório','warn');return;}
+  const p={discipline:{name:nome}}; if(slug) p.discipline.slug=slug; if(extId) p.discipline.external_id=extId;
+  try { await _estPost('disciplines',p); _estCache.disciplinas=null; showToast('Disciplina criada!','success'); estRenderDisciplinas(); } catch(err){showToast('Erro: '+err.message,'error');}
+}
+
+/* ── PROFISSIONAIS ── */
+async function estRenderProfissionais() {
+  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando profissionais…</div></div>');
+  if (!_estCache.profissionais) { try { _estCache.profissionais = await _estFetch('school-users'); } catch(err) { _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; } }
+  const items=_estCache.profissionais.data||[];
+  const roleOpts=Object.entries(EST_ROLES).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  const listHTML=items.length===0?'<div class="est-empty">Nenhum profissional cadastrado.</div>'
+    :items.map(item=>{const a=item.attributes||{},prf=a.profile||{},role=EST_ROLES[a.role]||a.role||'—',ativo=a.status==='active'; return `<div class="est-list-item"><div class="est-item-icon" style="background:#F0FDF4;color:#16A34A"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(prf.name||a.name||a.username||'—')}</div><div class="est-item-meta">${escHtml(role)} · ${escHtml(a.email||a.username||'')} · ID ${escHtml(String(item.id))}</div></div><span class="est-item-badge ${ativo?'est-badge-active':'est-badge-inactive'}">${ativo?'Ativo':'Bloqueado'}</span></div>`;}).join('');
+  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Profissionais<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formProfissional')">+ Novo Profissional</button></div><div class="est-create-form" id="formProfissional"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estProfNome" placeholder="Ex: Maria Silva"/></div><div class="est-form-group"><label>E-mail *</label><input type="email" id="estProfEmail" placeholder="Ex: maria@escola.com"/></div><div class="est-form-group"><label>Username *</label><input type="text" id="estProfUsername" placeholder="Ex: maria.silva"/></div></div><div class="est-form-row"><div class="est-form-group"><label>Cargo *</label><select id="estProfRole">${roleOpts}</select></div><div class="est-form-group"><label>External ID *</label><input type="text" id="estProfExtId" placeholder="Ex: PROF001"/></div><div class="est-form-group"><label>Confirmar conta</label><select id="estProfConfirm"><option value="true">Sim</option><option value="false">Não</option></select></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formProfissional')">Cancelar</button><button class="btn-primary" onclick="estCriarProfissional()">Cadastrar</button></div></div><div class="est-list">${listHTML}</div></div>`);
+}
+async function estCriarProfissional() {
+  const nome=document.getElementById('estProfNome')?.value.trim(),email=document.getElementById('estProfEmail')?.value.trim(),username=document.getElementById('estProfUsername')?.value.trim(),role=document.getElementById('estProfRole')?.value,extId=document.getElementById('estProfExtId')?.value.trim(),confirm=document.getElementById('estProfConfirm')?.value==='true';
+  if(!nome||!email||!username||!extId){showToast('Preencha todos os campos obrigatórios','warn');return;}
+  try { await _estPost('school-users',{school_user:{external_id:extId,email,username,status:'active',confirm,role,profile_attributes:{name:nome}}}); _estCache.profissionais=null; showToast('Profissional criado!','success'); estRenderProfissionais(); } catch(err){showToast('Erro: '+err.message,'error');}
+}
+
 /* ── Carregar escolas como "canais" ── */
 async function chatFinLoadChannels() {
   const select = document.getElementById('chatFinChannelSelect');
@@ -6365,6 +6509,7 @@ function init() {
     else if (hash === 'dashboard') openDashboard();
     else if (hash === 'agenda') openAgenda();
     else if (hash === 'chat_financeiro') openChatFinanceiro();
+    else if (hash === 'estrutura_escolar') openEstruturaEscolar();
     else if (MODULES[hash]) switchModule(hash);
   });
 
@@ -6385,6 +6530,9 @@ function init() {
       } else if (target === 'chat_financeiro') {
         history.pushState(null, '', '#chat_financeiro');
         openChatFinanceiro();
+      } else if (target === 'estrutura_escolar') {
+        history.pushState(null, '', '#estrutura_escolar');
+        openEstruturaEscolar();
       } else if (MODULES[target]) {
         history.pushState(null, '', '#' + target);
         switchModule(target);
@@ -6536,6 +6684,9 @@ function init() {
   const initialHash = location.hash.slice(1);
   if (initialHash === 'configuracoes') openSettings();
   else if (initialHash === 'chat_financeiro') openChatFinanceiro();
+  else if (initialHash === 'dashboard') openDashboard();
+  else if (initialHash === 'agenda') openAgenda();
+  else if (initialHash === 'estrutura_escolar') openEstruturaEscolar();
   else switchModule(MODULES[initialHash] ? initialHash : 'solicitacoes');
 
   console.log('%c🏫 Central Operacional — Grupo PED', 'color:#3B82F6;font-weight:bold;font-size:14px');

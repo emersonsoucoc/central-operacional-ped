@@ -1147,6 +1147,97 @@ app.get('/api/agendaedu/channels/:channelId/chats/:chatId/messages', verificarTo
 });
 
 /* ══════════════════════════════════════════════════════════
+   ESTRUTURA ESCOLAR — Proxy AgendaEdu v2
+══════════════════════════════════════════════════════════ */
+
+app.get('/api/agendaedu/estrutura/headquarters', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const qs = new URLSearchParams(req.query).toString();
+    const r  = await agendaProxy('GET', `/headquarters${qs ? '?' + qs : ''}`);
+    const d  = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/agendaedu/estrutura/headquarters', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', '/headquarters', req.body);
+    const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/agendaedu/estrutura/school-terms', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const qs = new URLSearchParams(req.query).toString();
+    const r  = await agendaProxy('GET', `/school_terms${qs ? '?' + qs : ''}`);
+    const d  = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/agendaedu/estrutura/school-terms', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', '/school_terms', req.body);
+    const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/agendaedu/estrutura/school-terms/:id/activate', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', `/school_terms/${req.params.id}/activate`, {});
+    const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/agendaedu/estrutura/disciplines', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const qs = new URLSearchParams(req.query).toString();
+    const r  = await agendaProxy('GET', `/disciplines${qs ? '?' + qs : ''}`);
+    const d  = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/agendaedu/estrutura/disciplines', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', '/disciplines', req.body);
+    const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/agendaedu/estrutura/classrooms', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const qs = new URLSearchParams(req.query).toString();
+    const r  = await agendaProxy('GET', `/classrooms${qs ? '?' + qs : ''}`);
+    const d  = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/agendaedu/estrutura/classrooms', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', '/classrooms', req.body);
+    const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/agendaedu/estrutura/school-users', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const qs = new URLSearchParams(req.query).toString();
+    const r  = await agendaProxy('GET', `/school_users${qs ? '?' + qs : ''}`);
+    const d  = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/agendaedu/estrutura/school-users', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', '/school_users', req.body);
+    const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+/* ══════════════════════════════════════════════════════════
    TICKETS — Sistema interno de atendimento (substitui AgendaEdu)
 ══════════════════════════════════════════════════════════ */
 
