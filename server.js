@@ -1237,6 +1237,22 @@ app.post('/api/agendaedu/estrutura/school-users', verificarToken, async (req, re
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.get('/api/agendaedu/estrutura/responsible-profiles', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const qs = new URLSearchParams(req.query).toString();
+    const r  = await agendaProxy('GET', `/responsible_profiles${qs ? '?' + qs : ''}`);
+    const d  = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/agendaedu/estrutura/responsible-profiles', verificarToken, async (req, res) => {
+  try {
+    if (agendaNotConfigured(res)) return;
+    const r = await agendaProxy('POST', '/responsible_profiles', req.body);
+    const d = await r.json(); if (!r.ok) return res.status(r.status).json(d); res.json(d);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 /* ══════════════════════════════════════════════════════════
    TICKETS — Sistema interno de atendimento (substitui AgendaEdu)
 ══════════════════════════════════════════════════════════ */

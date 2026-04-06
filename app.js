@@ -5594,7 +5594,7 @@ function closeChatFinanceiro() {
    ESTRUTURA ESCOLAR — Cadastro via API AgendaEdu
 ══════════════════════════════════════════════════════════ */
 
-const _estCache = { unidades:null, periodos:null, turmas:null, disciplinas:null, profissionais:null };
+const _estCache = { unidades:null, periodos:null, turmas:null, disciplinas:null, profissionais:null, responsaveis:null };
 let _estActiveTab = 'unidades';
 
 const EST_ROLES = { manager:'Gestor / Diretor', coordinator:'Coordenador', secretariat:'Secretário', teacher:'Professor', assistant:'Assistente', financial:'Financeiro', financial_assistant:'Assist. Financeiro', master:'Master' };
@@ -5625,6 +5625,8 @@ function _renderEstTabs() {
   document.getElementById('estRefreshBtn').onclick = () => { _estCache[_estActiveTab] = null; estLoadTab(_estActiveTab); };
 }
 
+const EST_KINSHIP = { mother:'Mãe', father:'Pai', grandmother:'Avó', grandfather:'Avô', aunt:'Tia', uncle:'Tio', nanny:'Babá', stepfather:'Padrasto', stepmother:'Madrasta', cousin:'Primo/a', brother:'Irmão', sister:'Irmã', other:'Outro' };
+
 async function estLoadTab(tab) {
   switch(tab) {
     case 'unidades': return estRenderUnidades();
@@ -5632,6 +5634,7 @@ async function estLoadTab(tab) {
     case 'turmas': return estRenderTurmas();
     case 'disciplinas': return estRenderDisciplinas();
     case 'profissionais': return estRenderProfissionais();
+    case 'responsaveis': return estRenderResponsaveis();
   }
 }
 
@@ -5731,6 +5734,135 @@ async function estCriarProfissional() {
   const nome=document.getElementById('estProfNome')?.value.trim(),email=document.getElementById('estProfEmail')?.value.trim(),username=document.getElementById('estProfUsername')?.value.trim(),role=document.getElementById('estProfRole')?.value,extId=document.getElementById('estProfExtId')?.value.trim(),confirm=document.getElementById('estProfConfirm')?.value==='true';
   if(!nome||!email||!username||!extId){showToast('Preencha todos os campos obrigatórios','warn');return;}
   try { await _estPost('school-users',{school_user:{external_id:extId,email,username,status:'active',confirm,role,profile_attributes:{name:nome}}}); _estCache.profissionais=null; showToast('Profissional criado!','success'); estRenderProfissionais(); } catch(err){showToast('Erro: '+err.message,'error');}
+}
+
+/* ── RESPONSÁVEIS ── */
+async function estRenderResponsaveis() {
+  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando responsáveis…</div></div>');
+  if (!_estCache.responsaveis) { try { _estCache.responsaveis = await _estFetch('responsible-profiles'); } catch(err) { _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; } }
+  const items = _estCache.responsaveis.data || [];
+  const kinshipOpts = Object.entries(EST_KINSHIP).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  const listHTML = items.length === 0
+    ? '<div class="est-empty"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="11" cy="10" r="5" stroke="currentColor" stroke-width="1.5"/><circle cx="21" cy="10" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M2 28c0-5 4-9 9-9s9 4 9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M21 19c4 0 9 3.5 9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Nenhum responsável cadastrado.</div>'
+    : items.map(item => {
+        const a = item.attributes || {};
+        const kinship = EST_KINSHIP[a.kinship] || a.kinship || '—';
+        const ativo = a.status === 'active' || a.active === true;
+        const alunos = (a.student_profile_ids || []).length;
+        return `<div class="est-list-item">
+          <div class="est-item-icon" style="background:#FFF1F2;color:#E11D48">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="10.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 14c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M10.5 9.5C12.8 9.5 15 11.3 15 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </div>
+          <div class="est-item-info">
+            <div class="est-item-name">${escHtml(a.name || '—')}</div>
+            <div class="est-item-meta">${escHtml(kinship)}${a.email?' · '+escHtml(a.email):''} · ${aluno => aluno === 1 ? '1 aluno' : aluno + ' alunos'}${alunos}</div>
+          </div>
+          <span class="est-item-badge ${ativo?'est-badge-active':'est-badge-inactive'}">${ativo?'Ativo':'Inativo'}</span>
+        </div>`;
+      }).join('');
+
+  _estBodyHTML(`
+    <div class="est-section">
+      <div class="est-section-header">
+        <span class="est-section-title">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="10.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 14c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M10.5 9.5C12.8 9.5 15 11.3 15 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Responsáveis
+          <span class="est-count-badge">${items.length}</span>
+        </span>
+        <button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formResponsavel')">+ Novo Responsável</button>
+      </div>
+
+      <div class="est-create-form" id="formResponsavel">
+        <div class="est-form-row">
+          <div class="est-form-group">
+            <label>Nome completo *</label>
+            <input type="text" id="estRespNome" placeholder="Ex: Maria Silva"/>
+          </div>
+          <div class="est-form-group">
+            <label>E-mail *</label>
+            <input type="email" id="estRespEmail" placeholder="Ex: maria@email.com"/>
+          </div>
+          <div class="est-form-group">
+            <label>CPF</label>
+            <input type="text" id="estRespCpf" placeholder="Ex: 999.999.999-99"/>
+          </div>
+        </div>
+        <div class="est-form-row">
+          <div class="est-form-group">
+            <label>Parentesco</label>
+            <select id="estRespKinship"><option value="">Selecione…</option>${kinshipOpts}</select>
+          </div>
+          <div class="est-form-group">
+            <label>Telefone</label>
+            <input type="text" id="estRespPhone" placeholder="Ex: (71) 99999-9999"/>
+          </div>
+          <div class="est-form-group">
+            <label>IDs dos Alunos * (vírgula)</label>
+            <input type="text" id="estRespAlunos" placeholder="Ex: 16910, 16911"/>
+          </div>
+        </div>
+        <div class="est-form-row">
+          <div class="est-form-group">
+            <label>External ID</label>
+            <input type="text" id="estRespExtId" placeholder="Ex: RE001"/>
+          </div>
+          <div class="est-form-group">
+            <label>Financeiro?</label>
+            <select id="estRespFinanceiro"><option value="false">Não</option><option value="true">Sim</option></select>
+          </div>
+          <div class="est-form-group">
+            <label>Confirmar conta automaticamente</label>
+            <select id="estRespConfirm"><option value="true">Sim</option><option value="false">Não</option></select>
+          </div>
+        </div>
+        <div class="est-form-actions">
+          <button class="btn-secondary" onclick="_estToggleForm('formResponsavel')">Cancelar</button>
+          <button class="btn-primary" onclick="estCriarResponsavel()">Cadastrar Responsável</button>
+        </div>
+      </div>
+
+      <div class="est-list">${listHTML}</div>
+    </div>
+  `);
+}
+
+async function estCriarResponsavel() {
+  const nome    = document.getElementById('estRespNome')?.value.trim();
+  const email   = document.getElementById('estRespEmail')?.value.trim();
+  const cpf     = document.getElementById('estRespCpf')?.value.trim();
+  const kinship = document.getElementById('estRespKinship')?.value;
+  const phone   = document.getElementById('estRespPhone')?.value.trim();
+  const alunosStr = document.getElementById('estRespAlunos')?.value.trim();
+  const extId   = document.getElementById('estRespExtId')?.value.trim();
+  const financial = document.getElementById('estRespFinanceiro')?.value === 'true';
+  const confirm = document.getElementById('estRespConfirm')?.value === 'true';
+
+  if (!nome)      { showToast('Nome é obrigatório', 'warn'); return; }
+  if (!email)     { showToast('E-mail é obrigatório', 'warn'); return; }
+  if (!alunosStr) { showToast('Informe ao menos um ID de aluno', 'warn'); return; }
+
+  const studentIds = alunosStr.split(',').map(s => s.trim()).filter(Boolean).map(s => isNaN(s) ? s : Number(s));
+
+  const payload = {
+    responsible_profile: {
+      name               : nome,
+      email,
+      student_profile_ids: studentIds,
+      confirm,
+      financial,
+    }
+  };
+  if (extId)   payload.responsible_profile.external_id      = extId;
+  if (cpf)     payload.responsible_profile.document_number  = cpf;
+  if (kinship) payload.responsible_profile.kinship          = kinship;
+  if (phone)   payload.responsible_profile.phone            = phone;
+
+  try {
+    await _estPost('responsible-profiles', payload);
+    _estCache.responsaveis = null;
+    showToast('Responsável cadastrado com sucesso!', 'success');
+    estRenderResponsaveis();
+  } catch(err) { showToast('Erro: ' + err.message, 'error'); }
 }
 
 /* ── Carregar escolas como "canais" ── */
