@@ -2500,6 +2500,63 @@ form { display:flex; flex-direction:column; gap:14px; }
 }
 .chat-fin-refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
 
+/* Botão Novo Ticket */
+.chat-fin-novo-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 14px; height: 32px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 7px;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t-fast);
+  white-space: nowrap;
+}
+.chat-fin-novo-btn:hover { background: var(--accent-hover, #2563EB); }
+
+/* Modal Novo Ticket */
+.chat-fin-novo-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  animation: autoFadeIn .15s;
+}
+.chat-fin-novo-modal {
+  background: var(--quadro-surface);
+  border-radius: 14px;
+  width: 100%; max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.18);
+  display: flex; flex-direction: column;
+}
+.chat-fin-novo-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--quadro-border);
+}
+.chat-fin-novo-header h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--quadro-text); }
+.chat-fin-novo-close {
+  width: 28px; height: 28px; border: none; background: transparent;
+  color: var(--quadro-muted); cursor: pointer; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.chat-fin-novo-close:hover { background: var(--quadro-border); }
+.chat-fin-novo-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.chat-fin-novo-label {
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 12px; font-weight: 600; color: var(--quadro-muted);
+}
+.chat-fin-novo-input {
+  padding: 8px 10px; border: 1px solid var(--quadro-border);
+  border-radius: 8px; font-size: 13px; color: var(--quadro-text);
+  background: var(--quadro-bg); resize: vertical;
+  transition: border-color var(--t-fast);
+}
+.chat-fin-novo-input:focus { outline: none; border-color: var(--accent); }
+.chat-fin-novo-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--quadro-border);
+}
+
 /* Layout 2 colunas */
 .chat-fin-body {
   display: flex;
