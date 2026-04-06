@@ -822,17 +822,28 @@ app.get('/api/diagnostico', verificarToken, exigirRole('Super Admin'), async (_,
 //   AGENDAEDU_CLIENT_ID      → uid gerado no AgendaEdu (OAuth2 client_id)
 //   AGENDAEDU_CLIENT_SECRET  → secret key gerado no AgendaEdu
 //   AGENDAEDU_SCHOOL_TOKEN   → x-school-token da escola (header obrigatório)
+//   AGENDAEDU_USER_TOKEN     → (opcional) token de usuário gerado via /auth/agendaedu
 // ════════════════════════════════════════════════════════════════════════════
 const AGENDAEDU_BASE          = 'https://api.agendaedu.com/v2';
 const AGENDAEDU_CLIENT_ID     = process.env.AGENDAEDU_CLIENT_ID     || '';
 const AGENDAEDU_CLIENT_SECRET = process.env.AGENDAEDU_CLIENT_SECRET || '';
 const AGENDAEDU_SCHOOL_TOKEN  = process.env.AGENDAEDU_SCHOOL_TOKEN  || '';
 const AGENDAEDU_OAUTH_URL     = process.env.AGENDAEDU_OAUTH_URL     || 'https://api.agendaedu.com/oauth/v2/token';
+const AGENDAEDU_AUTH_URL      = 'https://api.agendaedu.com/oauth/v2/authorize';
+const AGENDAEDU_REDIRECT_URI  = process.env.AGENDAEDU_REDIRECT_URI  || 'https://central-operacional-ped-production.up.railway.app/auth/agendaedu/callback';
 
+// Token de app (client_credentials) — escopo school_data
 let _agendaAccessToken = null;
 let _agendaTokenExpiry = 0;
 
+// Token de usuário (authorization_code) — permissão completa do usuário logado
+let _agendaUserToken   = process.env.AGENDAEDU_USER_TOKEN || null;
+let _agendaUserExpiry  = _agendaUserToken ? Date.now() + 7 * 24 * 3600 * 1000 : 0; // assume 7d se veio de env
+
 async function getAgendaEduToken() {
+  // Prefere token de usuário (authorization_code) se disponível
+  if (_agendaUserToken && Date.now() < _agendaUserExpiry) return _agendaUserToken;
+  // Fallback: token de app (client_credentials)
   if (_agendaAccessToken && Date.now() < _agendaTokenExpiry) return _agendaAccessToken;
   if (!AGENDAEDU_CLIENT_ID || !AGENDAEDU_CLIENT_SECRET) {
     throw new Error('AGENDAEDU_CLIENT_ID / AGENDAEDU_CLIENT_SECRET não configurados no Railway.');
@@ -869,6 +880,65 @@ async function agendaProxy(method, path, body = null) {
   if (body) opts.body = JSON.stringify(body);
   return fetch(`${AGENDAEDU_BASE}${path}`, opts);
 }
+
+// ── OAuth2 authorization_code flow ──────────────────────────────────────────
+// Passo 1: redireciona o usuário para login no AgendaEdu
+app.get('/auth/agendaedu', (req, res) => {
+  if (!AGENDAEDU_CLIENT_ID) return res.status(503).send('AGENDAEDU_CLIENT_ID não configurado.');
+  const params = new URLSearchParams({
+    client_id    : AGENDAEDU_CLIENT_ID,
+    redirect_uri : AGENDAEDU_REDIRECT_URI,
+    response_type: 'code',
+  });
+  res.redirect(`${AGENDAEDU_AUTH_URL}?${params}`);
+});
+
+// Passo 2: AgendaEdu redireciona de volta com o code; troca por access_token
+app.get('/auth/agendaedu/callback', async (req, res) => {
+  const { code, error } = req.query;
+  if (error) return res.status(400).send(`Erro do AgendaEdu: ${error}`);
+  if (!code)  return res.status(400).send('Código de autorização não recebido.');
+  try {
+    const r = await fetch(AGENDAEDU_OAUTH_URL, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body   : new URLSearchParams({
+        grant_type   : 'authorization_code',
+        client_id    : AGENDAEDU_CLIENT_ID,
+        client_secret: AGENDAEDU_CLIENT_SECRET,
+        code,
+        redirect_uri : AGENDAEDU_REDIRECT_URI,
+      }),
+    });
+    const json = await r.json();
+    if (!r.ok) return res.status(400).json({ error: 'Erro ao obter token', details: json });
+    _agendaUserToken  = json.access_token;
+    _agendaUserExpiry = Date.now() + ((json.expires_in || 7200) - 60) * 1000;
+    console.log(`[AgendaEdu] Token de usuário obtido via authorization_code. Expira em ${json.expires_in}s.`);
+    res.send(`<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>AgendaEdu — Autenticado</title>
+      <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f0fdf4}
+      .box{text-align:center;padding:2rem;background:#fff;border-radius:1rem;box-shadow:0 4px 24px #0001;max-width:420px}
+      h2{color:#16a34a;margin:0 0 .5rem}p{color:#374151;margin:.5rem 0}</style></head>
+      <body><div class="box">
+        <h2>✅ Autenticação concluída!</h2>
+        <p>Token de atendimento ativo por <strong>${Math.round((json.expires_in||7200)/3600)}h</strong>.</p>
+        <p>Pode fechar esta janela e voltar à Central Operacional.</p>
+      </div></body></html>`);
+  } catch (e) {
+    res.status(500).send(`Erro interno: ${e.message}`);
+  }
+});
+
+// Status do token de usuário (para diagnóstico)
+app.get('/auth/agendaedu/status', (req, res) => {
+  const hasUserToken = !!(_agendaUserToken && Date.now() < _agendaUserExpiry);
+  res.json({
+    userTokenActive: hasUserToken,
+    expiresIn      : hasUserToken ? Math.round((_agendaUserExpiry - Date.now()) / 1000) + 's' : 'N/A',
+    authUrl        : `${req.protocol}://${req.get('host')}/auth/agendaedu`,
+  });
+});
 
 function agendaNotConfigured(res) {
   if (!AGENDAEDU_CLIENT_ID || !AGENDAEDU_CLIENT_SECRET) {
