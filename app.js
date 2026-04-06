@@ -5590,43 +5590,23 @@ async function chatFinLoadChannels() {
   const select = document.getElementById('chatFinChannelSelect');
   const banner = document.getElementById('chatFinConfigBanner');
   if (!select) return;
-
-  select.innerHTML = '<option value="">Carregando canais…</option>';
   if (banner) banner.classList.add('hidden');
 
-  try {
-    const data = await apiRequest('GET', '/api/agendaedu/channels');
-    const items = (data.data || []);
-    CHAT_FIN.channels = items.map(ch => ({
-      id  : String(ch.id),
-      name: ch.attributes?.name || ch.name || `Canal ${ch.id}`,
-    }));
+  // Canais fixos (GET /v2/channels retorna 403 com escopo school_data)
+  CHAT_FIN.channels = [
+    { id: '85662', name: 'COC Horto' },
+    { id: '85661', name: 'COC Lauro' },
+  ];
 
-    if (CHAT_FIN.channels.length === 0) {
-      // Sem canais: carrega todos os tickets sem filtro de canal
-      select.innerHTML = '<option value="">Todos os Atendimentos</option>';
-      CHAT_FIN.currentChannel = '';
-      chatFinLoadTickets();
-      return;
-    }
+  select.innerHTML = CHAT_FIN.channels.map(ch =>
+    `<option value="${escHtml(ch.id)}">${escHtml(ch.name)}</option>`
+  ).join('');
 
-    select.innerHTML = CHAT_FIN.channels.map(ch =>
-      `<option value="${escHtml(ch.id)}">${escHtml(ch.name)}</option>`
-    ).join('');
-
-    if (!CHAT_FIN.currentChannel || !CHAT_FIN.channels.find(c => c.id === CHAT_FIN.currentChannel)) {
-      CHAT_FIN.currentChannel = CHAT_FIN.channels[0].id;
-    }
-    select.value = CHAT_FIN.currentChannel;
-    chatFinLoadTickets();
-  } catch (err) {
-    // 403 ou outro erro: ignora canais e carrega todos os tickets
-    console.warn('[ChatFin] canais indisponíveis, carregando tickets sem filtro:', err.message);
-    select.innerHTML = '<option value="">Todos os Atendimentos</option>';
-    CHAT_FIN.currentChannel = '';
-    if (banner) banner.classList.add('hidden');
-    chatFinLoadTickets();
+  if (!CHAT_FIN.currentChannel || !CHAT_FIN.channels.find(c => c.id === CHAT_FIN.currentChannel)) {
+    CHAT_FIN.currentChannel = '85662'; // padrão: COC Horto
   }
+  select.value = CHAT_FIN.currentChannel;
+  chatFinLoadTickets();
 }
 
 /* ── Carregar tickets do canal atual ── */
