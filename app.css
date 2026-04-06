@@ -862,11 +862,16 @@ form { display:flex; flex-direction:column; gap:14px; }
 /* ══════════════════════════════════════════════════════════
    CONFIGURAÇÕES — Nav sidebar item
 ══════════════════════════════════════════════════════════ */
-.nav-section--sistema {
-  margin-top:auto;
-  padding-top:8px;
-  border-top:1px solid rgba(255,255,255,0.07);
+/* Legado — mantido por compatibilidade, não mais usado na nav */
+.nav-section--sistema { display:none; }
+
+/* Configurações fixo abaixo do scroll */
+.sidebar-config-row {
+  flex-shrink: 0;
+  padding: 6px 8px 2px;
+  border-top: 1px solid rgba(255,255,255,0.07);
 }
+.app-wrapper.sidebar-collapsed .sidebar-config-row .nav-text { display:none; }
 
 /* ══════════════════════════════════════════════════════════
    CONFIGURAÇÕES — View principal
