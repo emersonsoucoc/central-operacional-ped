@@ -535,6 +535,28 @@ let MODULES = {
     },
     lastPhase: 'pago',
   },
+
+  vale_transporte: {
+    label     : 'Vale Transporte',
+    shortLabel: 'Vale Transporte',
+    btnLabel  : 'Novo Funcionário VT',
+    hasFinancial: false,
+    hasVT     : true,
+    categorias: [
+      'Professor(a)','Prof. Ed. Infantil','Prof. Bilíngue','Prof. Robótica',
+      'Aux. Desenv. Infantil','Aux. Serviços Gerais','Assistente de RH',
+      'Assist. Coordenação','Supervisor Comercial','Téc. Manutenção',
+      'Social Media','Porteiro','Coordenador(a)','Administrativo','Outro'
+    ],
+    fases: {
+      cadastro_pendente : { label:'Cadastro Pendente',  color:'#94A3B8', bg:'#F1F5F9', slaDias:3 },
+      termo_pendente    : { label:'Termo Pendente',     color:'#F59E0B', bg:'#FFFBEB', slaDias:5 },
+      vt_ativo          : { label:'VT Ativo',           color:'#3B82F6', bg:'#EFF6FF' },
+      pago_mes          : { label:'Pago no Mês',        color:'#10B981', bg:'#ECFDF5' },
+      suspenso          : { label:'Suspenso',           color:'#EF4444', bg:'#FEF2F2' },
+    },
+    lastPhase: 'pago_mes',
+  },
 };
 
 /* Defaults para comparar — não alterar */
@@ -807,19 +829,8 @@ async function apiRequest(method, path, body) {
   }
 
   if (!res.ok) {
-    let errMsg = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      // JSONAPI format: { errors: [{title, detail}] }
-      if (Array.isArray(body.errors) && body.errors.length > 0) {
-        errMsg = body.errors.map(e => e.detail || e.title || JSON.stringify(e)).join('; ');
-      } else if (body.error) {
-        errMsg = body.error;
-      } else if (body.message) {
-        errMsg = body.message;
-      }
-    } catch(_) {}
-    throw new Error(errMsg);
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error(err.error || `Erro ${res.status}`);
   }
   return res.json();
 }
@@ -1015,7 +1026,6 @@ function switchModule(modulo) {
   closeDashboard();
   closeAgenda();
   closeChatFinanceiro();
-  closeEstruturaEscolar();
 
   // Update URL hash without creating a browser history entry
   if (location.hash.slice(1) !== modulo) {
@@ -1033,6 +1043,7 @@ function switchModule(modulo) {
   document.getElementById('breadcrumbActive').textContent = mod.shortLabel;
   document.getElementById('newCardBtnLabel').textContent  = mod.btnLabel;
 
+  vtRenderTopbarBtn();
   renderAll();
   if (currentUser) applyNavPermissions();
 }
@@ -1262,6 +1273,11 @@ function buildCardHTML(card) {
 
   // Footer: meta info
   let metaItems = '';
+
+  // VT: salário + VT líquido no card
+  if (mod.hasVT) {
+    metaItems += vtCardExtraHTML(card);
+  }
 
   if (card.prazo) {
     const cls = overdue ? 'pf-meta-item pf-meta-item--overdue' : 'pf-meta-item';
@@ -1601,6 +1617,28 @@ function openModal(cardId) {
   // Show/hide payment link section
   document.getElementById('paymentLinkSection').style.display = mod.hasPaymentLink ? '' : 'none';
 
+  // Show/hide VT fields
+  let vtFieldsSection = document.getElementById('vtFieldsSection');
+  if (mod.hasVT) {
+    const card = cardId ? allCards.find(c => c.id === cardId) : null;
+    const vtCard = card || { vtCpf:'', vtVinculo:'CLT', vtSalario:0, vtFormaPgto:'Cartão',
+      vtNumCartao:'', vtChavePix:'', vtTipoChavePix:'', vtStatusTermo:'Pendente',
+      vtLinha1:'', vtOperadora1:'', vtTarIda1:0, vtTarVolta1:0,
+      vtLinha2:'', vtOperadora2:'', vtTarIda2:0, vtTarVolta2:0,
+      vtLinha3:'', vtOperadora3:'', vtTarIda3:0, vtTarVolta3:0,
+      vtDiarioTotal:0, vtDiasPagos:0, vtBruto:0, vtDesconto6:0, vtLiquido:0 };
+    if (!vtFieldsSection) {
+      vtFieldsSection = document.createElement('div');
+      vtFieldsSection.id = 'vtFieldsSection';
+      const paymentSection = document.getElementById('paymentLinkSection');
+      paymentSection.parentNode.insertBefore(vtFieldsSection, paymentSection.nextSibling);
+    }
+    vtFieldsSection.innerHTML = vtRenderModalFields(vtCard);
+    vtFieldsSection.style.display = '';
+  } else if (vtFieldsSection) {
+    vtFieldsSection.style.display = 'none';
+  }
+
   if (cardId) {
     const card = allCards.find(c => c.id === cardId);
     if (!card) return;
@@ -1745,6 +1783,7 @@ function saveCard(e) {
     Object.assign(card, { titulo, descricao, escola, categoria, prioridade, responsavel, prazo, valor, fornecedor, numDoc, vencimento,
       ...(mod.hasPaymentLink ? { tipoPagamento } : {}),
       ...(mod.hasLead ? { telefone, emailLead, origem, interesse } : {}) });
+    if (mod.hasVT) vtCollectModalFields(card);
     if (fase !== oldFase) {
       card.fase = fase;
       card.historico.push({ texto:`Movido de <strong>${getPhaseStyle(state.currentModule, oldFase).label}</strong> para <strong>${getPhaseStyle(state.currentModule, fase).label}</strong>`, data:now(), usuario:'Emerson Santos' });
@@ -1766,6 +1805,7 @@ function saveCard(e) {
       comentarios:[], historico:[{ texto:'Card criado', data:now(), usuario:'Emerson Santos', timestamp:Date.now() }],
       checklists:[], anexos:[],
     };
+    if (mod.hasVT) vtCollectModalFields(newCard);
     allCards.unshift(newCard);
     persistCards();
     apiCreateCard(newCard);
@@ -5547,25 +5587,21 @@ function chatFinStatusClass(status) {
   return map[status] || '';
 }
 
-/* ── Normalizar ticket interno ── */
+/* ── Normalizar ticket da API AgendaEdu (JSON:API) ── */
 function chatFinNormalizeTicket(item) {
+  const a = item.attributes || item;
   return {
     id          : String(item.id),
-    escola      : item.escola || '',
-    assunto     : item.assunto || '(sem assunto)',
-    descricao   : item.descricao || '',
-    solicitante : item.solicitante || '—',
-    atendente   : item.atendente || '',
-    status      : item.status || 'waiting',
-    criadoEm    : chatFinFmtDate(item.created_at || item.criadoEm),
-    atualizadoEm: chatFinFmtDate(item.updated_at || item.atualizadoEm),
-    mensagens   : (item.mensagens || []).map(m => ({
-      id   : String(m.id),
-      tipo : m.tipo || 'message',
-      texto: m.texto || '',
-      autor: m.autor || '',
-      data : chatFinFmtDate(m.created_at),
-    })),
+    canalId     : String(a.channelId || a.channel_id || (a.sourceChannel?.id) || CHAT_FIN.currentChannel || ''),
+    assunto     : a.title || a.assunto || '(sem assunto)',
+    descricao   : a.description || a.descricao || '',
+    solicitante : (a.requester?.name) || a.requester_name || a.solicitante || '—',
+    atendente   : (a.currentAttendant?.name) || a.attendant_name || a.atendente || '',
+    status      : a.status || 'waiting',
+    criadoEm    : chatFinFmtDate(a.createdAt || a.created_at || a.criadoEm),
+    atualizadoEm: chatFinFmtDate(a.updatedAt  || a.updated_at  || a.atualizadoEm),
+    mensagens   : [],
+    _raw        : item,
   };
 }
 
@@ -5601,446 +5637,59 @@ function closeChatFinanceiro() {
   document.getElementById('chatFinanceiroView')?.classList.add('hidden');
 }
 
-/* ══════════════════════════════════════════════════════════
-   ESTRUTURA ESCOLAR — Cadastro via API AgendaEdu
-══════════════════════════════════════════════════════════ */
-
-const _estCache = { unidades:null, periodos:null, turmas:null, disciplinas:null, profissionais:null, responsaveis:null, alunos:null };
-let _estActiveTab = 'unidades';
-
-const EST_ROLES = { manager:'Gestor / Diretor', coordinator:'Coordenador', secretariat:'Secretário', teacher:'Professor', assistant:'Assistente', financial:'Financeiro', financial_assistant:'Assist. Financeiro', master:'Master' };
-const EST_STAGES = { pre_child:'Pré-Infantil', child:'Infantil', fundamental_one:'Fund. I', fundamental_two:'Fund. II', high_school:'Ensino Médio', preparatory_course:'Pré-Vestibular', free_courses:'Cursos Livres', others:'Outros' };
-
-function _estHideAll() {
-  ['newCardBtn'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
-  document.querySelector('.view-toggle')?.classList.add('hidden');
-  document.querySelector('.topbar-search')?.classList.add('hidden');
-  ['statsBar','kanbanView','listView','settingsView','dashboardView','agendaView','chatFinanceiroView'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
-}
-
-function openEstruturaEscolar() {
-  exitSettings(); closeDashboard(); closeAgenda(); closeChatFinanceiro(); _estHideAll();
-  document.getElementById('estruturaView').classList.remove('hidden');
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.querySelector('.nav-item[data-module="estrutura_escolar"]')?.classList.add('active');
-  _renderEstTabs(); estLoadTab(_estActiveTab);
-}
-
-function closeEstruturaEscolar() { document.getElementById('estruturaView')?.classList.add('hidden'); }
-
-function _renderEstTabs() {
-  document.querySelectorAll('.est-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === _estActiveTab);
-    btn.onclick = () => { _estActiveTab = btn.dataset.tab; document.querySelectorAll('.est-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); estLoadTab(_estActiveTab); };
-  });
-  document.getElementById('estRefreshBtn').onclick = () => { _estCache[_estActiveTab] = null; estLoadTab(_estActiveTab); };
-}
-
-const EST_KINSHIP = { mother:'Mãe', father:'Pai', grandmother:'Avó', grandfather:'Avô', aunt:'Tia', uncle:'Tio', nanny:'Babá', stepfather:'Padrasto', stepmother:'Madrasta', cousin:'Primo/a', brother:'Irmão', sister:'Irmã', other:'Outro' };
-const EST_PERIOD  = { morning:'Manhã', afternoon:'Tarde', integral:'Integral', night:'Noite' };
-
-/* Edição inline — estado global */
-let _estEditingId   = null;
-let _estEditingType = null;
-
-async function estLoadTab(tab) {
-  _estEditingId = null; _estEditingType = null;
-  switch(tab) {
-    case 'unidades'    : return estRenderUnidades();
-    case 'periodos'    : return estRenderPeriodos();
-    case 'turmas'      : return estRenderTurmas();
-    case 'disciplinas' : return estRenderDisciplinas();
-    case 'profissionais': return estRenderProfissionais();
-    case 'alunos'      : return estRenderAlunos();
-    case 'responsaveis': return estRenderResponsaveis();
-  }
-}
-
-/* ── helper PUT ── */
-async function _estPut(ep, id, body) { return apiRequest('PUT', `/api/agendaedu/estrutura/${ep}/${encodeURIComponent(id)}`, body); }
-
-/* ── helper: botão editar genérico ── */
-function _estEditBtn(type, id, label) {
-  return `<button class="btn-secondary" style="font-size:11px;padding:4px 10px;margin-left:6px" onclick="estOpenEdit('${type}','${escHtml(String(id))}','${escHtml(label)}')">✏️ Editar</button>`;
-}
-
-function _estBodyHTML(html) { document.getElementById('estBody').innerHTML = html; }
-
-function _estErrorHTML(msg) {
-  const isNotConfig = msg && (msg.includes('não configurad') || msg.includes('503'));
-  if (isNotConfig) return `<div class="est-not-configured"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;margin-top:1px"><path d="M9 2L1.5 15h15L9 2z" stroke="#D97706" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 7v4M9 13v.5" stroke="#D97706" stroke-width="1.5" stroke-linecap="round"/></svg><div><strong>Integração não configurada</strong><br>Adicione <code>AGENDAEDU_CLIENT_ID</code> e <code>AGENDAEDU_CLIENT_SECRET</code> no Railway.</div></div>`;
-  return `<div class="est-empty"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5"/><path d="M12 12l8 8M20 12l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Erro: ${escHtml(msg||'Tente novamente')}</div>`;
-}
-
-async function _estFetch(ep) {
-  /* Busca TODAS as páginas automaticamente (máx 20 páginas = 4000 registros) */
-  let all = [], page = 1;
-  const PER = 200;
-  for (let i = 0; i < 20; i++) {
-    const data = await apiRequest('GET', `/api/agendaedu/estrutura/${ep}?per_page=${PER}&page=${page}`);
-    const items = data.data || [];
-    all = all.concat(items);
-    /* Última página: menos itens que o limite ou sem link next */
-    if (items.length < PER || !data.links?.next) break;
-    page++;
-  }
-  return { data: all };
-}
-async function _estPost(ep, body) { return apiRequest('POST', `/api/agendaedu/estrutura/${ep}`, body); }
-async function _estPatch(ep, id, body) { return apiRequest('PATCH', `/api/agendaedu/estrutura/${ep}/${encodeURIComponent(id)}`, body); }
-function _estToggleForm(id) { document.getElementById(id)?.classList.toggle('open'); }
-
-/* ── UNIDADES ── */
-async function estRenderUnidades() {
-  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando unidades…</div></div>');
-  if (!_estCache.unidades) { try { _estCache.unidades = await _estFetch('headquarters'); } catch(err) { _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; } }
-  const items = _estCache.unidades.data || [];
-  const listHTML = items.length === 0 ? '<div class="est-empty"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M4 28V12l12-8 12 8v16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Nenhuma unidade cadastrada.</div>'
-    : items.map(item => { const a=item.attributes||{},id=String(item.id); return `<div class="est-list-item" id="est-row-hq-${id}"><div class="est-item-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 14V6l6-4 6 4v8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(a.name||'—')}${_estEscolaBadge(a.name||'')}</div><div class="est-item-meta">ID: ${id}${a.external_id?' · Ext: '+escHtml(a.external_id):''}</div></div><span class="est-item-badge est-badge-active">Ativa</span>${_estEditBtn('hq',id,a.name||'')}</div><div class="est-inline-edit hidden" id="est-edit-hq-${id}"><div class="est-form-row"><div class="est-form-group"><label>Nome</label><input type="text" id="estEditHqNome-${id}" value="${escHtml(a.name||'')}"/></div><div class="est-form-group"><label>External ID</label><input type="text" id="estEditHqExt-${id}" value="${escHtml(a.external_id||'')}"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="estCloseEdit('hq','${id}')">Cancelar</button><button class="btn-primary" onclick="estSalvarUnidade('${id}')">Salvar</button></div></div>`; }).join('');
-  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 14V6l6-4 6 4v8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Unidades<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formUnidade')">+ Nova Unidade</button></div><div class="est-create-form" id="formUnidade"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estUnidadeNome" placeholder="Ex: PED Pituba"/></div><div class="est-form-group"><label>External ID</label><input type="text" id="estUnidadeExtId" placeholder="Ex: UN001"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formUnidade')">Cancelar</button><button class="btn-primary" onclick="estCriarUnidade()">Cadastrar</button></div></div><div class="est-list">${listHTML}</div></div>`);
-}
-async function estCriarUnidade() {
-  const nome=document.getElementById('estUnidadeNome')?.value.trim(), extId=document.getElementById('estUnidadeExtId')?.value.trim();
-  if(!nome){showToast('Nome obrigatório','warn');return;}
-  const p={headquarter:{name:nome}}; if(extId) p.headquarter.external_id=extId;
-  try { await _estPost('headquarters',p); _estCache.unidades=null; showToast('Unidade criada!','success'); estRenderUnidades(); } catch(err){showToast('Erro: '+err.message,'error');}
-}
-async function estSalvarUnidade(id) {
-  const nome=document.getElementById(`estEditHqNome-${id}`)?.value.trim(), extId=document.getElementById(`estEditHqExt-${id}`)?.value.trim();
-  if(!nome){showToast('Nome obrigatório','warn');return;}
-  const p={headquarter:{name:nome}}; if(extId) p.headquarter.external_id=extId;
-  try { await _estPatch('headquarters',id,p); _estCache.unidades=null; showToast('Unidade atualizada!','success'); estRenderUnidades(); } catch(err){showToast('Erro: '+err.message,'error');}
-}
-
-/* ── helper busca client-side ── */
-function _estSearchBar(placeholder, onInput) {
-  return `<div style="padding:10px 20px 0;"><input type="text" class="est-search-bar" placeholder="${placeholder}" oninput="${onInput}(this.value)" style="width:100%;padding:7px 10px;border:1.5px solid var(--quadro-border);border-radius:8px;background:var(--quadro-surface);color:var(--quadro-text);font-size:13px;outline:none;box-sizing:border-box"/></div>`;
-}
-
-function _estFilterList(val) {
-  const q = (val || '').toLowerCase().trim();
-  const body = document.getElementById('estBody');
-  if (!body) return;
-  body.querySelectorAll('.est-list-item').forEach(item => {
-    const show = !q || item.textContent.toLowerCase().includes(q);
-    item.style.display = show ? '' : 'none';
-    if (item.id) {
-      const editEl = document.getElementById('est-edit-' + item.id.replace('est-row-', ''));
-      if (editEl) editEl.style.display = show ? '' : 'none';
-    }
-  });
-}
-
-function _estEscolaBadge(name) {
-  if (!name) return '';
-  const n = name.toUpperCase();
-  if (n.includes('HORTO')) return '<span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#FFF7ED;color:#C2410C;font-weight:600;margin-left:6px">COC Horto</span>';
-  if (n.includes('LAURO')) return '<span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#EFF6FF;color:#1D4ED8;font-weight:600;margin-left:6px">COC Lauro</span>';
-  if (n.includes('COC')) return '<span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#F5F3FF;color:#6D28D9;font-weight:600;margin-left:6px">COC</span>';
-  if (n.includes('PED')) return '<span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#F0FDF4;color:#16A34A;font-weight:600;margin-left:6px">PED</span>';
-  return '';
-}
-
-/* ── helper edição inline ── */
-function estOpenEdit(type, id, label) {
-  if (_estEditingType === type && _estEditingId === id) { estCloseEdit(type, id); return; }
-  if (_estEditingId) { document.getElementById(`est-edit-${_estEditingType}-${_estEditingId}`)?.classList.add('hidden'); }
-  _estEditingId = id; _estEditingType = type;
-  document.getElementById(`est-edit-${type}-${id}`)?.classList.remove('hidden');
-}
-function estCloseEdit(type, id) {
-  _estEditingId = null; _estEditingType = null;
-  document.getElementById(`est-edit-${type}-${id}`)?.classList.add('hidden');
-}
-
-/* ── PERÍODO LETIVO ── */
-async function estRenderPeriodos() {
-  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando períodos…</div></div>');
-  if (!_estCache.periodos) { try { _estCache.periodos = await _estFetch('school-terms'); } catch(err) { _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; } }
-  const items = _estCache.periodos.data || [];
-  const listHTML = items.length === 0 ? '<div class="est-empty">Nenhum período letivo cadastrado.</div>'
-    : items.map(item => { const a=item.attributes||{}, ativo=a.status===true, id=String(item.id); return `<div class="est-list-item"><div class="est-item-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h2v6H5zM9 7h2v4H9z" fill="currentColor" opacity=".6"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(a.name||'—')}</div><div class="est-item-meta">ID: ${id}</div></div>${ativo?'<span class="est-item-badge est-badge-active">Ativo</span>':`<button class="btn-secondary" style="font-size:11px;padding:4px 10px" onclick="estAtivarPeriodo('${id}')">Ativar</button>`}</div>`; }).join('');
-  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h2v6H5zM9 7h2v4H9z" fill="currentColor" opacity=".6"/></svg>Períodos Letivos<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formPeriodo')">+ Novo Período</button></div><div class="est-create-form" id="formPeriodo"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estPeriodoNome" placeholder="Ex: 2026"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formPeriodo')">Cancelar</button><button class="btn-primary" onclick="estCriarPeriodo()">Cadastrar</button></div></div><div class="est-list">${listHTML}</div></div>`);
-}
-async function estCriarPeriodo() {
-  const nome=document.getElementById('estPeriodoNome')?.value.trim(); if(!nome){showToast('Nome obrigatório','warn');return;}
-  try { await _estPost('school-terms',{school_term:{name:nome}}); _estCache.periodos=null; showToast('Período criado!','success'); estRenderPeriodos(); } catch(err){showToast('Erro: '+err.message,'error');}
-}
-async function estAtivarPeriodo(id) {
-  try { await apiRequest('POST',`/api/agendaedu/estrutura/school-terms/${encodeURIComponent(id)}/activate`); _estCache.periodos=null; showToast('Período ativado!','success'); estRenderPeriodos(); } catch(err){showToast('Erro: '+err.message,'error');}
-}
-
-/* ── TURMAS ── */
-async function estRenderTurmas() {
-  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando turmas…</div></div>');
-  let dataT=_estCache.turmas, dataU=_estCache.unidades, dataD=_estCache.disciplinas;
-  try { [dataT,dataU,dataD] = await Promise.all([dataT?Promise.resolve(dataT):_estFetch('classrooms'), dataU?Promise.resolve(dataU):_estFetch('headquarters'), dataD?Promise.resolve(dataD):_estFetch('disciplines')]); _estCache.turmas=dataT; _estCache.unidades=dataU; _estCache.disciplinas=dataD; } catch(err){ _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; }
-  const items=dataT.data||[], unidades=dataU.data||[];
-  const unidadeOpts=unidades.map(u=>`<option value="${escHtml(String(u.id))}">${escHtml(u.attributes?.name||u.id)}</option>`).join('');
-  const stageOpts=Object.entries(EST_STAGES).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-  const listHTML=items.length===0?'<div class="est-empty">Nenhuma turma cadastrada.</div>'
-    :items.map(item=>{
-      const a=item.attributes||{},id=String(item.id),hq=item.relationships?.headquarter?.data;
-      const hqName=hq?(unidades.find(u=>String(u.id)===String(hq.id))?.attributes?.name||hq.id):'—';
-      const stage=EST_STAGES[a.educational_stage]||a.educational_stage||'—';
-      const hqSelOpts=`<option value="">Selecione…</option>${unidades.map(u=>`<option value="${escHtml(String(u.id))}" ${hq&&String(u.id)===String(hq.id)?'selected':''}>${escHtml(u.attributes?.name||u.id)}</option>`).join('')}`;
-      const stageSel=Object.entries(EST_STAGES).map(([v,l])=>`<option value="${v}" ${a.educational_stage===v?'selected':''}>${l}</option>`).join('');
-      return `<div class="est-list-item" id="est-row-cl-${id}"><div class="est-item-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 4V3a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.3"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(a.name||'—')}</div><div class="est-item-meta">${escHtml(stage)} · ${escHtml(String(hqName))}${_estEscolaBadge(String(hqName))}${a.room?' · Sala: '+escHtml(a.room):''}</div></div><span class="est-item-badge" style="background:#F5F3FF;color:#7C3AED">${escHtml(stage)}</span>${_estEditBtn('cl',id,a.name||'')}</div><div class="est-inline-edit hidden" id="est-edit-cl-${id}"><div class="est-form-row"><div class="est-form-group"><label>Nome</label><input type="text" id="estEditClNome-${id}" value="${escHtml(a.name||'')}"/></div><div class="est-form-group"><label>Unidade</label><select id="estEditClUnid-${id}">${hqSelOpts}</select></div><div class="est-form-group"><label>Segmento</label><select id="estEditClStage-${id}">${stageSel}</select></div></div><div class="est-form-row"><div class="est-form-group"><label>Sala</label><input type="text" id="estEditClSala-${id}" value="${escHtml(a.room||'')}"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="estCloseEdit('cl','${id}')">Cancelar</button><button class="btn-primary" onclick="estSalvarTurma('${id}')">Salvar</button></div></div>`;
-    }).join('');
-  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 4V3a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.3"/></svg>Turmas<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formTurma')">+ Nova Turma</button></div><div class="est-create-form" id="formTurma"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estTurmaNome" placeholder="Ex: 1º Ano A"/></div><div class="est-form-group"><label>Unidade *</label><select id="estTurmaUnidade"><option value="">Selecione…</option>${unidadeOpts}</select></div><div class="est-form-group"><label>Segmento *</label><select id="estTurmaStage">${stageOpts}</select></div></div><div class="est-form-row"><div class="est-form-group"><label>Sala</label><input type="text" id="estTurmaSala" placeholder="Ex: Sala 102"/></div><div class="est-form-group"><label>External ID</label><input type="text" id="estTurmaExtId" placeholder="Ex: T001"/></div><div class="est-form-group"><label>IDs das Disciplinas (vírgula)</label><input type="text" id="estTurmaDiscs" placeholder="Ex: 3867, 3868"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formTurma')">Cancelar</button><button class="btn-primary" onclick="estCriarTurma()">Cadastrar</button></div></div>${_estSearchBar('Buscar turma…','_estFilterList')}  <div class="est-list" id="estListaTurmas">${listHTML}</div></div>`);
-}
-async function estCriarTurma() {
-  const nome=document.getElementById('estTurmaNome')?.value.trim(),unidade=document.getElementById('estTurmaUnidade')?.value,stage=document.getElementById('estTurmaStage')?.value,sala=document.getElementById('estTurmaSala')?.value.trim(),extId=document.getElementById('estTurmaExtId')?.value.trim(),discStr=document.getElementById('estTurmaDiscs')?.value.trim();
-  if(!nome){showToast('Nome obrigatório','warn');return;} if(!unidade){showToast('Selecione a unidade','warn');return;}
-  const discIds=discStr?discStr.split(',').map(s=>s.trim()).filter(Boolean).map(s=>isNaN(s)?s:Number(s)):[];
-  const p={classroom:{name:nome,headquarter_id:unidade,educational_stage_name:stage,discipline_ids:discIds}};
-  if(sala) p.classroom.room=sala; if(extId) p.classroom.external_id=extId;
-  try { await _estPost('classrooms',p); _estCache.turmas=null; showToast('Turma criada!','success'); estRenderTurmas(); } catch(err){showToast('Erro: '+err.message,'error');}
-}
-async function estSalvarTurma(id) {
-  const nome=document.getElementById(`estEditClNome-${id}`)?.value.trim(),unidade=document.getElementById(`estEditClUnid-${id}`)?.value,stage=document.getElementById(`estEditClStage-${id}`)?.value,sala=document.getElementById(`estEditClSala-${id}`)?.value.trim();
-  if(!nome){showToast('Nome obrigatório','warn');return;}
-  const p={classroom:{name:nome,headquarter_id:unidade,educational_stage_name:stage}};
-  if(sala) p.classroom.room=sala;
-  try { await _estPatch('classrooms',id,p); _estCache.turmas=null; showToast('Turma atualizada!','success'); estRenderTurmas(); } catch(err){showToast('Erro: '+err.message,'error');}
-}
-
-/* ── DISCIPLINAS ── */
-async function estRenderDisciplinas() {
-  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando disciplinas…</div></div>');
-  if (!_estCache.disciplinas) { try { _estCache.disciplinas = await _estFetch('disciplines'); } catch(err) { _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; } }
-  const items=_estCache.disciplinas.data||[];
-  const listHTML=items.length===0?'<div class="est-empty">Nenhuma disciplina cadastrada.</div>'
-    :items.map(item=>{const a=item.attributes||{},id=String(item.id),nT=(a.classroom_ids||[]).length; return `<div class="est-list-item" id="est-row-disc-${id}"><div class="est-item-icon" style="background:#FFF7ED;color:#EA580C"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h8l2 2v10H3V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6 7h4M6 10h4M6 4h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(a.name||'—')}</div><div class="est-item-meta">${a.slug?'Sigla: '+escHtml(a.slug)+' · ':''}${nT} turma${nT!==1?'s':''}</div></div><span class="est-item-badge" style="background:#FFF7ED;color:#EA580C">ID ${id}</span>${_estEditBtn('disc',id,a.name||'')}</div><div class="est-inline-edit hidden" id="est-edit-disc-${id}"><div class="est-form-row"><div class="est-form-group"><label>Nome</label><input type="text" id="estEditDiscNome-${id}" value="${escHtml(a.name||'')}"/></div><div class="est-form-group"><label>Sigla</label><input type="text" id="estEditDiscSlug-${id}" value="${escHtml(a.slug||'')}"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="estCloseEdit('disc','${id}')">Cancelar</button><button class="btn-primary" onclick="estSalvarDisciplina('${id}')">Salvar</button></div></div>`;}).join('');
-  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 2h8l2 2v10H3V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Disciplinas<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formDisciplina')">+ Nova Disciplina</button></div><div class="est-create-form" id="formDisciplina"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estDiscNome" placeholder="Ex: Matemática"/></div><div class="est-form-group"><label>Sigla</label><input type="text" id="estDiscSlug" placeholder="Ex: MAT_01"/></div><div class="est-form-group"><label>External ID</label><input type="text" id="estDiscExtId" placeholder="Ex: DI001"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formDisciplina')">Cancelar</button><button class="btn-primary" onclick="estCriarDisciplina()">Cadastrar</button></div></div>${_estSearchBar('Buscar disciplina…','_estFilterList')}<div class="est-list" id="estListaDisciplinas">${listHTML}</div></div>`);
-}
-async function estCriarDisciplina() {
-  const nome=document.getElementById('estDiscNome')?.value.trim(),slug=document.getElementById('estDiscSlug')?.value.trim(),extId=document.getElementById('estDiscExtId')?.value.trim();
-  if(!nome){showToast('Nome obrigatório','warn');return;}
-  const p={discipline:{name:nome}}; if(slug) p.discipline.slug=slug; if(extId) p.discipline.external_id=extId;
-  try { await _estPost('disciplines',p); _estCache.disciplinas=null; showToast('Disciplina criada!','success'); estRenderDisciplinas(); } catch(err){showToast('Erro: '+err.message,'error');}
-}
-async function estSalvarDisciplina(id) {
-  const nome=document.getElementById(`estEditDiscNome-${id}`)?.value.trim(),slug=document.getElementById(`estEditDiscSlug-${id}`)?.value.trim();
-  if(!nome){showToast('Nome obrigatório','warn');return;}
-  const p={discipline:{name:nome}}; if(slug) p.discipline.slug=slug;
-  try { await _estPatch('disciplines',id,p); _estCache.disciplinas=null; showToast('Disciplina atualizada!','success'); estRenderDisciplinas(); } catch(err){showToast('Erro: '+err.message,'error');}
-}
-
-/* ── PROFISSIONAIS ── */
-async function estRenderProfissionais() {
-  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando profissionais…</div></div>');
-  if (!_estCache.profissionais) { try { _estCache.profissionais = await _estFetch('school-users'); } catch(err) { _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; } }
-  const items=_estCache.profissionais.data||[];
-  const roleOpts=Object.entries(EST_ROLES).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-  const listHTML=items.length===0?'<div class="est-empty">Nenhum profissional cadastrado.</div>'
-    :items.map(item=>{
-      const a=item.attributes||{},id=String(item.id),ativo=a.status==='active';
-      /* A Agenda Edu pode retornar o nome em vários campos */
-      const prf=a.profile||{};
-      const displayName = prf.name||a.full_name||a.name||a.username||'—';
-      const editName    = prf.name||a.full_name||a.name||''; // pré-preenche com o que tiver
-      const role=EST_ROLES[a.role]||a.role||'—';
-      const roleSel=Object.entries(EST_ROLES).map(([v,l])=>`<option value="${v}" ${a.role===v?'selected':''}>${l}</option>`).join('');
-      return `<div class="est-list-item" id="est-row-su-${id}"><div class="est-item-icon" style="background:#F0FDF4;color:#16A34A"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(displayName)}</div><div class="est-item-meta">${escHtml(role)} · ${escHtml(a.email||a.username||'')} · ID ${id}</div></div><span class="est-item-badge ${ativo?'est-badge-active':'est-badge-inactive'}">${ativo?'Ativo':'Bloqueado'}</span>${_estEditBtn('su',id,displayName)}</div><div class="est-inline-edit hidden" id="est-edit-su-${id}"><div class="est-form-row"><div class="est-form-group"><label>Nome completo</label><input type="text" id="estEditSuNome-${id}" value="${escHtml(editName)}" placeholder="Ex: Maria Silva"/></div><div class="est-form-group"><label>Cargo</label><select id="estEditSuRole-${id}">${roleSel}</select></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="estCloseEdit('su','${id}')">Cancelar</button><button class="btn-primary" onclick="estSalvarProfissional('${id}')">Salvar</button></div></div>`;}).join('');
-  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Profissionais<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formProfissional')">+ Novo Profissional</button></div><div class="est-create-form" id="formProfissional"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estProfNome" placeholder="Ex: Maria Silva"/></div><div class="est-form-group"><label>E-mail *</label><input type="email" id="estProfEmail" placeholder="Ex: maria@escola.com"/></div><div class="est-form-group"><label>Username *</label><input type="text" id="estProfUsername" placeholder="Ex: maria.silva"/></div></div><div class="est-form-row"><div class="est-form-group"><label>Cargo *</label><select id="estProfRole">${roleOpts}</select></div><div class="est-form-group"><label>External ID *</label><input type="text" id="estProfExtId" placeholder="Ex: PROF001"/></div><div class="est-form-group"><label>Confirmar conta</label><select id="estProfConfirm"><option value="true">Sim</option><option value="false">Não</option></select></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formProfissional')">Cancelar</button><button class="btn-primary" onclick="estCriarProfissional()">Cadastrar</button></div></div>${_estSearchBar('Buscar profissional…','_estFilterList')}<div class="est-list" id="estListaProfissionais">${listHTML}</div></div>`);
-}
-async function estCriarProfissional() {
-  const nome=document.getElementById('estProfNome')?.value.trim(),email=document.getElementById('estProfEmail')?.value.trim(),username=document.getElementById('estProfUsername')?.value.trim(),role=document.getElementById('estProfRole')?.value,extId=document.getElementById('estProfExtId')?.value.trim(),confirm=document.getElementById('estProfConfirm')?.value==='true';
-  if(!nome||!email||!username||!extId){showToast('Preencha todos os campos obrigatórios','warn');return;}
-  try { await _estPost('school-users',{school_user:{external_id:extId,email,username,status:'active',confirm,role,profile_attributes:{name:nome}}}); _estCache.profissionais=null; showToast('Profissional criado!','success'); estRenderProfissionais(); } catch(err){showToast('Erro: '+err.message,'error');}
-}
-async function estSalvarProfissional(id) {
-  const nome = document.getElementById(`estEditSuNome-${id}`)?.value.trim();
-  const role = document.getElementById(`estEditSuRole-${id}`)?.value;
-  if (!nome) { showToast('Nome obrigatório', 'warn'); return; }
-  /*
-   * Agenda Edu school_users: tentamos vários formatos pois a API pode
-   * aceitar name em profile_attributes, profile, ou diretamente em school_user.
-   * O servidor loga o payload + resposta no Railway para debug.
-   */
-  const payload = {
-    school_user: {
-      name                : nome,   // formato direto
-      profile_attributes  : { name: nome }, // Rails nested attributes
-    }
-  };
-  if (role) payload.school_user.role = role;
-  try {
-    const resp = await _estPatch('school-users', id, payload);
-    _estCache.profissionais = null;
-    showToast('Profissional atualizado! (verifique o nome na lista)', 'success');
-    estRenderProfissionais();
-  } catch(err) {
-    showToast('Erro ao salvar: ' + err.message, 'error');
-  }
-}
-
-/* ── ALUNOS ── */
-async function estRenderAlunos() {
-  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando alunos…</div></div>');
-  let dataA=_estCache.alunos, dataT=_estCache.turmas, dataU=_estCache.unidades;
-  try {
-    [dataA,dataT,dataU] = await Promise.all([
-      dataA?Promise.resolve(dataA):_estFetch('student-profiles'),
-      dataT?Promise.resolve(dataT):_estFetch('classrooms'),
-      dataU?Promise.resolve(dataU):_estFetch('headquarters'),
-    ]);
-    _estCache.alunos=dataA; _estCache.turmas=dataT; _estCache.unidades=dataU;
-  } catch(err){ _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; }
-  const items=dataA.data||[], turmas=dataT.data||[], unidades=dataU.data||[];
-  const periodoOpts=Object.entries(EST_PERIOD).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-  const turmaOpts=turmas.map(t=>{const hq=t.relationships?.headquarter?.data,hqName=hq?(unidades.find(u=>String(u.id)===String(hq.id))?.attributes?.name||''):'';return `<option value="${escHtml(String(t.id))}">${escHtml(t.attributes?.name||t.id)}${hqName?' — '+hqName:''}</option>`}).join('');
-  const listHTML=items.length===0?'<div class="est-empty"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="10" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M4 28c0-6 5.4-10 12-10s12 4 12 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M22 17l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Nenhum aluno cadastrado.</div>'
-    :items.map(item=>{
-      const a=item.attributes||{},id=String(item.id),periodo=EST_PERIOD[a.period]||a.period||'—';
-      const perSel=Object.entries(EST_PERIOD).map(([v,l])=>`<option value="${v}" ${a.period===v?'selected':''}>${l}</option>`).join('');
-      const cids=(a.classroom_ids||[]).map(cid=>{const t=turmas.find(tt=>String(tt.id)===String(cid));return t?escHtml(t.attributes?.name||String(cid)):String(cid)}).join(', ')||'—';
-      return `<div class="est-list-item" id="est-row-st-${id}"><div class="est-item-icon" style="background:#EFF6FF;color:#2563EB"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM3 13c0-2.2 2.2-4 5-4s5 1.8 5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(a.name||'—')}</div><div class="est-item-meta">${escHtml(periodo)} · Turmas: ${cids}${a.email?' · '+escHtml(a.email):''}</div></div><span class="est-item-badge" style="background:#EFF6FF;color:#2563EB">ID ${id}</span>${_estEditBtn('st',id,a.name||'')}</div><div class="est-inline-edit hidden" id="est-edit-st-${id}"><div class="est-form-row"><div class="est-form-group"><label>Nome</label><input type="text" id="estEditStNome-${id}" value="${escHtml(a.name||'')}"/></div><div class="est-form-group"><label>Período</label><select id="estEditStPeriodo-${id}">${perSel}</select></div><div class="est-form-group"><label>E-mail</label><input type="email" id="estEditStEmail-${id}" value="${escHtml(a.email||'')}"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="estCloseEdit('st','${id}')">Cancelar</button><button class="btn-primary" onclick="estSalvarAluno('${id}')">Salvar</button></div></div>`;
-    }).join('');
-  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM3 13c0-2.2 2.2-4 5-4s5 1.8 5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Alunos<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formAluno')">+ Novo Aluno</button></div><div class="est-create-form" id="formAluno"><div class="est-form-row"><div class="est-form-group"><label>Nome *</label><input type="text" id="estAlunoNome" placeholder="Ex: João Silva"/></div><div class="est-form-group"><label>E-mail</label><input type="email" id="estAlunoEmail" placeholder="Ex: joao@email.com"/></div><div class="est-form-group"><label>Período *</label><select id="estAlunoPeriodo">${periodoOpts}</select></div></div><div class="est-form-row"><div class="est-form-group" style="min-width:260px"><label>Turma *</label><select id="estAlunoTurma" multiple style="height:80px"><option value="" disabled>Selecione a(s) turma(s)</option>${turmaOpts}</select></div><div class="est-form-group"><label>Data de Nascimento</label><input type="date" id="estAlunoNasc"/></div><div class="est-form-group"><label>External ID</label><input type="text" id="estAlunoExtId" placeholder="Ex: AL001"/></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formAluno')">Cancelar</button><button class="btn-primary" onclick="estCriarAluno()">Cadastrar Aluno</button></div></div>${_estSearchBar('Buscar aluno por nome ou e-mail…','_estFilterList')}<div class="est-list" id="estListaAlunos">${listHTML}</div></div>`);
-}
-async function estCriarAluno() {
-  const nome=document.getElementById('estAlunoNome')?.value.trim(),email=document.getElementById('estAlunoEmail')?.value.trim(),periodo=document.getElementById('estAlunoPeriodo')?.value,nasc=document.getElementById('estAlunoNasc')?.value,extId=document.getElementById('estAlunoExtId')?.value.trim();
-  const turmaEl=document.getElementById('estAlunoTurma');
-  const turmaIds=turmaEl?Array.from(turmaEl.selectedOptions).map(o=>isNaN(o.value)?o.value:Number(o.value)):[];
-  if(!nome){showToast('Nome obrigatório','warn');return;}
-  if(turmaIds.length===0){showToast('Selecione ao menos uma turma','warn');return;}
-  const p={student_profile:{name:nome,period:periodo,classroom_ids:turmaIds,confirm:'true'}};
-  if(email) p.student_profile.email=email; if(nasc) p.student_profile.date_of_birth=nasc; if(extId) p.student_profile.external_id=extId;
-  try { await _estPost('student-profiles',p); _estCache.alunos=null; showToast('Aluno cadastrado!','success'); estRenderAlunos(); } catch(err){showToast('Erro: '+err.message,'error');}
-}
-async function estSalvarAluno(id) {
-  const nome=document.getElementById(`estEditStNome-${id}`)?.value.trim(),periodo=document.getElementById(`estEditStPeriodo-${id}`)?.value,email=document.getElementById(`estEditStEmail-${id}`)?.value.trim();
-  if(!nome){showToast('Nome obrigatório','warn');return;}
-  const p={student_profile:{name:nome,period:periodo}};
-  if(email) p.student_profile.email=email;
-  try { await _estPatch('student-profiles',id,p); _estCache.alunos=null; showToast('Aluno atualizado!','success'); estRenderAlunos(); } catch(err){showToast('Erro: '+err.message,'error');}
-}
-
-/* ── RESPONSÁVEIS ── */
-async function estRenderResponsaveis() {
-  _estBodyHTML('<div class="est-section"><div class="est-loading">Carregando responsáveis…</div></div>');
-  let dataR=_estCache.responsaveis, dataA=_estCache.alunos, dataT=_estCache.turmas;
-  try {
-    [dataR,dataA,dataT] = await Promise.all([
-      dataR?Promise.resolve(dataR):_estFetch('responsible-profiles'),
-      dataA?Promise.resolve(dataA):_estFetch('student-profiles'),
-      dataT?Promise.resolve(dataT):_estFetch('classrooms'),
-    ]);
-    _estCache.responsaveis=dataR; _estCache.alunos=dataA; _estCache.turmas=dataT;
-  } catch(err) { _estBodyHTML(`<div class="est-section">${_estErrorHTML(err.message)}</div>`); return; }
-
-  const items=dataR.data||[], alunos=dataA.data||[], turmas=dataT.data||[];
-  const kinshipOpts=Object.entries(EST_KINSHIP).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-
-  /* Opções de aluno e turma para o formulário de criação */
-  const alunoOptsCreate=alunos.map(al=>`<option value="${al.id}">${escHtml(al.attributes?.name||'ID '+al.id)}</option>`).join('');
-  const turmaOptsCreate=turmas.map(t=>`<option value="${t.id}">${escHtml(t.attributes?.name||'ID '+t.id)}</option>`).join('');
-
-  const listHTML=items.length===0
-    ?'<div class="est-empty"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="11" cy="10" r="5" stroke="currentColor" stroke-width="1.5"/><circle cx="21" cy="10" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M2 28c0-5 4-9 9-9s9 4 9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M21 19c4 0 9 3.5 9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Nenhum responsável cadastrado.</div>'
-    :items.map(item=>{
-      const a=item.attributes||{}, id=String(item.id);
-      const kinship=EST_KINSHIP[a.kinship]||a.kinship||'—';
-      const ativo=a.status==='active'||a.active===true;
-      const studentIds=a.student_profile_ids||[];
-      const alunoNames=studentIds.map(sid=>{
-        const al=alunos.find(x=>String(x.id)===String(sid));
-        return al?.attributes?.name||`ID ${sid}`;
-      });
-      /* Opções de select com seleção atual */
-      const alunoSel=alunos.map(al=>
-        `<option value="${al.id}" ${studentIds.map(String).includes(String(al.id))?'selected':''}>${escHtml(al.attributes?.name||'ID '+al.id)}</option>`
-      ).join('');
-      const turmaSel=turmas.map(t=>
-        `<option value="${t.id}">${escHtml(t.attributes?.name||'ID '+t.id)}</option>`
-      ).join('');
-      const kinshipSel=Object.entries(EST_KINSHIP).map(([v,l])=>
-        `<option value="${v}" ${a.kinship===v?'selected':''}>${l}</option>`
-      ).join('');
-      return `<div class="est-list-item" id="est-row-resp-${id}"><div class="est-item-icon" style="background:#FFF1F2;color:#E11D48"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="10.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 14c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M10.5 9.5C12.8 9.5 15 11.3 15 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div><div class="est-item-info"><div class="est-item-name">${escHtml(a.name||'—')}</div><div class="est-item-meta">${escHtml(kinship)}${a.email?' · '+escHtml(a.email):''}${alunoNames.length?' · Alunos: '+alunoNames.map(escHtml).join(', '):''}</div></div><span class="est-item-badge ${ativo?'est-badge-active':'est-badge-inactive'}">${ativo?'Ativo':'Inativo'}</span>${_estEditBtn('resp',id,a.name||'')}</div><div class="est-inline-edit hidden" id="est-edit-resp-${id}"><div class="est-form-row"><div class="est-form-group"><label>Nome</label><input type="text" id="estEditRespNome-${id}" value="${escHtml(a.name||'')}"/></div><div class="est-form-group"><label>Parentesco</label><select id="estEditRespKinship-${id}"><option value="">Selecione…</option>${kinshipSel}</select></div><div class="est-form-group"><label>E-mail</label><input type="email" id="estEditRespEmail-${id}" value="${escHtml(a.email||'')}"/></div></div><div class="est-form-row"><div class="est-form-group" style="min-width:240px"><label>Alunos associados</label><select id="estEditRespAlunos-${id}" multiple style="height:80px">${alunoSel}</select></div><div class="est-form-group" style="min-width:240px"><label>Turma (opcional)</label><select id="estEditRespTurma-${id}" multiple style="height:80px"><option value="" disabled>Selecione…</option>${turmaSel}</select></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="estCloseEdit('resp','${id}')">Cancelar</button><button class="btn-primary" onclick="estSalvarResponsavel('${id}')">Salvar</button></div></div>`;
-    }).join('');
-
-  _estBodyHTML(`<div class="est-section"><div class="est-section-header"><span class="est-section-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="10.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 14c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M10.5 9.5C12.8 9.5 15 11.3 15 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Responsáveis<span class="est-count-badge">${items.length}</span></span><button class="btn-primary" style="font-size:12px;padding:6px 12px" onclick="_estToggleForm('formResponsavel')">+ Novo Responsável</button></div><div class="est-create-form" id="formResponsavel"><div class="est-form-row"><div class="est-form-group"><label>Nome completo *</label><input type="text" id="estRespNome" placeholder="Ex: Maria Silva"/></div><div class="est-form-group"><label>E-mail *</label><input type="email" id="estRespEmail" placeholder="Ex: maria@email.com"/></div><div class="est-form-group"><label>Parentesco</label><select id="estRespKinship"><option value="">Selecione…</option>${kinshipOpts}</select></div></div><div class="est-form-row"><div class="est-form-group" style="min-width:240px"><label>Alunos * (selecione um ou mais)</label><select id="estRespAlunos" multiple style="height:80px"><option value="" disabled>Selecione os alunos…</option>${alunoOptsCreate}</select></div><div class="est-form-group" style="min-width:240px"><label>Turma (opcional)</label><select id="estRespTurma" multiple style="height:80px"><option value="" disabled>Selecione turma…</option>${turmaOptsCreate}</select></div><div class="est-form-group"><label>Telefone</label><input type="text" id="estRespPhone" placeholder="Ex: (71) 99999-9999"/></div></div><div class="est-form-row"><div class="est-form-group"><label>CPF</label><input type="text" id="estRespCpf" placeholder="Ex: 999.999.999-99"/></div><div class="est-form-group"><label>External ID</label><input type="text" id="estRespExtId" placeholder="Ex: RE001"/></div><div class="est-form-group"><label>Financeiro?</label><select id="estRespFinanceiro"><option value="false">Não</option><option value="true">Sim</option></select></div></div><div class="est-form-actions"><button class="btn-secondary" onclick="_estToggleForm('formResponsavel')">Cancelar</button><button class="btn-primary" onclick="estCriarResponsavel()">Cadastrar Responsável</button></div></div>${_estSearchBar('Buscar responsável por nome ou e-mail…','_estFilterList')}<div class="est-list" id="estListaResponsaveis">${listHTML}</div></div>`);
-}
-
-async function estSalvarResponsavel(id) {
-  const nome    = document.getElementById(`estEditRespNome-${id}`)?.value.trim();
-  const kinship = document.getElementById(`estEditRespKinship-${id}`)?.value;
-  const email   = document.getElementById(`estEditRespEmail-${id}`)?.value.trim();
-  const alunosEl= document.getElementById(`estEditRespAlunos-${id}`);
-  const studentIds = alunosEl ? Array.from(alunosEl.selectedOptions).map(o=>isNaN(o.value)?o.value:Number(o.value)) : [];
-  if (!nome) { showToast('Nome obrigatório','warn'); return; }
-  const p = { responsible_profile: { name: nome, student_profile_ids: studentIds } };
-  if (kinship) p.responsible_profile.kinship = kinship;
-  if (email)   p.responsible_profile.email   = email;
-  try { await _estPatch('responsible-profiles',id,p); _estCache.responsaveis=null; showToast('Responsável atualizado!','success'); estRenderResponsaveis(); } catch(err){showToast('Erro ao salvar: '+err.message,'error');}
-}
-
-async function estCriarResponsavel() {
-  const nome    = document.getElementById('estRespNome')?.value.trim();
-  const email   = document.getElementById('estRespEmail')?.value.trim();
-  const cpf     = document.getElementById('estRespCpf')?.value.trim();
-  const kinship = document.getElementById('estRespKinship')?.value;
-  const phone   = document.getElementById('estRespPhone')?.value.trim();
-  const alunosEl= document.getElementById('estRespAlunos');
-  const extId   = document.getElementById('estRespExtId')?.value.trim();
-  const financial = document.getElementById('estRespFinanceiro')?.value === 'true';
-
-  if (!nome)  { showToast('Nome é obrigatório', 'warn'); return; }
-  if (!email) { showToast('E-mail é obrigatório', 'warn'); return; }
-
-  const studentIds = alunosEl ? Array.from(alunosEl.selectedOptions).map(o=>isNaN(o.value)?o.value:Number(o.value)) : [];
-  if (!studentIds.length) { showToast('Selecione ao menos um aluno', 'warn'); return; }
-
-  const payload = { responsible_profile: { name: nome, email, student_profile_ids: studentIds, confirm: true, financial } };
-  if (extId)   payload.responsible_profile.external_id     = extId;
-  if (cpf)     payload.responsible_profile.document_number = cpf;
-  if (kinship) payload.responsible_profile.kinship         = kinship;
-  if (phone)   payload.responsible_profile.phone           = phone;
-
-  try {
-    await _estPost('responsible-profiles', payload);
-    _estCache.responsaveis = null;
-    showToast('Responsável cadastrado com sucesso!', 'success');
-    estRenderResponsaveis();
-  } catch(err) { showToast('Erro: ' + err.message, 'error'); }
-}
-
-/* ── Carregar escolas como "canais" ── */
+/* ── Carregar canais da API AgendaEdu ── */
 async function chatFinLoadChannels() {
   const select = document.getElementById('chatFinChannelSelect');
   const banner = document.getElementById('chatFinConfigBanner');
   if (!select) return;
+
+  select.innerHTML = '<option value="">Carregando canais…</option>';
   if (banner) banner.classList.add('hidden');
 
-  // Usa as escolas configuradas nas Settings; fallback para "Todas"
-  const escolas = (settingsData.escolas || []);
-  CHAT_FIN.channels = [
-    { id: '', name: 'Todas as Escolas' },
-    ...escolas.map(e => ({ id: e.id, name: e.nome || e.name || e.id })),
-  ];
+  try {
+    const data = await apiRequest('GET', '/api/agendaedu/channels');
+    // JSON:API → array de { id, name }
+    const items = (data.data || []);
+    CHAT_FIN.channels = items.map(ch => ({
+      id  : String(ch.id),
+      name: ch.attributes?.name || ch.name || `Canal ${ch.id}`,
+    }));
 
-  select.innerHTML = CHAT_FIN.channels.map(ch =>
-    `<option value="${escHtml(ch.id)}">${escHtml(ch.name)}</option>`
-  ).join('');
+    if (CHAT_FIN.channels.length === 0) {
+      select.innerHTML = '<option value="">Nenhum canal encontrado</option>';
+      return;
+    }
 
-  if (CHAT_FIN.currentChannel === null) CHAT_FIN.currentChannel = '';
-  select.value = CHAT_FIN.currentChannel;
-  chatFinLoadTickets();
+    select.innerHTML = CHAT_FIN.channels.map(ch =>
+      `<option value="${escHtml(ch.id)}">${escHtml(ch.name)}</option>`
+    ).join('');
+
+    if (!CHAT_FIN.currentChannel || !CHAT_FIN.channels.find(c => c.id === CHAT_FIN.currentChannel)) {
+      CHAT_FIN.currentChannel = CHAT_FIN.channels[0].id;
+    }
+    select.value = CHAT_FIN.currentChannel;
+
+    chatFinLoadTickets();
+  } catch (err) {
+    console.error('[ChatFin] canais:', err.message);
+    select.innerHTML = '<option value="">Erro ao carregar canais</option>';
+    if (banner) {
+      banner.textContent = `Erro ao conectar com AgendaEdu: ${err.message}`;
+      banner.classList.remove('hidden');
+    }
+  }
 }
 
-/* ── Carregar tickets (API interna) ── */
+/* ── Carregar tickets do canal atual ── */
 async function chatFinLoadTickets() {
+  if (!CHAT_FIN.currentChannel) return;
   const container = document.getElementById('chatFinTickets');
   if (container) container.innerHTML = '<div class="chat-fin-empty"><span>Carregando tickets…</span></div>';
 
   try {
-    const qs = new URLSearchParams();
-    if (CHAT_FIN.currentChannel) qs.set('escola', CHAT_FIN.currentChannel);
-    if (CHAT_FIN.statusFilter)   qs.set('status', CHAT_FIN.statusFilter);
-    const data = await apiRequest('GET', `/api/tickets${qs.toString() ? '?' + qs : ''}`);
+    const qs = new URLSearchParams({ channelId: CHAT_FIN.currentChannel });
+    if (CHAT_FIN.statusFilter) qs.set('status', CHAT_FIN.statusFilter);
+    const data = await apiRequest('GET', `/api/agendaedu/tickets?${qs}`);
 
     const items = data.data || [];
     CHAT_FIN.tickets  = items.map(chatFinNormalizeTicket);
@@ -6112,7 +5761,7 @@ function chatFinRenderTicketList() {
   });
 }
 
-/* ── Selecionar ticket (API interna) ── */
+/* ── Selecionar ticket ── */
 async function chatFinSelectTicket(ticketId) {
   const detailEmpty   = document.getElementById('chatFinDetailEmpty');
   const detailContent = document.getElementById('chatFinDetailContent');
@@ -6127,10 +5776,27 @@ async function chatFinSelectTicket(ticketId) {
   detailContent.innerHTML = '<div style="padding:2rem;text-align:center;color:#64748B">Carregando ticket…</div>';
 
   try {
-    const data   = await apiRequest('GET', `/api/tickets/${ticketId}`);
+    const data   = await apiRequest('GET', `/api/agendaedu/tickets/${ticketId}`);
     const ticket = chatFinNormalizeTicket(data.data || data);
 
+    // Preencher mensagens do chat se incluídas no response
+    const inc = data.included || [];
+    const chatData = inc.find(i => i.type === 'chat');
+    if (chatData && chatData.id) {
+      try {
+        const msgs = await apiRequest('GET', `/api/agendaedu/channels/${ticket.canalId}/chats/${chatData.id}/messages`);
+        ticket.mensagens = (msgs.data || []).map(m => ({
+          id   : String(m.id),
+          tipo : 'message',
+          texto: m.attributes?.body || m.attributes?.content || m.attributes?.text || '',
+          autor: m.attributes?.author?.name || m.attributes?.senderName || 'Usuário',
+          data : chatFinFmtDate(m.attributes?.createdAt || m.attributes?.created_at),
+        }));
+      } catch (_) { /* mensagens opcionais */ }
+    }
+
     CHAT_FIN.selectedTicket = ticket;
+    // Atualizar na lista local
     const idx = CHAT_FIN.tickets.findIndex(t => t.id === ticketId);
     if (idx >= 0) CHAT_FIN.tickets[idx] = ticket;
 
@@ -6224,12 +5890,12 @@ function chatFinRenderTicketDetail(ticket) {
           </svg>
           Encerrar Atendimento
         </button>` : ''}
-      <button class="chat-fin-btn" onclick="chatFinLoadTickets()" style="background:transparent;color:#64748B;border:1px solid #E2E8F0">
+      <a class="chat-fin-btn chat-fin-btn--external" href="https://app.agendaedu.com" target="_blank" rel="noopener">
         <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-          <path d="M11 6.5A4.5 4.5 0 112 6.5M2 2v3h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M7.5 1.5h4v4M11.5 1.5l-5 5M5.5 3H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        Atualizar
-      </button>
+        AgendaEdu
+      </a>
     </div>`;
 
   // Scroll para fim das mensagens
@@ -6245,49 +5911,23 @@ function chatFinRenderTicketDetail(ticket) {
   });
 }
 
-/* ── Enviar mensagem (API interna) ── */
-async function chatFinSendMessage(ticketId) {
+/* ── Enviar mensagem — abre no AgendaEdu (mensagens são gerenciadas lá) ── */
+function chatFinSendMessage(ticketId) {
   const input = document.getElementById('chatFinReplyInput');
-  const btn   = document.getElementById('chatFinSendBtn');
   if (!input) return;
   const texto = input.value.trim();
   if (!texto) return;
-
-  if (btn) btn.disabled = true;
-  try {
-    const data = await apiRequest('POST', `/api/tickets/${ticketId}/mensagens`, { texto });
-    const msg  = data.data;
-    input.value = '';
-    // Adicionar mensagem na UI sem recarregar tudo
-    const msgs = document.getElementById('chatFinMessages');
-    if (msgs && msg) {
-      const meName = currentUser?.nome || 'Atendente';
-      const div = document.createElement('div');
-      div.className = 'chat-fin-bubble chat-fin-bubble--mine';
-      div.innerHTML = `
-        <div class="chat-fin-bubble-header">
-          <span class="chat-fin-bubble-name">${escHtml(msg.autor || meName)}</span>
-          <span class="chat-fin-bubble-time">${chatFinFmtDate(msg.created_at)}</span>
-        </div>
-        <div class="chat-fin-bubble-text">${escHtml(msg.texto)}</div>`;
-      msgs.appendChild(div);
-      msgs.scrollTop = msgs.scrollHeight;
-    }
-    // Atualiza lista lateral (data de atualização)
-    chatFinLoadTickets();
-  } catch (err) {
-    showToast(`Erro ao enviar mensagem: ${err.message}`, 'error');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
+  // Mensagens são gerenciadas diretamente no AgendaEdu
+  showToast('Para enviar mensagens, acesse o ticket no AgendaEdu.', 'info');
+  input.value = '';
 }
 
-/* ── Iniciar atendimento (API interna) ── */
+/* ── Iniciar atendimento ── */
 async function chatFinStartTicket(ticketId) {
   const btn = document.getElementById('chatFinBtnStart');
   if (btn) btn.disabled = true;
   try {
-    await apiRequest('PATCH', `/api/tickets/${ticketId}/status`, { status: 'in_attendance' });
+    await apiRequest('POST', `/api/agendaedu/tickets/${ticketId}/start`, {});
     showToast('Atendimento iniciado!', 'success');
     await chatFinSelectTicket(ticketId);
     chatFinLoadTickets();
@@ -6297,13 +5937,13 @@ async function chatFinStartTicket(ticketId) {
   }
 }
 
-/* ── Encerrar atendimento (API interna) ── */
+/* ── Encerrar atendimento ── */
 async function chatFinCloseTicket(ticketId) {
   if (!confirm('Encerrar este atendimento?')) return;
   const btn = document.getElementById('chatFinBtnClose');
   if (btn) btn.disabled = true;
   try {
-    await apiRequest('PATCH', `/api/tickets/${ticketId}/status`, { status: 'done' });
+    await apiRequest('POST', `/api/agendaedu/tickets/${ticketId}/close`, {});
     showToast('Atendimento encerrado.', 'success');
     CHAT_FIN.selectedTicket = null;
     document.getElementById('chatFinDetailEmpty')?.classList.remove('hidden');
@@ -6320,15 +5960,9 @@ function openChatFinNovoTicket() {
   const overlay = document.getElementById('chatFinNovoOverlay');
   if (!overlay) return;
   overlay.style.display = 'flex';
-  // Popula select de escola
-  const sel = document.getElementById('chatFinNovoCanal');
-  if (sel) {
-    const escolas = settingsData.escolas || [];
-    sel.innerHTML = '<option value="">Selecione a escola...</option>' +
-      escolas.map(e => `<option value="${escHtml(e.id)}"${e.id === CHAT_FIN.currentChannel ? ' selected' : ''}>${escHtml(e.nome || e.name || e.id)}</option>`).join('');
-    if (CHAT_FIN.currentChannel) sel.value = CHAT_FIN.currentChannel;
-  }
-  setTimeout(() => document.getElementById('chatFinNovoAssunto')?.focus(), 50);
+  // Preenche canal atual no campo hidden
+  const canalHidden = document.getElementById('chatFinNovoCanal');
+  if (canalHidden) canalHidden.value = CHAT_FIN.currentChannel;
 }
 
 function closeChatFinNovoTicket() {
@@ -6342,20 +5976,26 @@ function closeChatFinNovoTicket() {
 }
 
 async function chatFinSalvarNovoTicket() {
-  const assunto      = (document.getElementById('chatFinNovoAssunto')?.value      || '').trim();
-  const descricao    = (document.getElementById('chatFinNovoDescricao')?.value    || '').trim();
-  const solicitante  = (document.getElementById('chatFinNovoSolicitante')?.value  || '').trim();
-  const escola       = document.getElementById('chatFinNovoCanal')?.value || CHAT_FIN.currentChannel || '';
+  const assunto     = (document.getElementById('chatFinNovoAssunto')?.value     || '').trim();
+  const descricao   = (document.getElementById('chatFinNovoDescricao')?.value   || '').trim();
+  const canalId     = document.getElementById('chatFinNovoCanal')?.value || CHAT_FIN.currentChannel;
 
   if (!assunto) { showToast('Informe o assunto do ticket', 'warn'); return; }
+  if (!canalId) { showToast('Selecione um canal', 'warn'); return; }
 
   const btnSalvar = document.getElementById('chatFinNovoSalvar');
   if (btnSalvar) btnSalvar.disabled = true;
 
   try {
-    const payload = { assunto, descricao, escola, solicitante };
-    const resp    = await apiRequest('POST', '/api/tickets', payload);
-    const newId   = (resp.data || resp)?.id;
+    // AgendaEdu requer channelId como array
+    const payload = {
+      title      : assunto,
+      description: descricao,
+      channelId  : [canalId],
+    };
+
+    const resp   = await apiRequest('POST', '/api/agendaedu/tickets', payload);
+    const newId  = (resp.data || resp)?.id;
 
     closeChatFinNovoTicket();
     showToast('Ticket criado com sucesso!', 'success');
@@ -6372,7 +6012,7 @@ async function chatFinSalvarNovoTicket() {
 function initChatFinanceiro() {
   // Troca de canal
   document.getElementById('chatFinChannelSelect')?.addEventListener('change', async e => {
-    CHAT_FIN.currentChannel = e.target.value; // agora é o id da escola
+    CHAT_FIN.currentChannel = e.target.value;
     CHAT_FIN.selectedTicket = null;
     document.getElementById('chatFinDetailEmpty')?.classList.remove('hidden');
     document.getElementById('chatFinDetailContent')?.classList.add('hidden');
@@ -6776,6 +6416,495 @@ function initNotifications() {
 /* ══════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+   MÓDULO VALE TRANSPORTE
+══════════════════════════════════════════════════════════════════════ */
+
+const VT_SEED_IMBUI = [
+  { mat:1,  nome:'Abinoan Pereira A. M. Simões',    cpf:'042.575.035-30', cargo:'Professor(a)',          salario:4087.25, vinculo:'CLT' },
+  { mat:2,  nome:'Ana Leila dos Santos Silva',       cpf:'016.630.835-84', cargo:'Prof. Ed. Infantil',    salario:2262.59, vinculo:'CLT' },
+  { mat:3,  nome:'Andrea Juliana C. Sacramento',     cpf:'864.407.255-21', cargo:'Prof. Bilíngue',        salario:3253.69, vinculo:'CLT' },
+  { mat:4,  nome:'Avani Tainá Sodré Conceição',      cpf:'865.242.495-00', cargo:'Assistente de RH',      salario:2500.00, vinculo:'CLT' },
+  { mat:5,  nome:'Bárbara Cristina C. Campelo',      cpf:'021.682.955-06', cargo:'Aux. Serviços Gerais',  salario:1621.00, vinculo:'CLT' },
+  { mat:6,  nome:'Cassiane dos Santos Queroz',        cpf:'865.744.645-60', cargo:'Aux. Desenv. Infantil', salario:1621.00, vinculo:'CLT' },
+  { mat:7,  nome:'Edilene Maria dos S. Nascimento',   cpf:'300.403.828-50', cargo:'Aux. Desenv. Infantil', salario:1621.00, vinculo:'CLT' },
+  { mat:8,  nome:'Edmilson Santos Silva',              cpf:'873.000.955-34', cargo:'Porteiro',              salario:1933.07, vinculo:'CLT' },
+  { mat:9,  nome:'Erica Bastos Vieira',                cpf:'044.130.565-23', cargo:'Prof. Ed. Infantil',    salario:2189.60, vinculo:'CLT' },
+  { mat:10, nome:'Fabiene Oliveira C. Fernandes',     cpf:'855.336.025-34', cargo:'Aux. Desenv. Infantil', salario:1621.00, vinculo:'CLT' },
+  { mat:11, nome:'Ítalo Adorno Torres',                cpf:'076.435.665-85', cargo:'Supervisor Comercial',  salario:3800.00, vinculo:'CLT' },
+  { mat:12, nome:'Jocivalda de Oliveira Nascimento',  cpf:'006.582.745-70', cargo:'Aux. Desenv. Infantil', salario:1621.00, vinculo:'CLT' },
+  { mat:13, nome:'Katiane da Trindade Santiago',       cpf:'797.786.825-34', cargo:'Aux. Serviços Gerais',  salario:1621.00, vinculo:'CLT' },
+  { mat:14, nome:'Marcos Alves dos Santos',            cpf:'012.752.545-94', cargo:'Téc. Manutenção',       salario:3309.67, vinculo:'CLT' },
+  { mat:15, nome:'Mirian de Matos Jesus',              cpf:'066.267.315-80', cargo:'Aux. Desenv. Infantil', salario:1621.00, vinculo:'CLT' },
+  { mat:16, nome:'Paloma Oliveira do Bonfim',          cpf:'084.540.925-52', cargo:'Social Media',          salario:2640.00, vinculo:'CLT' },
+  { mat:17, nome:'Rafaela da Silva Almeida',           cpf:'048.553.655-21', cargo:'Assist. Coordenação',   salario:3168.00, vinculo:'CLT' },
+  { mat:18, nome:'Raiana Pereira Pimentel',            cpf:'060.555.205-32', cargo:'Prof. Ed. Infantil',    salario:4014.27, vinculo:'CLT' },
+  { mat:19, nome:'Taís Silva dos Santos',              cpf:'081.286.225-28', cargo:'Prof. Ed. Infantil',    salario:4014.27, vinculo:'CLT' },
+  { mat:20, nome:'Thamíris Lima dos S. Souza',         cpf:'047.373.475-31', cargo:'Aux. Desenv. Infantil', salario:1621.00, vinculo:'CLT' },
+  { mat:21, nome:'Vanessa da Hora E. Santo',           cpf:'066.607.195-04', cargo:'Prof. Ed. Infantil',    salario:2189.60, vinculo:'CLT' },
+  { mat:22, nome:'Vitor Cerqueira da Silva',           cpf:'015.955.455-14', cargo:'Prof. Robótica',        salario:2541.11, vinculo:'CLT' },
+];
+
+function gerarCardsVT(seedArray, escolaId) {
+  const _now = now();
+  return seedArray.map(emp => ({
+    id          : uid(),
+    modulo      : 'vale_transporte',
+    titulo      : emp.nome,
+    descricao   : `Mat. ${emp.mat} | CPF: ${emp.cpf}`,
+    escola      : escolaId || 'ped4',
+    categoria   : emp.cargo,
+    prioridade  : 'media',
+    fase        : 'cadastro_pendente',
+    responsavel : '',
+    prazo       : '',
+    criadoEm    : _now,
+    vtMatricula   : emp.mat,
+    vtCpf         : emp.cpf,
+    vtCargo       : emp.cargo,
+    vtVinculo     : emp.vinculo,
+    vtSalario     : emp.salario,
+    vtLinha1:'', vtOperadora1:'', vtTarIda1:0, vtTarVolta1:0,
+    vtLinha2:'', vtOperadora2:'', vtTarIda2:0, vtTarVolta2:0,
+    vtLinha3:'', vtOperadora3:'', vtTarIda3:0, vtTarVolta3:0,
+    vtFormaPgto   : 'Cartão',
+    vtNumCartao   : '',
+    vtChavePix    : '',
+    vtTipoChavePix: '',
+    vtOptou       : 'Sim',
+    vtStatusTermo : 'Pendente',
+    vtFaltas      : 0,
+    vtFerias      : 0,
+    vtStatusPgto  : 'Pendente',
+    vtDiarioTotal : 0,
+    vtDiasPagos   : 0,
+    vtBruto       : 0,
+    vtDesconto6   : 0,
+    vtLiquido     : 0,
+    comentarios : [],
+    historico   : [{ texto:'Funcionário importado da folha Mar/2026', data:_now, usuario:'Sistema' }],
+    checklists  : [],
+    anexos      : [],
+  }));
+}
+
+/* ─── Cálculos VT ─────────────────────────────────────────────────── */
+function vtCalcDiarioTotal(card) {
+  let total = 0;
+  total += (parseFloat(card.vtTarIda1) || 0) + (parseFloat(card.vtTarVolta1) || 0);
+  if (card.vtLinha2) total += (parseFloat(card.vtTarIda2) || 0) + (parseFloat(card.vtTarVolta2) || 0);
+  if (card.vtLinha3) total += (parseFloat(card.vtTarIda3) || 0) + (parseFloat(card.vtTarVolta3) || 0);
+  return total;
+}
+
+function vtCalcDiasPagos(mesNum, ano, faltas, ferias) {
+  const first = new Date(ano, mesNum - 1, 1);
+  const last  = new Date(ano, mesNum, 0);
+  let dias = 0;
+  for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) dias++;
+  }
+  return Math.max(dias - (faltas || 0) - (ferias || 0), 0);
+}
+
+function vtCalcAll(card, mesNum, ano) {
+  const diario   = vtCalcDiarioTotal(card);
+  const diasPgos = vtCalcDiasPagos(mesNum, ano, card.vtFaltas || 0, card.vtFerias || 0);
+  const bruto    = diario * diasPgos;
+  const desc6    = card.vtVinculo === 'Estágio' ? 0 : Math.min((card.vtSalario || 0) * 0.06, bruto);
+  const liquido  = bruto - desc6;
+  card.vtDiarioTotal = diario;
+  card.vtDiasPagos   = diasPgos;
+  card.vtBruto       = bruto;
+  card.vtDesconto6   = desc6;
+  card.vtLiquido     = liquido;
+  return { diario, diasPgos, bruto, desc6, liquido };
+}
+
+function fmtBRL(v) {
+  return (v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+}
+
+/* ─── Painel Controle Mensal VT ─────────────────────────────────── */
+function openVTPainel() {
+  let overlay = document.getElementById('vtPainelOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'vtPainelOverlay';
+    overlay.className = 'overlay vt-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.classList.add('active');
+  renderVTPainel();
+}
+
+function closeVTPainel() {
+  const o = document.getElementById('vtPainelOverlay');
+  if (o) o.classList.remove('active');
+}
+
+function renderVTPainel() {
+  const overlay = document.getElementById('vtPainelOverlay');
+  if (!overlay) return;
+
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                 'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const hoje = new Date();
+  const mesAtual = hoje.getMonth();
+  const anoAtual = hoje.getFullYear();
+
+  const escolaFiltro = state.filterSchool || 'all';
+  let vtCards = allCards.filter(c => c.modulo === 'vale_transporte');
+  if (escolaFiltro !== 'all') vtCards = vtCards.filter(c => c.escola === escolaFiltro);
+
+  const mesNum = mesAtual + 1;
+  vtCards.forEach(c => vtCalcAll(c, mesNum, anoAtual));
+
+  let totSalario=0, totDiario=0, totBruto=0, totDesc=0, totLiq=0, totFaltas=0, totFerias=0;
+  vtCards.forEach(c => {
+    totSalario += c.vtSalario || 0;
+    totDiario  += c.vtDiarioTotal || 0;
+    totBruto   += c.vtBruto || 0;
+    totDesc    += c.vtDesconto6 || 0;
+    totLiq     += c.vtLiquido || 0;
+    totFaltas  += c.vtFaltas || 0;
+    totFerias  += c.vtFerias || 0;
+  });
+
+  const escolaNome = escolaFiltro === 'all' ? 'Todas as Escolas'
+    : (settingsData.escolas.find(e => e.id === escolaFiltro)?.nome || escolaFiltro);
+
+  overlay.innerHTML = `
+    <div class="vt-panel">
+      <div class="vt-panel-header">
+        <div class="vt-panel-title">
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 4v8a1 1 0 001 1h10a1 1 0 001-1V4M5 7h2M5 10h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M11 1v3M5 1v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Controle Mensal de Vale Transporte
+        </div>
+        <div class="vt-panel-subtitle">${escolaNome} — ${meses[mesAtual]} / ${anoAtual}</div>
+        <button class="vt-close-btn" onclick="closeVTPainel()">✕</button>
+      </div>
+      <div class="vt-kpi-row">
+        <div class="vt-kpi" style="--kpi-accent:#3B82F6">
+          <div class="vt-kpi-label">Funcionários c/ VT</div>
+          <div class="vt-kpi-value">${vtCards.length}</div>
+        </div>
+        <div class="vt-kpi" style="--kpi-accent:#8B5CF6">
+          <div class="vt-kpi-label">VT Bruto Total</div>
+          <div class="vt-kpi-value">${fmtBRL(totBruto)}</div>
+        </div>
+        <div class="vt-kpi" style="--kpi-accent:#10B981">
+          <div class="vt-kpi-label">Desconto 6%</div>
+          <div class="vt-kpi-value">${fmtBRL(totDesc)}</div>
+        </div>
+        <div class="vt-kpi" style="--kpi-accent:#F59E0B">
+          <div class="vt-kpi-label">VT Líquido Empresa</div>
+          <div class="vt-kpi-value">${fmtBRL(totLiq)}</div>
+        </div>
+        <div class="vt-kpi" style="--kpi-accent:#EF4444">
+          <div class="vt-kpi-label">Pagos no Mês</div>
+          <div class="vt-kpi-value">${vtCards.filter(c => c.vtStatusPgto === 'Pago').length} / ${vtCards.length}</div>
+        </div>
+      </div>
+      <div class="vt-table-wrap">
+        <table class="vt-table">
+          <thead>
+            <tr>
+              <th class="vt-th-sticky">Nome</th>
+              <th>Cargo</th>
+              <th>Vínculo</th>
+              <th class="vt-num">Salário</th>
+              <th class="vt-num">VT Diário</th>
+              <th class="vt-num">Forma Pgto</th>
+              <th class="vt-num vt-editable-hdr">Faltas ✏</th>
+              <th class="vt-num vt-editable-hdr">Férias ✏</th>
+              <th class="vt-num">Dias Pagos</th>
+              <th class="vt-num">VT Bruto</th>
+              <th class="vt-num">Desc 6%</th>
+              <th class="vt-num vt-highlight">VT Líquido</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${vtCards.map((c, i) => {
+              const even = i % 2 === 1;
+              const statusClass = c.vtStatusPgto === 'Pago' ? 'vt-st-pago'
+                : c.vtStatusPgto === 'Estornado' ? 'vt-st-estornado' : 'vt-st-pendente';
+              return `
+              <tr class="${even ? 'vt-row-even' : ''}" data-card-id="${c.id}">
+                <td class="vt-td-name vt-th-sticky">
+                  <span class="vt-name-link" onclick="openModal('${c.id}')">${escHtml(c.titulo)}</span>
+                </td>
+                <td>${escHtml(c.vtCargo || c.categoria)}</td>
+                <td><span class="vt-badge-vinculo">${escHtml(c.vtVinculo || 'CLT')}</span></td>
+                <td class="vt-num">${fmtBRL(c.vtSalario)}</td>
+                <td class="vt-num">${fmtBRL(c.vtDiarioTotal)}</td>
+                <td class="vt-num">
+                  <span class="vt-badge-pgto vt-badge-${(c.vtFormaPgto||'Cartão').toLowerCase()}">${escHtml(c.vtFormaPgto || 'Cartão')}</span>
+                </td>
+                <td class="vt-num vt-editable">
+                  <input type="number" min="0" max="31" value="${c.vtFaltas||0}"
+                    class="vt-inline-input" data-field="vtFaltas" data-card="${c.id}"
+                    onchange="vtInlineUpdate(this)">
+                </td>
+                <td class="vt-num vt-editable">
+                  <input type="number" min="0" max="31" value="${c.vtFerias||0}"
+                    class="vt-inline-input" data-field="vtFerias" data-card="${c.id}"
+                    onchange="vtInlineUpdate(this)">
+                </td>
+                <td class="vt-num"><strong>${c.vtDiasPagos}</strong></td>
+                <td class="vt-num">${fmtBRL(c.vtBruto)}</td>
+                <td class="vt-num" style="color:#16a34a">${fmtBRL(c.vtDesconto6)}</td>
+                <td class="vt-num vt-highlight"><strong>${fmtBRL(c.vtLiquido)}</strong></td>
+                <td>
+                  <select class="vt-status-select ${statusClass}" data-card="${c.id}" onchange="vtStatusUpdate(this)">
+                    <option value="Pendente" ${c.vtStatusPgto==='Pendente'?'selected':''}>⏳ Pendente</option>
+                    <option value="Pago" ${c.vtStatusPgto==='Pago'?'selected':''}>✅ Pago</option>
+                    <option value="Estornado" ${c.vtStatusPgto==='Estornado'?'selected':''}>❌ Estornado</option>
+                  </select>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr class="vt-totals-row">
+              <td class="vt-th-sticky"><strong>TOTAIS (${vtCards.length} func.)</strong></td>
+              <td></td><td></td>
+              <td class="vt-num"><strong>${fmtBRL(totSalario)}</strong></td>
+              <td class="vt-num"><strong>${fmtBRL(totDiario)}</strong></td>
+              <td></td>
+              <td class="vt-num"><strong>${totFaltas}</strong></td>
+              <td class="vt-num"><strong>${totFerias}</strong></td>
+              <td></td>
+              <td class="vt-num"><strong>${fmtBRL(totBruto)}</strong></td>
+              <td class="vt-num"><strong>${fmtBRL(totDesc)}</strong></td>
+              <td class="vt-num vt-highlight"><strong>${fmtBRL(totLiq)}</strong></td>
+              <td><span class="vt-badge-pgto vt-badge-pago">${vtCards.filter(c=>c.vtStatusPgto==='Pago').length} pago(s)</span></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="vt-actions-bar">
+        <button class="vt-btn vt-btn-primary" onclick="vtExportCSV()">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Exportar CSV
+        </button>
+        <button class="vt-btn vt-btn-secondary" onclick="vtMarcarTodosPago()">
+          ✅ Marcar Todos como Pago
+        </button>
+        <button class="vt-btn vt-btn-ghost" onclick="closeVTPainel()">Fechar</button>
+      </div>
+    </div>
+  `;
+}
+
+function vtInlineUpdate(el) {
+  const cardId = el.dataset.card;
+  const field  = el.dataset.field;
+  const card   = allCards.find(c => c.id === cardId);
+  if (!card) return;
+  card[field] = parseInt(el.value) || 0;
+  card.historico.push({ texto:`${field} atualizado para ${el.value}`, data:now(), usuario:currentUser?.nome || 'Sistema' });
+  const hoje = new Date();
+  vtCalcAll(card, hoje.getMonth() + 1, hoje.getFullYear());
+  persistCards();
+  renderVTPainel();
+}
+
+function vtStatusUpdate(el) {
+  const cardId = el.dataset.card;
+  const card = allCards.find(c => c.id === cardId);
+  if (!card) return;
+  const oldStatus = card.vtStatusPgto;
+  card.vtStatusPgto = el.value;
+  card.historico.push({ texto:`Status VT: ${oldStatus} → ${el.value}`, data:now(), usuario:currentUser?.nome || 'Sistema' });
+  if (el.value === 'Pago' && card.fase !== 'pago_mes') {
+    card.fase = 'pago_mes';
+    card.historico.push({ texto:'Movido para fase "Pago no Mês"', data:now(), usuario:'Sistema' });
+  }
+  persistCards();
+  renderVTPainel();
+  renderKanban();
+  renderNavBadges();
+}
+
+function vtMarcarTodosPago() {
+  const escolaFiltro = state.filterSchool || 'all';
+  let vtCards = allCards.filter(c => c.modulo === 'vale_transporte' && c.vtStatusPgto !== 'Pago');
+  if (escolaFiltro !== 'all') vtCards = vtCards.filter(c => c.escola === escolaFiltro);
+  if (vtCards.length === 0) { showToast('Todos já estão pagos!','warn'); return; }
+  if (!confirm(`Marcar ${vtCards.length} funcionário(s) como PAGO?`)) return;
+  vtCards.forEach(c => {
+    c.vtStatusPgto = 'Pago';
+    c.fase = 'pago_mes';
+    c.historico.push({ texto:'VT marcado como Pago (lote)', data:now(), usuario:currentUser?.nome || 'Sistema' });
+  });
+  persistCards();
+  renderVTPainel();
+  renderKanban();
+  renderNavBadges();
+  showToast(`${vtCards.length} funcionário(s) marcados como Pago`,'success');
+}
+
+function vtExportCSV() {
+  const escolaFiltro = state.filterSchool || 'all';
+  let vtCards = allCards.filter(c => c.modulo === 'vale_transporte');
+  if (escolaFiltro !== 'all') vtCards = vtCards.filter(c => c.escola === escolaFiltro);
+  const header = 'Nome,CPF,Cargo,Vínculo,Salário,VT Diário,Forma Pgto,Faltas,Férias,Dias Pagos,VT Bruto,Desconto 6%,VT Líquido,Status\n';
+  const rows = vtCards.map(c =>
+    `"${c.titulo}","${c.vtCpf}","${c.vtCargo}","${c.vtVinculo}",${c.vtSalario},${c.vtDiarioTotal},"${c.vtFormaPgto}",${c.vtFaltas},${c.vtFerias},${c.vtDiasPagos},${c.vtBruto.toFixed(2)},${c.vtDesconto6.toFixed(2)},${c.vtLiquido.toFixed(2)},"${c.vtStatusPgto}"`
+  ).join('\n');
+  const blob = new Blob(['\uFEFF' + header + rows], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const hoje = new Date();
+  a.download = `VT_${meses[hoje.getMonth()]}${hoje.getFullYear()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exportado com sucesso','success');
+}
+
+function vtRenderModalFields(card) {
+  return `
+    <div class="vt-modal-section">
+      <div class="vt-modal-section-title">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 4v8a1 1 0 001 1h10a1 1 0 001-1V4M5 7h2M5 10h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Dados do Vale Transporte
+      </div>
+      <div class="vt-fields-grid">
+        <div class="vt-field">
+          <label>CPF</label>
+          <input type="text" id="vtCpf" value="${escHtml(card.vtCpf||'')}" placeholder="000.000.000-00">
+        </div>
+        <div class="vt-field">
+          <label>Vínculo</label>
+          <select id="vtVinculo">
+            <option value="CLT" ${card.vtVinculo==='CLT'?'selected':''}>CLT</option>
+            <option value="Estágio" ${card.vtVinculo==='Estágio'?'selected':''}>Estágio</option>
+            <option value="Prestador" ${card.vtVinculo==='Prestador'?'selected':''}>Prestador</option>
+          </select>
+        </div>
+        <div class="vt-field">
+          <label>Salário Bruto (R$)</label>
+          <input type="number" step="0.01" id="vtSalario" value="${card.vtSalario||0}">
+        </div>
+        <div class="vt-field">
+          <label>Forma de Pagamento</label>
+          <select id="vtFormaPgto">
+            <option value="Cartão" ${card.vtFormaPgto==='Cartão'?'selected':''}>Cartão</option>
+            <option value="Pix" ${card.vtFormaPgto==='Pix'?'selected':''}>Pix</option>
+          </select>
+        </div>
+        <div class="vt-field">
+          <label>Nº Cartão VT</label>
+          <input type="text" id="vtNumCartao" value="${escHtml(card.vtNumCartao||'')}">
+        </div>
+        <div class="vt-field">
+          <label>Chave Pix</label>
+          <input type="text" id="vtChavePix" value="${escHtml(card.vtChavePix||'')}">
+        </div>
+        <div class="vt-field">
+          <label>Tipo Chave Pix</label>
+          <select id="vtTipoChavePix">
+            <option value="">—</option>
+            <option value="CPF" ${card.vtTipoChavePix==='CPF'?'selected':''}>CPF</option>
+            <option value="E-mail" ${card.vtTipoChavePix==='E-mail'?'selected':''}>E-mail</option>
+            <option value="Telefone" ${card.vtTipoChavePix==='Telefone'?'selected':''}>Telefone</option>
+            <option value="Chave Aleatória" ${card.vtTipoChavePix==='Chave Aleatória'?'selected':''}>Chave Aleatória</option>
+          </select>
+        </div>
+        <div class="vt-field">
+          <label>Status Termo</label>
+          <select id="vtStatusTermo">
+            <option value="Pendente" ${card.vtStatusTermo==='Pendente'?'selected':''}>Pendente</option>
+            <option value="Assinado" ${card.vtStatusTermo==='Assinado'?'selected':''}>Assinado</option>
+            <option value="Não se aplica" ${card.vtStatusTermo==='Não se aplica'?'selected':''}>Não se aplica</option>
+          </select>
+        </div>
+      </div>
+      <div class="vt-modal-section-title" style="margin-top:12px">🚌 Linhas de Transporte</div>
+      <div class="vt-transport-lines">
+        ${[1,2,3].map(n => `
+          <div class="vt-transport-line">
+            <span class="vt-line-badge">Linha ${n}</span>
+            <input type="text" id="vtLinha${n}" value="${escHtml(card['vtLinha'+n]||'')}" placeholder="Trajeto" class="vt-line-input">
+            <input type="text" id="vtOperadora${n}" value="${escHtml(card['vtOperadora'+n]||'')}" placeholder="Operadora" class="vt-line-input vt-line-sm">
+            <input type="number" step="0.01" id="vtTarIda${n}" value="${card['vtTarIda'+n]||0}" placeholder="Ida" class="vt-line-input vt-line-xs">
+            <input type="number" step="0.01" id="vtTarVolta${n}" value="${card['vtTarVolta'+n]||0}" placeholder="Volta" class="vt-line-input vt-line-xs">
+          </div>
+        `).join('')}
+      </div>
+      <div class="vt-calc-summary">
+        <div class="vt-calc-item">VT Diário: <strong>${fmtBRL(card.vtDiarioTotal)}</strong></div>
+        <div class="vt-calc-item">Dias Pagos: <strong>${card.vtDiasPagos}</strong></div>
+        <div class="vt-calc-item">VT Bruto: <strong>${fmtBRL(card.vtBruto)}</strong></div>
+        <div class="vt-calc-item">Desc. 6%: <strong style="color:#16a34a">${fmtBRL(card.vtDesconto6)}</strong></div>
+        <div class="vt-calc-item vt-calc-highlight">VT Líquido: <strong>${fmtBRL(card.vtLiquido)}</strong></div>
+      </div>
+    </div>
+  `;
+}
+
+function vtCollectModalFields(card) {
+  card.vtCpf          = document.getElementById('vtCpf')?.value || '';
+  card.vtVinculo      = document.getElementById('vtVinculo')?.value || 'CLT';
+  card.vtSalario      = parseFloat(document.getElementById('vtSalario')?.value) || 0;
+  card.vtFormaPgto    = document.getElementById('vtFormaPgto')?.value || 'Cartão';
+  card.vtNumCartao    = document.getElementById('vtNumCartao')?.value || '';
+  card.vtChavePix     = document.getElementById('vtChavePix')?.value || '';
+  card.vtTipoChavePix = document.getElementById('vtTipoChavePix')?.value || '';
+  card.vtStatusTermo  = document.getElementById('vtStatusTermo')?.value || 'Pendente';
+  for (let n = 1; n <= 3; n++) {
+    card['vtLinha'+n]     = document.getElementById('vtLinha'+n)?.value || '';
+    card['vtOperadora'+n] = document.getElementById('vtOperadora'+n)?.value || '';
+    card['vtTarIda'+n]    = parseFloat(document.getElementById('vtTarIda'+n)?.value) || 0;
+    card['vtTarVolta'+n]  = parseFloat(document.getElementById('vtTarVolta'+n)?.value) || 0;
+  }
+  const hoje = new Date();
+  vtCalcAll(card, hoje.getMonth() + 1, hoje.getFullYear());
+  if (card.fase === 'cadastro_pendente' && card.vtLinha1) {
+    card.fase = card.vtStatusTermo === 'Assinado' ? 'vt_ativo' : 'termo_pendente';
+  }
+  if (card.fase === 'termo_pendente' && card.vtStatusTermo === 'Assinado') {
+    card.fase = 'vt_ativo';
+  }
+}
+
+function vtRenderTopbarBtn() {
+  const topRight = document.querySelector('.topbar-right');
+  if (!topRight) return;
+  const old = document.getElementById('vtPainelBtn');
+  if (old) old.remove();
+  if (state.currentModule !== 'vale_transporte') return;
+  const btn = document.createElement('button');
+  btn.id = 'vtPainelBtn';
+  btn.className = 'btn-auto';
+  btn.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 4v8a1 1 0 001 1h10a1 1 0 001-1V4M5 7h2M5 10h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    Painel VT
+  `;
+  btn.onclick = openVTPainel;
+  topRight.insertBefore(btn, topRight.firstChild);
+}
+
+function vtCardExtraHTML(card) {
+  if (!card.vtSalario) return '';
+  return `
+    <div class="card-meta-item" title="Salário">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M8 1v14M4 4h6a2 2 0 010 4H5M4 8h7a2 2 0 010 4H4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      ${fmtBRL(card.vtSalario)}
+    </div>
+    <div class="card-meta-item" title="VT Líquido">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 4v8a1 1 0 001 1h10a1 1 0 001-1V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      ${card.vtLiquido > 0 ? fmtBRL(card.vtLiquido) : '—'}
+    </div>
+    ${card.vtFormaPgto ? `<span class="vt-badge-pgto vt-badge-${card.vtFormaPgto.toLowerCase()}" style="font-size:10px;padding:1px 6px">${escHtml(card.vtFormaPgto)}</span>` : ''}
+  `;
+}
+
 function init() {
   // Hash-based routing: escuta mudanças na URL
   window.addEventListener('hashchange', () => {
@@ -6784,7 +6913,6 @@ function init() {
     else if (hash === 'dashboard') openDashboard();
     else if (hash === 'agenda') openAgenda();
     else if (hash === 'chat_financeiro') openChatFinanceiro();
-    else if (hash === 'estrutura_escolar') openEstruturaEscolar();
     else if (MODULES[hash]) switchModule(hash);
   });
 
@@ -6805,9 +6933,6 @@ function init() {
       } else if (target === 'chat_financeiro') {
         history.pushState(null, '', '#chat_financeiro');
         openChatFinanceiro();
-      } else if (target === 'estrutura_escolar') {
-        history.pushState(null, '', '#estrutura_escolar');
-        openEstruturaEscolar();
       } else if (MODULES[target]) {
         history.pushState(null, '', '#' + target);
         switchModule(target);
@@ -6956,12 +7081,15 @@ function init() {
   initNotifications();
   initLogin();
 
+  // Popular cards VT se não existem ainda
+  if (!allCards.some(c => c.modulo === 'vale_transporte')) {
+    allCards.push(...gerarCardsVT(VT_SEED_IMBUI, 'ped4'));
+    persistCards();
+  }
+
   const initialHash = location.hash.slice(1);
   if (initialHash === 'configuracoes') openSettings();
   else if (initialHash === 'chat_financeiro') openChatFinanceiro();
-  else if (initialHash === 'dashboard') openDashboard();
-  else if (initialHash === 'agenda') openAgenda();
-  else if (initialHash === 'estrutura_escolar') openEstruturaEscolar();
   else switchModule(MODULES[initialHash] ? initialHash : 'solicitacoes');
 
   console.log('%c🏫 Central Operacional — Grupo PED', 'color:#3B82F6;font-weight:bold;font-size:14px');
